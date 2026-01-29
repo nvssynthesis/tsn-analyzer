@@ -245,6 +245,91 @@ bool verifySettingsStructureWithAttemptedFix (ValueTree& settingsVT)
     return true;
 }
 
+juce::ValueTree createParentTreeFromSettings(const AnalyzerSettings& settings) {
+    juce::ValueTree parent("Root");
+
+    // Create FileInfo node
+    juce::ValueTree fileInfoTree(axiom::FileInfo);
+    fileInfoTree.setProperty(axiom::sampleFilePath, settings.info.sampleFilePath, nullptr);
+    fileInfoTree.setProperty(axiom::sampleRate, settings.analysis.sampleRate, nullptr);
+    parent.appendChild(fileInfoTree, nullptr);
+
+    // Create Settings tree
+    juce::ValueTree settingsTree("Settings");
+
+    // Analysis node
+    juce::ValueTree analysisNode(axiom::Analysis);
+    analysisNode.setProperty(axiom::frameSize, settings.analysis.frameSize, nullptr);
+    analysisNode.setProperty(axiom::hopSize, settings.analysis.hopSize, nullptr);
+    analysisNode.setProperty(axiom::windowingType, settings.analysis.windowingType, nullptr);
+    analysisNode.setProperty(axiom::numThreads, settings.analysis.numThreads, nullptr);
+    settingsTree.appendChild(analysisNode, nullptr);
+
+    // BFCC node
+    juce::ValueTree bfccNode(axiom::BFCC);
+    bfccNode.setProperty(axiom::dctType, settings.bfcc.dctType, nullptr);
+    bfccNode.setProperty(axiom::highFrequencyBound, settings.bfcc.highFrequencyBound, nullptr);
+    bfccNode.setProperty(axiom::liftering, settings.bfcc.liftering, nullptr);
+    bfccNode.setProperty(axiom::lowFrequencyBound, settings.bfcc.lowFrequencyBound, nullptr);
+    bfccNode.setProperty(axiom::normalize, settings.bfcc.normalize, nullptr);
+    bfccNode.setProperty(axiom::numBands, settings.bfcc.numBands, nullptr);
+    bfccNode.setProperty(axiom::numCoefficients, settings.bfcc.numCoefficients, nullptr);
+    bfccNode.setProperty(axiom::spectrumType, settings.bfcc.spectrumType, nullptr);
+    bfccNode.setProperty(axiom::weightingType, settings.bfcc.weightingType, nullptr);
+    bfccNode.setProperty(axiom::BFCC0_frameNormalizationFactor, settings.bfcc.BFCC0_frameNormalizationFactor, nullptr);
+    bfccNode.setProperty(axiom::BFCC0_eventNormalize, settings.bfcc.BFCC0_eventNormalize, nullptr);
+    settingsTree.appendChild(bfccNode, nullptr);
+
+    // Onset node
+    juce::ValueTree onsetNode(axiom::Onset);
+    onsetNode.setProperty(axiom::segmentation,
+        settings.onset.segmentation == AnalyzerSettings::Onset::Segmentation::Uniform ? axiom::Uniform : "Event", nullptr);
+    onsetNode.setProperty(axiom::alpha, settings.onset.alpha, nullptr);
+    onsetNode.setProperty(axiom::numFrames_shortOnsetFilter, settings.onset.numFrames_shortOnsetFilter, nullptr);
+    onsetNode.setProperty(axiom::silenceThreshold, settings.onset.silenceThreshold, nullptr);
+    onsetNode.setProperty(axiom::weight_complex, settings.onset.weight_complex, nullptr);
+    onsetNode.setProperty(axiom::weight_complexPhase, settings.onset.weight_complexPhase, nullptr);
+    onsetNode.setProperty(axiom::weight_flux, settings.onset.weight_flux, nullptr);
+    onsetNode.setProperty(axiom::weight_hfc, settings.onset.weight_hfc, nullptr);
+    onsetNode.setProperty(axiom::weight_rms, settings.onset.weight_rms, nullptr);
+    settingsTree.appendChild(onsetNode, nullptr);
+
+    // Pitch node
+    juce::ValueTree pitchNode(axiom::Pitch);
+    pitchNode.setProperty(axiom::interpolate, settings.pitch.interpolate, nullptr);
+    pitchNode.setProperty(axiom::maxFrequency, settings.pitch.maxFrequency, nullptr);
+    pitchNode.setProperty(axiom::minFrequency, settings.pitch.minFrequency, nullptr);
+    pitchNode.setProperty(axiom::pitchDetectionAlgorithm, settings.pitch.pitchDetectionAlgorithm, nullptr);
+    pitchNode.setProperty(axiom::tolerance, settings.pitch.tolerance, nullptr);
+    settingsTree.appendChild(pitchNode, nullptr);
+
+    // Loudness node
+    juce::ValueTree loudnessNode(axiom::Loudness);
+    loudnessNode.setProperty(axiom::equalizeLoudness, settings.loudness.equalizeLoudness, nullptr);
+    settingsTree.appendChild(loudnessNode, nullptr);
+
+    // Split node
+    juce::ValueTree splitNode(axiom::Split);
+    splitNode.setProperty(axiom::fadeInSamps, settings.split.fadeInSamps, nullptr);
+    splitNode.setProperty(axiom::fadeOutSamps, settings.split.fadeOutSamps, nullptr);
+    settingsTree.appendChild(splitNode, nullptr);
+
+    // sBic node
+    juce::ValueTree sBicNode(axiom::sBic);
+    sBicNode.setProperty(axiom::complexityPenaltyWeight, settings.sBic.complexityPenaltyWeight, nullptr);
+    sBicNode.setProperty(axiom::incrementFirstPass, settings.sBic.incrementFirstPass, nullptr);
+    sBicNode.setProperty(axiom::incrementSecondPass, settings.sBic.incrementSecondPass, nullptr);
+    sBicNode.setProperty(axiom::minSegmentLengthFrames, settings.sBic.minSegmentLengthFrames, nullptr);
+    sBicNode.setProperty(axiom::sizeFirstPass, settings.sBic.sizeFirstPass, nullptr);
+    sBicNode.setProperty(axiom::sizeSecondPass, settings.sBic.sizeSecondPass, nullptr);
+    settingsTree.appendChild(sBicNode, nullptr);
+
+    // Add settings tree to parent
+    parent.appendChild(settingsTree, nullptr);
+
+    return parent;
+}
+
 bool updateSettingsFromValueTree(AnalyzerSettings& settings, const ValueTree& settingsTree) {
     auto parent = settingsTree.getParent();
     auto const fileInfoTree = parent.getChildWithName(axiom::FileInfo);

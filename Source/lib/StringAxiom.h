@@ -5,7 +5,9 @@
 #pragma once
 
 namespace nvs::axiom {
+#ifndef STRAXIOMIZE
 #define STRAXIOMIZE(x) inline constexpr const char* x {#x}
+#endif
 
 // STRAXIOMIZE(Metadata);
 // STRAXIOMIZE(Version);

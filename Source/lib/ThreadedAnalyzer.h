@@ -31,7 +31,6 @@ public:
     void updateStoredAudio(std::span<float const> wave, const juce::String &audioFileAbsPath);
     void updateSettings(juce::ValueTree &settingsTree, bool attemptFix);
     //===============================================================================
-    void run() override;
     void stopAnalysis() { signalThreadShouldExit(); }
     //===============================================================================
     bool onsetsReady() const {
@@ -57,6 +56,8 @@ private:
     String _audioFileAbsPath {};
 
     RunLoopStatus _rls;
+
+    void run() override;
 };
 
 }

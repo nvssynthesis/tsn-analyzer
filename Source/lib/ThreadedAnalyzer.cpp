@@ -22,7 +22,7 @@ ThreadedAnalyzer::~ThreadedAnalyzer(){
 	stopThread(5000);
 }
 
-void ThreadedAnalyzer::updateStoredAudio(std::span<float const> wave, const juce::String &audioFileAbsPath){
+void ThreadedAnalyzer::updateStoredAudio(std::span<float const> wave, const juce::String &audioFileAbsPath) {
 	_inputWave.assign(wave.begin(), wave.end());
 	_audioFileAbsPath = audioFileAbsPath;
     _onsetAnalysisResult.reset();

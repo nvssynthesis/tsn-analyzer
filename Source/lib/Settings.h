@@ -128,5 +128,6 @@ struct AnalyzerSettings {
     } info;
 };
 bool updateSettingsFromValueTree(AnalyzerSettings& settings, const juce::ValueTree& settingsTree);
+juce::ValueTree createParentTreeFromSettings(const AnalyzerSettings& settings);
 
 }
