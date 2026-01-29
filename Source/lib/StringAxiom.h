@@ -15,7 +15,7 @@ STRAXIOMIZE(FileInfo);
 // STRAXIOMIZE(CreationTime);
 STRAXIOMIZE(sampleFilePath);
 STRAXIOMIZE(sampleRate);
-// STRAXIOMIZE(audioHash);
+STRAXIOMIZE(audioHash);
 // STRAXIOMIZE(settingsHash);
 // STRAXIOMIZE(AnalysisSettings);
 STRAXIOMIZE(Analysis);

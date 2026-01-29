@@ -61,23 +61,56 @@ int main (const int argc, char* argv[])
         Logger::writeToLog(message + newLine);
     };
 
-    auto mainAnalysisProgram = [print](const ArgumentList &args) -> void
+    auto getInputFile = [] (const ArgumentList &args) -> File
     {
         if (args.arguments.size() < 2)
-        {
+            return {};
+        return args.arguments[1].resolveAsExistingFile();
+    };
+
+    auto makeSettingsParentTree = [] (double sampleRate, const String &filePath)
+    {
+        nvs::analysis::AnalyzerSettings settings;
+        settings.analysis.sampleRate = sampleRate;
+        settings.info.sampleFilePath = filePath;
+        settings.analysis.numThreads = 8;
+
+        const auto settingsParentTree = nvs::analysis::createParentTreeFromSettings(settings);
+        return settingsParentTree;
+    };
+
+    auto runAnalyzer = [print] (const std::span<const float> &channel, const String &fileName, auto &settingsTree) -> bool
+    {
+        if (!nvs::analysis::verifySettingsStructure(settingsTree)) {
+            DBG("Settings structure verification failed");
+            return false;
+        }
+
+        nvs::analysis::ThreadedAnalyzer analyzer;
+        analyzer.updateStoredAudio(channel, fileName);
+        analyzer.updateSettings(settingsTree, true);
+        if (!analyzer.startThread(Thread::Priority::normal)) {
+            DBG("Failed to start analysis thread\n");
+            return false;
+        }
+
+        print("Analysis thread begun...");
+        while (analyzer.isThreadRunning())
+            Thread::sleep(100);
+
+        return true;
+    };
+
+    auto mainAnalysisProgram = [print, &getInputFile, &makeSettingsParentTree, &runAnalyzer](const ArgumentList &args) -> void
+    {
+        const File inputFile = getInputFile(args);
+        if (inputFile == juce::File{}) {
             print("Error: Please specify an input file");
             jassertfalse;
             return;
         }
 
-        const File inputFile = args.arguments[1].resolveAsExistingFile();
-        if (inputFile == juce::File{}) {
-            DBG("File invalid\n");
-            jassertfalse;
-            return;
-        }
         const auto fileName = inputFile.getFileName();
-
         print("Opening " + fileName + "...");
 
         AudioSampleBuffer buffer;
@@ -86,38 +119,17 @@ int main (const int argc, char* argv[])
         const auto rp = buffer.getReadPointer(0);
         const std::span channel0(rp, numSamples);
 
+        auto settingsParentTree = makeSettingsParentTree(sampleRate, inputFile.getFullPathName());
+        auto treeStr = nvs::util::valueTreeToXmlStringSafe(settingsParentTree);
+        print(treeStr);
 
-        nvs::analysis::AnalyzerSettings settings;
-        settings.analysis.sampleRate = sampleRate;
-        settings.info.sampleFilePath = inputFile.getFullPathName();
-        settings.analysis.numThreads = 8;
-
-        const auto settingsParentTree = nvs::analysis::createParentTreeFromSettings(settings);
         auto settingsTree = settingsParentTree.getChildWithName(nvs::axiom::Settings);
-        if (!nvs::analysis::verifySettingsStructure(settingsTree)) {
-            DBG("Settings structure verification failed");
+        if (!runAnalyzer(channel0, fileName, settingsTree)) {
             jassertfalse;
             return;
-        }
-
-        nvs::analysis::ThreadedAnalyzer analyzer;
-        analyzer.updateStoredAudio(channel0, fileName);
-        analyzer.updateSettings(settingsTree, true);
-        if (analyzer.startThread(Thread::Priority::normal)) {
-            print("Analysis thread begun...");
-        }
-        else {
-            DBG("Failed to start analysis thread\n");
-            jassertfalse;
-            return;
-        }
-
-        while (analyzer.isThreadRunning()) {
-            Thread::sleep(100);
         }
 
         print("Analysis complete!");
-        return;
     };
 
     app.addHelpCommand ("--help|-h", "TSN Analyzer - Audio timbre space analysis tool", true);
