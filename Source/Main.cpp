@@ -86,11 +86,12 @@ int main (const int argc, char* argv[])
         const auto rp = buffer.getReadPointer(0);
         const std::span channel0(rp, numSamples);
 
-        nvs::analysis::ThreadedAnalyzer analyzer;
 
         nvs::analysis::AnalyzerSettings settings;
         settings.analysis.sampleRate = sampleRate;
         settings.info.sampleFilePath = inputFile.getFullPathName();
+        settings.analysis.numThreads = 8;
+
         const auto settingsParentTree = nvs::analysis::createParentTreeFromSettings(settings);
         auto settingsTree = settingsParentTree.getChildWithName(nvs::axiom::Settings);
         if (!nvs::analysis::verifySettingsStructure(settingsTree)) {
@@ -99,9 +100,10 @@ int main (const int argc, char* argv[])
             return;
         }
 
+        nvs::analysis::ThreadedAnalyzer analyzer;
         analyzer.updateStoredAudio(channel0, fileName);
         analyzer.updateSettings(settingsTree, true);
-        if (analyzer.startThread(Thread::Priority::high)) {
+        if (analyzer.startThread(Thread::Priority::normal)) {
             print("Analysis thread begun...");
         }
         else {
