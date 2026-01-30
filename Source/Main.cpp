@@ -120,11 +120,11 @@ int main (const int argc, char* argv[])
         const auto rp = buffer.getReadPointer(0);
         const std::span channel0(rp, numSamples);
 
-        auto settingsParentTree = makeSettingsParentTree(sampleRate, inputFile.getFullPathName());
-        auto treeStr = nvs::util::valueTreeToXmlStringSafe(settingsParentTree);
+        const auto settingsParentTree = makeSettingsParentTree(sampleRate, inputFile.getFullPathName());
+        const auto treeStr = nvs::util::valueTreeToXmlStringSafe(settingsParentTree);
         print(treeStr);
 
-        auto settingsTree = settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings);
+        const auto settingsTree = settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings);
         if (!runAnalyzer(channel0, fileName, settingsTree)) {
             jassertfalse;
             return;
