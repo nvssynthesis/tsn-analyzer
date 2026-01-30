@@ -124,7 +124,7 @@ int main (const int argc, char* argv[])
         auto treeStr = nvs::util::valueTreeToXmlStringSafe(settingsParentTree);
         print(treeStr);
 
-        auto settingsTree = settingsParentTree.getChildWithName(nvs::axiom::Settings);
+        auto settingsTree = settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings);
         if (!runAnalyzer(channel0, fileName, settingsTree)) {
             jassertfalse;
             return;

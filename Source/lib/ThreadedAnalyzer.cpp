@@ -36,7 +36,7 @@ auto ThreadedAnalyzer::stealTimbreSpaceRepresentation() -> std::optional<TimbreA
 }
 
 void ThreadedAnalyzer::updateSettings(juce::ValueTree &settingsTree, const bool attemptFix){
-	jassert( settingsTree.hasType(nvs::axiom::Settings) );
+	jassert( settingsTree.hasType(nvs::axiom::tsn::Settings) );
 
 	if (!_analyzer.updateSettings(settingsTree, attemptFix))
 	{
