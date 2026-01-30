@@ -3,9 +3,8 @@
 //
 
 #pragma once
-#include "Source/Features.h"
-#include "../../slicer_granular/Source/StringAxiom.h"
-#include "../../slicer_granular/Source/misc_util.h"
+#include "Features.h"
+#include "StringAxiom.h"
 
 namespace nvs::analysis {
 
@@ -19,23 +18,23 @@ inline juce::String toString(Feature_e f){
     }
     switch (f) {
         case Feature_e::SpectralCentroid:
-            return axiom::SpectralCentroid;
+            return axiom::tsn::SpectralCentroid;
         case Feature_e::SpectralDecrease:
-            return axiom::SpectralDecrease;
+            return axiom::tsn::SpectralDecrease;
         case Feature_e::SpectralFlatness:
-            return axiom::SpectralFlatness;
+            return axiom::tsn::SpectralFlatness;
         case Feature_e::SpectralCrest:
-            return axiom::SpectralCrest;
+            return axiom::tsn::SpectralCrest;
         case Feature_e::SpectralComplexity:
-            return axiom::SpectralComplexity;
+            return axiom::tsn::SpectralComplexity;
         case Feature_e::StrongPeak:
-            return axiom::StrongPeak;
+            return axiom::tsn::StrongPeak;
         case Feature_e::Periodicity:
-            return axiom::Periodicity;
+            return axiom::tsn::Periodicity;
         case Feature_e::Loudness:
-            return axiom::Loudness;
+            return axiom::tsn::Loudness;
         case Feature_e::f0:
-            return axiom::f0;
+            return axiom::tsn::f0;
         default:
             jassertfalse;
             return "";

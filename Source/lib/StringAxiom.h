@@ -4,28 +4,28 @@
 
 #pragma once
 
-namespace nvs::axiom {
+namespace nvs::axiom::tsn {
 #ifndef STRAXIOMIZE
 #define STRAXIOMIZE(x) inline constexpr const char* x {#x}
 #endif
 
-// STRAXIOMIZE(Metadata);
+STRAXIOMIZE(Metadata);
 // STRAXIOMIZE(Version);
-STRAXIOMIZE(FileInfo);
-// STRAXIOMIZE(CreationTime);
+STRAXIOMIZE(CreationTime);
 STRAXIOMIZE(sampleFilePath);
 STRAXIOMIZE(sampleRate);
 STRAXIOMIZE(audioHash);
-// STRAXIOMIZE(settingsHash);
-// STRAXIOMIZE(AnalysisSettings);
+STRAXIOMIZE(FileInfo);
+STRAXIOMIZE(settingsHash);
+STRAXIOMIZE(AnalysisSettings);
 STRAXIOMIZE(Analysis);
 STRAXIOMIZE(Settings);
-// STRAXIOMIZE(analysisFile);
-//
-// STRAXIOMIZE(TimbreAnalysis);
-// STRAXIOMIZE(NormalizedOnsets);
-// STRAXIOMIZE(TimbreMeasurements);
-//
+STRAXIOMIZE(analysisFile);
+
+STRAXIOMIZE(TimbreAnalysis);
+STRAXIOMIZE(NormalizedOnsets);
+STRAXIOMIZE(TimbreMeasurements);
+
 STRAXIOMIZE(numThreads);
 STRAXIOMIZE(frameSize);
 STRAXIOMIZE(hopSize);
@@ -39,7 +39,7 @@ STRAXIOMIZE(blackmanharris62);
 STRAXIOMIZE(blackmanharris70);
 STRAXIOMIZE(blackmanharris74);
 STRAXIOMIZE(blackmanharris92);
-//
+
 STRAXIOMIZE(BFCC);
 STRAXIOMIZE(SpectralCentroid);
 STRAXIOMIZE(SpectralDecrease);
@@ -47,7 +47,7 @@ STRAXIOMIZE(SpectralFlatness);
 STRAXIOMIZE(SpectralCrest);
 STRAXIOMIZE(SpectralComplexity);
 STRAXIOMIZE(StrongPeak);
-//
+
 STRAXIOMIZE(highFrequencyBound);
 STRAXIOMIZE(liftering);
 STRAXIOMIZE(lowFrequencyBound);
@@ -67,7 +67,7 @@ STRAXIOMIZE(linear);
 STRAXIOMIZE(dctType);
 STRAXIOMIZE(typeII);
 STRAXIOMIZE(typeIII);
-//
+
 STRAXIOMIZE(Onset);
 STRAXIOMIZE(segmentation);
 STRAXIOMIZE(Event);
@@ -100,44 +100,42 @@ STRAXIOMIZE(incrementSecondPass);
 STRAXIOMIZE(minSegmentLengthFrames);
 STRAXIOMIZE(sizeFirstPass);
 STRAXIOMIZE(sizeSecondPass);
-//
+
 STRAXIOMIZE(TimbreSpace);
-//
-// STRAXIOMIZE(x_axis);
-// STRAXIOMIZE(y_axis);
-// STRAXIOMIZE(z_axis);
-// STRAXIOMIZE(w_axis);
-// STRAXIOMIZE(u_axis);
-// STRAXIOMIZE(v_axis);
-// STRAXIOMIZE(nav_tendency_x);
-// STRAXIOMIZE(nav_tendency_y);
-// STRAXIOMIZE(histogram_equalization);
-// STRAXIOMIZE(filtered_feature);
-// STRAXIOMIZE(filtered_feature_min);
-// STRAXIOMIZE(filtered_feature_max);
-//
-// STRAXIOMIZE(statistic);
-// STRAXIOMIZE(mean);
-// STRAXIOMIZE(median);
-// STRAXIOMIZE(variance);
-// STRAXIOMIZE(skewness);
-// STRAXIOMIZE(kurtosis);
-//
+
+STRAXIOMIZE(x_axis);
+STRAXIOMIZE(y_axis);
+STRAXIOMIZE(z_axis);
+STRAXIOMIZE(w_axis);
+STRAXIOMIZE(u_axis);
+STRAXIOMIZE(v_axis);
+STRAXIOMIZE(nav_tendency_x);
+STRAXIOMIZE(nav_tendency_y);
+STRAXIOMIZE(histogram_equalization);
+STRAXIOMIZE(filtered_feature);
+STRAXIOMIZE(filtered_feature_min);
+STRAXIOMIZE(filtered_feature_max);
+
+STRAXIOMIZE(statistic);
+STRAXIOMIZE(mean);
+STRAXIOMIZE(median);
+STRAXIOMIZE(variance);
+STRAXIOMIZE(skewness);
+STRAXIOMIZE(kurtosis);
+
 STRAXIOMIZE(Frame);
 STRAXIOMIZE(BFCCs);
 STRAXIOMIZE(Periodicity);
 STRAXIOMIZE(Loudness);
 STRAXIOMIZE(f0);
-//
-// inline const juce::String AudioFilePathAbsolute = "AudioFilePath (absolute)";
-//
-// STRAXIOMIZE(saveAnalysis);
-// STRAXIOMIZE(onsetsAvailable);
-// STRAXIOMIZE(shapedPointsAvailable);
-// STRAXIOMIZE(timbreSpaceTreeChanged);
-//
-// STRAXIOMIZE(tsn_granular);
-// STRAXIOMIZE(Analyses);
+
+STRAXIOMIZE(saveAnalysis);
+STRAXIOMIZE(onsetsAvailable);
+STRAXIOMIZE(shapedPointsAvailable);
+STRAXIOMIZE(timbreSpaceTreeChanged);
+
+STRAXIOMIZE(tsn_granular);
+STRAXIOMIZE(Analyses);
 
 #undef STRAXIOMIZE
 }

@@ -222,7 +222,7 @@ target_include_directories(tsn_analyzer
         $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/tsn_analyzer_app_artefacts/JuceLibraryCode>
         ${ESSENTIA_INCLUDE_DIRS}
         ${EIGEN_INCLUDE_DIR}
-        ${CMAKE_SOURCE_DIR}/juce_utils
+        ${CMAKE_CURRENT_LIST_DIR}/../../juce_utils
 )
 
 # Link libraries
