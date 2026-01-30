@@ -12,8 +12,8 @@
 
 #include <juce_audio_formats/juce_audio_formats.h>
 #include "Analyzer.h"
+#include <juce_utils.h>
 #include "OnsetAnalysis/OnsetAnalysis.h"
-#include "util.h"
 
 namespace nvs::analysis {
 

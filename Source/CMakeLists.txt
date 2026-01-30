@@ -47,7 +47,7 @@ add_subdirectory(lib)
 # ============================================================================
 juce_add_console_app(tsn_analyzer_app
         PRODUCT_NAME "TSN Analyzer"
-        COMPANY_NAME "Corrode Audio"
+        COMPANY_NAME "CorrodeAudio"
 )
 
 juce_generate_juce_header(tsn_analyzer_app)

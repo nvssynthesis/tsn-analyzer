@@ -3,6 +3,7 @@
 #include "StringAxiom.h"
 #include "ThreadedAnalyzer.h"
 #include "Settings.h"
+#include "juce_utils.h"
 
 struct StdoutLogger final : Logger
 {

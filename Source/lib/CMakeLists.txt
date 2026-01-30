@@ -211,6 +211,8 @@ add_library(tsn::analyzer ALIAS tsn_analyzer)
 # Add dependency on Essentia build
 add_dependencies(tsn_analyzer essentia_external)
 
+message(STATUS "CMAKE_SOURCE_DIR: ${CMAKE_SOURCE_DIR}/juce_utils")
+
 # Include directories
 target_include_directories(tsn_analyzer
         PUBLIC
@@ -220,6 +222,7 @@ target_include_directories(tsn_analyzer
         $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/tsn_analyzer_app_artefacts/JuceLibraryCode>
         ${ESSENTIA_INCLUDE_DIRS}
         ${EIGEN_INCLUDE_DIR}
+        ${CMAKE_SOURCE_DIR}/juce_utils
 )
 
 # Link libraries
@@ -231,6 +234,8 @@ target_link_libraries(tsn_analyzer
         juce::juce_cryptography
         juce::juce_data_structures
         juce::juce_dsp
+        juce_utils
+        fmt::fmt
         PRIVATE
         essentia_built
         Eigen3::Eigen

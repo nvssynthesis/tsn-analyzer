@@ -11,7 +11,7 @@
 #include "ThreadedAnalyzer.h"
 #include "OnsetAnalysis/OnsetProcessing.h"
 #include "StringAxiom.h"
-#include "util.h"
+#include <juce_utils.h>
 
 namespace nvs::analysis {
 
