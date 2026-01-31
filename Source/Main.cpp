@@ -3,7 +3,9 @@
 #include "StringAxiom.h"
 #include "ThreadedAnalyzer.h"
 #include "Settings.h"
+#include "TSNValueTreeUtilities.h"
 #include "juce_utils.h"
+#include "OnsetAnalysis/OnsetProcessing.h"
 
 struct StdoutLogger final : Logger
 {
@@ -80,11 +82,15 @@ int main (const int argc, char* argv[])
         return settingsParentTree;
     };
 
-    auto runAnalyzer = [print] (const std::span<const float> &channel, const String &fileName, auto &settingsTree) -> bool
+    struct AnalyzerResult {
+        std::optional<nvs::analysis::TimbreAnalysisResult> timbres {};
+        std::shared_ptr<nvs::analysis::OnsetAnalysisResult> onsets {};
+    };
+    auto runAnalyzer = [print] (const std::span<const float> &channel, const String &fileName, auto &settingsTree) -> AnalyzerResult
     {
         if (!nvs::analysis::verifySettingsStructure(settingsTree)) {
             DBG("Settings structure verification failed");
-            return false;
+            return {};
         }
 
         nvs::analysis::ThreadedAnalyzer analyzer;
@@ -92,14 +98,21 @@ int main (const int argc, char* argv[])
         analyzer.updateSettings(settingsTree, true);
         if (!analyzer.startThread(Thread::Priority::normal)) {
             DBG("Failed to start analysis thread\n");
-            return false;
+            return {};
         }
 
         print("Analysis thread begun...");
-        while (analyzer.isThreadRunning())
+        while (analyzer.isThreadRunning()) {
             Thread::sleep(100);
+        }
+        jassert(analyzer.onsetsReady() && analyzer.timbreAnalysisReady());
 
-        return true;
+        auto timbreSpaceRepr = analyzer.stealTimbreSpaceRepresentation();
+        auto onsets = analyzer.shareOnsetAnalysis();
+        return AnalyzerResult{
+            .timbres = std::move(timbreSpaceRepr),
+            .onsets = std::move(onsets)
+        };
     };
 
     auto mainAnalysisProgram = [print, &getInputFile, &makeSettingsParentTree, &runAnalyzer](const ArgumentList &args) -> void
@@ -120,17 +133,29 @@ int main (const int argc, char* argv[])
         const auto rp = buffer.getReadPointer(0);
         const std::span channel0(rp, numSamples);
 
-        const auto settingsParentTree = makeSettingsParentTree(sampleRate, inputFile.getFullPathName());
+        const auto& audioFileFullAbsPath = inputFile.getFullPathName();
+        const auto settingsParentTree = makeSettingsParentTree(sampleRate, audioFileFullAbsPath);
         const auto treeStr = nvs::util::valueTreeToXmlStringSafe(settingsParentTree);
         print(treeStr);
 
-        const auto settingsTree = settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings);
-        if (!runAnalyzer(channel0, fileName, settingsTree)) {
+        auto /*cant be const*/ settingsTree = settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings);
+        const auto analysisResult = runAnalyzer(channel0, fileName, settingsTree);
+        if ((analysisResult.onsets == nullptr) || (analysisResult.timbres == std::nullopt)) {
+            DBG("Analysis failed; returning");
             jassertfalse;
             return;
         }
 
         print("Analysis complete!");
+        const auto timbreSpaceRepr = (*analysisResult.timbres).timbreMeasurements;
+        const auto onsets = (*analysisResult.onsets).onsets;
+        const auto waveformHash = (*analysisResult.timbres).waveformHash;
+        // const String waveformHash = nvs::util::hashAudioData(std::vector(channel0.begin(), channel0.end()));
+
+
+        const auto timbreSpaceVT = nvs::analysis::timbreSpaceReprToVT(timbreSpaceRepr,
+            onsets, waveformHash, audioFileFullAbsPath);
+        print(nvs::util::valueTreeToXmlStringSafe(timbreSpaceVT));
     };
 
     app.addHelpCommand ("--help|-h", "TSN Analyzer - Audio timbre space analysis tool", true);
