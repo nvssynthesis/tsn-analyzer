@@ -10,13 +10,16 @@
 
 #pragma once
 #include "EssentiaSetup.h"
+
 #include "essentia/streaming/algorithms/poolstorage.h"
 #include "essentia/scheduler/network.h"
 #include "essentia/streaming/algorithms/vectorinput.h"
 #include "essentia/streaming/algorithms/vectoroutput.h"
 #include "essentia/utils/tnt/tnt2vector.h"
-
 #include "essentia/essentiamath.h"
+
+#include "juce_core/juce_core.h"
+#include "juce_data_structures/juce_data_structures.h"
 
 namespace nvs::analysis {
 
@@ -25,6 +28,7 @@ using namespace essentia;
 using namespace essentia::streaming;
 using namespace essentia::scheduler;
 //===================================================================================
+using Real = float;
 using vecReal = std::vector<Real>;
 using vecVecReal = std::vector<vecReal>;
 using vectorInput = essentia::streaming::VectorInput<Real> ;
@@ -38,5 +42,10 @@ using streamingFactory = essentia::streaming::AlgorithmFactory;
 using standardFactory = essentia::standard::AlgorithmFactory;
 
 using array2dReal = TNT::Array2D<Real>;
+
+using String = juce::String;
+using StringArray = juce::StringArray;
+using ValueTree = juce::ValueTree;
+using var = juce::var;
 
 }   // namespace nvs::analysis

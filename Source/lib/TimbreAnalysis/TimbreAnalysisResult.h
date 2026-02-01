@@ -3,6 +3,7 @@
 //
 
 #pragma once
+#include "AnalysisUsing.h"
 
 namespace nvs::analysis {
 

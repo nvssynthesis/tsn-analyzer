@@ -5,6 +5,7 @@
 #pragma once
 #include "Features.h"
 #include "StringAxiom.h"
+#include "AnalysisUsing.h"
 
 namespace nvs::analysis {
 
@@ -59,8 +60,8 @@ inline Feature_e toFeature(const juce::String &s){
     return Feature_e::bfcc0;
 }
 
-inline const juce::StringArray& getFeaturesStringArray() {
-    static const auto features = [] -> juce::StringArray {
+inline const StringArray& getFeaturesStringArray() {
+    static const auto features = [] -> StringArray {
         StringArray result;
         for (const auto f : featuresIterator()) {
             result.add(toString(f));

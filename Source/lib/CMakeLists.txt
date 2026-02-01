@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(tsn-analyzer-lib VERSION 0.1.0)
+project(tsn-analyzer-lib VERSION 0.1.1)
+
+configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/version.h.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/version.h"
+)
 
 include(ExternalProject)
 
@@ -223,6 +228,7 @@ target_include_directories(tsn_analyzer
         ${ESSENTIA_INCLUDE_DIRS}
         ${EIGEN_INCLUDE_DIR}
         ${CMAKE_CURRENT_LIST_DIR}/../../juce_utils
+        "${CMAKE_CURRENT_BINARY_DIR}"
 )
 
 # Link libraries

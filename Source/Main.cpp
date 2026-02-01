@@ -6,20 +6,10 @@
 #include "TSNValueTreeUtilities.h"
 #include "juce_utils.h"
 #include "OnsetAnalysis/OnsetProcessing.h"
-
-struct StdoutLogger final : Logger
-{
-    ~StdoutLogger() override {
-        Logger::setCurrentLogger (nullptr); // otherwise we hit "jassert (currentLogger != this);"
-    }
-    void logMessage (const String& message) override
-    {
-        std::puts(message.toRawUTF8());
-    }
-};
+#include "./version.h"
 
 struct AudioFileInfo {
-    int64 numSamples;   // all we need for now
+    int64 numSamples;
     double sampleRate;
     unsigned int bitDepth;
 };
@@ -55,20 +45,43 @@ AudioFileInfo readIntoBuffer(AudioSampleBuffer &buff, const juce::File &file) {
 
 int main (const int argc, char* argv[])
 {
-    juce::ScopedJuceInitialiser_GUI juceInit;
+    ScopedJuceInitialiser_GUI juceInit; // This class is particularly handy to use at the beginning of a console app's main() function, because it'll take care of shutting down whenever you return from the main() call.
 
     ConsoleApplication app;
-    StdoutLogger logger;
-    Logger::setCurrentLogger(&logger);
-    auto print = [](const String& message) {
-        Logger::writeToLog(message + newLine);
-    };
 
     auto getInputFile = [] (const ArgumentList &args) -> File
     {
         if (args.arguments.size() < 2)
             return {};
         return args.arguments[1].resolveAsExistingFile();
+    };
+
+    auto getOutputFile = [] (const ArgumentList &args) -> File
+    {
+        if (args.arguments.size() < 3) {
+            return {};
+        }
+        auto outputFile = File::getCurrentWorkingDirectory()
+                              .getChildFile(args.arguments[2].text);
+
+        if (const bool forceOverwrite = args.containsOption("--force|-f");
+            outputFile.existsAsFile() && !forceOverwrite)
+        {
+            std::cout << "Warning: Output file '" << outputFile.getFullPathName()
+                      << "' already exists.\n";
+            std::cout << "Overwrite? (y/n): ";
+
+            std::string response;
+            std::getline(std::cin, response);
+
+            if (response.empty() || (response[0] != 'y' && response[0] != 'Y'))
+            {
+                std::cout << "Operation cancelled.\n";
+                return {};
+            }
+        }
+
+        return outputFile;
     };
 
     auto makeSettingsParentTree = [] (double sampleRate, const String &filePath)
@@ -86,7 +99,7 @@ int main (const int argc, char* argv[])
         std::optional<nvs::analysis::TimbreAnalysisResult> timbres {};
         std::shared_ptr<nvs::analysis::OnsetAnalysisResult> onsets {};
     };
-    auto runAnalyzer = [print] (const std::span<const float> &channel, const String &fileName, auto &settingsTree) -> AnalyzerResult
+    auto runAnalyzer = [](const std::span<const float> &channel, const String &fileName, auto &settingsTree) -> AnalyzerResult
     {
         if (!nvs::analysis::verifySettingsStructure(settingsTree)) {
             DBG("Settings structure verification failed");
@@ -101,7 +114,7 @@ int main (const int argc, char* argv[])
             return {};
         }
 
-        print("Analysis thread begun...");
+        Logger::writeToLog("Analysis thread begun...");
         while (analyzer.isThreadRunning()) {
             Thread::sleep(100);
         }
@@ -115,17 +128,17 @@ int main (const int argc, char* argv[])
         };
     };
 
-    auto mainAnalysisProgram = [print, &getInputFile, &makeSettingsParentTree, &runAnalyzer](const ArgumentList &args) -> void
+    auto mainAnalysisProgram = [&getInputFile, &makeSettingsParentTree, &runAnalyzer, &getOutputFile](const ArgumentList &args) -> void
     {
         const File inputFile = getInputFile(args);
         if (inputFile == juce::File{}) {
-            print("Error: Please specify an input file");
+            DBG("Error: Please specify an input file");
             jassertfalse;
             return;
         }
 
         const auto fileName = inputFile.getFileName();
-        print("Opening " + fileName + "...");
+        Logger::writeToLog("Opening " + fileName + "...");
 
         AudioSampleBuffer buffer;
         const auto [numSamples, sampleRate, bitDepth] = readIntoBuffer(buffer, inputFile);
@@ -136,7 +149,7 @@ int main (const int argc, char* argv[])
         const auto& audioFileFullAbsPath = inputFile.getFullPathName();
         const auto settingsParentTree = makeSettingsParentTree(sampleRate, audioFileFullAbsPath);
         const auto treeStr = nvs::util::valueTreeToXmlStringSafe(settingsParentTree);
-        print(treeStr);
+        Logger::writeToLog(treeStr);
 
         auto /*cant be const*/ settingsTree = settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings);
         const auto analysisResult = runAnalyzer(channel0, fileName, settingsTree);
@@ -146,7 +159,7 @@ int main (const int argc, char* argv[])
             return;
         }
 
-        print("Analysis complete!");
+        Logger::writeToLog("Analysis complete!");
         const auto timbreSpaceRepr = (*analysisResult.timbres).timbreMeasurements;
         const auto onsets = (*analysisResult.onsets).onsets;
         const auto waveformHash = (*analysisResult.timbres).waveformHash;
@@ -155,11 +168,20 @@ int main (const int argc, char* argv[])
 
         const auto timbreSpaceVT = nvs::analysis::timbreSpaceReprToVT(timbreSpaceRepr,
             onsets, waveformHash, audioFileFullAbsPath);
-        print(nvs::util::valueTreeToXmlStringSafe(timbreSpaceVT));
+
+        if (const File outFile = getOutputFile(args);
+            outFile == juce::File{})
+        {
+            Logger::writeToLog(nvs::util::valueTreeToXmlStringSafe(timbreSpaceVT));
+        }
+        else {
+            Logger::writeToLog("Writing to " + outFile.getFullPathName());
+            nvs::util::saveValueTreeToJSON(timbreSpaceVT, outFile);
+        }
     };
 
     app.addHelpCommand ("--help|-h", "TSN Analyzer - Audio timbre space analysis tool", true);
-    app.addVersionCommand ("--version|-v", "TSN Analyzer version 0.1.0");
+    app.addVersionCommand ("--version|-v", "version: " + juce::String(LIB_VERSION));
 
     app.addCommand ({
         "--analyze",

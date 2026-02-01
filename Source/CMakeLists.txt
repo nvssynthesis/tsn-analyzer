@@ -56,6 +56,11 @@ target_sources(tsn_analyzer_app PRIVATE Main.cpp)
 
 add_dependencies(tsn_analyzer_app essentia_external)
 
+target_include_directories(tsn_analyzer_app
+        PUBLIC
+        "${CMAKE_CURRENT_BINARY_DIR}/lib"
+)
+
 target_link_libraries(tsn_analyzer_app
         PRIVATE
         tsn_analyzer
