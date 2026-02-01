@@ -1,7 +1,0 @@
-<component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="tsn_analyzer_app" type="CMakeRunConfiguration" factoryName="Application" PROGRAM_PARAMS="--analyze audio/sweep.wav" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" WORKING_DIR="file://$ProjectFileDir$" PASS_PARENT_ENVS_2="true" PROJECT_NAME="tsn-analyzer-root" TARGET_NAME="tsn_analyzer_app" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="tsn-analyzer-root" RUN_TARGET_NAME="tsn_analyzer_app">
-    <method v="2">
-      <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
-    </method>
-  </configuration>
-</component>
