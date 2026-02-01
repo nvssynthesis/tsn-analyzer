@@ -7,8 +7,6 @@
 
 namespace nvs::analysis {
 
-using EventwiseStatisticsF = EventwiseStatistics<Real>;
-
 struct TimbreAnalysisResult {
     TimbreAnalysisResult(std::vector<FeatureContainer<EventwiseStatisticsF>> timbreMeasurements_,
         juce::String hash_,

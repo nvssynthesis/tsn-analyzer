@@ -31,4 +31,7 @@ struct EventwiseStatistics {
 	T skewness	{};
 	T kurtosis	{};
 };
+
+using EventwiseStatisticsF = EventwiseStatistics<float>;
+
 }
