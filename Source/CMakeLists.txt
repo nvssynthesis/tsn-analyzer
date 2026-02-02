@@ -83,3 +83,12 @@ if(APPLE)
 endif()
 
 message(STATUS "TSN Analyzer Console App Configuration Complete")
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    add_custom_command(TARGET tsn_analyzer_app POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E create_symlink
+            $<TARGET_FILE:tsn_analyzer_app>
+            $ENV{HOME}/bin/tsn_analyzer_app
+            COMMENT "Symlinking to ~/bin"
+    )
+endif()
