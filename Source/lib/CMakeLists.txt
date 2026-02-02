@@ -68,7 +68,6 @@ endif()
 
 message(STATUS "Using Python: ${PYTHON3_EXECUTABLE}")
 
-# Set up proper environment for macOS
 if(APPLE)
     execute_process(
             COMMAND xcrun --show-sdk-path
@@ -78,11 +77,14 @@ if(APPLE)
 
     message(STATUS "macOS SDK path: ${MACOS_SDK_PATH}")
 
+    # suppress warnings for essentia
+    set(ESSENTIA_CXXFLAGS "-w -isysroot ${MACOS_SDK_PATH} -I${EIGEN_INCLUDE_DIR}")
+
     set(ESSENTIA_ENV
             "SDKROOT=${MACOS_SDK_PATH}"
             "CPPFLAGS=-isysroot ${MACOS_SDK_PATH} -I${EIGEN_INCLUDE_DIR}"
             "CFLAGS=-isysroot ${MACOS_SDK_PATH}"
-            "CXXFLAGS=-isysroot ${MACOS_SDK_PATH} -I${EIGEN_INCLUDE_DIR}"
+            "CXXFLAGS=${ESSENTIA_CXXFLAGS}"
             "LDFLAGS=-isysroot ${MACOS_SDK_PATH}"
     )
 else()
@@ -115,9 +117,9 @@ ExternalProject_Add(essentia_external
         ${PYTHON3_EXECUTABLE} waf install
         BUILD_IN_SOURCE 1
         BUILD_ALWAYS 0
-        LOG_CONFIGURE ON
-        LOG_BUILD ON
-        LOG_INSTALL ON
+        LOG_CONFIGURE TRUE
+        LOG_BUILD TRUE
+        LOG_INSTALL TRUE
 )
 
 # Set up Essentia include directories
