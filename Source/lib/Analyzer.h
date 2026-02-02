@@ -71,7 +71,7 @@ extractFeatures(const FeatureContainer<T> & allFeatures,
 	auto const & scalarTable = allFeatures.features;
 
 	for (auto f : featuresToUse) {
-		v.push_back(allFeatures.features[static_cast<size_t>(f)]);
+		v.push_back(scalarTable[static_cast<size_t>(f)]);
 	}
 	return v;
 }

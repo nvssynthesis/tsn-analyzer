@@ -61,7 +61,7 @@ inline Feature_e toFeature(const juce::String &s){
 }
 
 inline const StringArray& getFeaturesStringArray() {
-    static const auto features = [] -> StringArray {
+    static const auto features = []() -> StringArray {
         StringArray result;
         for (const auto f : featuresIterator()) {
             result.add(toString(f));
