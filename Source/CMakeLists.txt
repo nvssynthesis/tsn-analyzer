@@ -52,7 +52,13 @@ juce_add_console_app(tsn_analyzer_app
 
 juce_generate_juce_header(tsn_analyzer_app)
 
-target_sources(tsn_analyzer_app PRIVATE Main.cpp)
+#target_sources(AnalysisProgram
+
+target_sources(tsn_analyzer_app
+        PRIVATE
+        Main.cpp
+        AnalysisProgram.cpp
+)
 
 add_dependencies(tsn_analyzer_app essentia_external)
 

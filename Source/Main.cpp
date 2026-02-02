@@ -1,195 +1,73 @@
 #include <JuceHeader.h>
 
-#include "StringAxiom.h"
-#include "ThreadedAnalyzer.h"
-#include "Settings.h"
-#include "TSNValueTreeUtilities.h"
-#include "juce_utils.h"
-#include "OnsetAnalysis/OnsetProcessing.h"
+#include "AnalysisProgram.h"
 #include "./version.h"
 
-struct AudioFileInfo {
-    int64 numSamples;
-    double sampleRate;
-    unsigned int bitDepth;
-};
+void conversionProgram(const ArgumentList &args) {
+    if (args.arguments.size() < 2) {
+        DBG("Not enough arguments");
+        return;
+    }
+    const auto inFile = getInputFile(args);
+    const auto inFileExt = inFile.getFileExtension();
 
-AudioFileInfo readIntoBuffer(AudioSampleBuffer &buff, const juce::File &file) {
-
-    AudioFormatManager formatManager;
-    formatManager.registerBasicFormats();
-    const auto reader = std::unique_ptr<AudioFormatReader>( formatManager.createReaderFor(file));
-    if (reader == nullptr) {
-        DBG("Failed to open file " + file.getFileName());
-        return {};
+    const auto outFile = [&args, &inFile, &inFileExt]() -> File {
+        if (args.arguments.size() < 3) {
+            // const String outFn =  inFile.getFileNameWithoutExtension();
+            if (inFileExt == ".tsb") {
+                return inFile.withFileExtension(".json");
+            }
+            if (inFileExt == ".json") {
+                return inFile.withFileExtension(".tsb");
+            }
+            DBG("extensions must be either .json or .tsb");
+            return File();
+        }
+        return getOutputFile(args);
+    }();
+    if (outFile == File()) {
+        DBG("invalid extension; returning...");
+        return;
     }
 
 
-    const auto numSamps = reader->lengthInSamples;
-    if (constexpr auto maxLength = std::numeric_limits<int>::max();
-        numSamps > maxLength)
+    const auto outFileExt = outFile.getFileExtension();
+
+    if ( (inFileExt != ".tsb" && inFileExt != ".json") || (outFileExt != ".tsb" && outFileExt != ".json") )
     {
-        DBG("Number of samples is greater than the maximum allowed length (" + juce::String{numSamps} + " samples)");
-        return {};
+        DBG("extensions must be either .json or .tsb");
+        return;
     }
-    buff.setSize(1, static_cast<int>(numSamps));
-    jassert (static_cast<int>(numSamps) <= buff.getNumSamples());
-    reader->read(&buff, 0, static_cast<int>(numSamps), 0, true, true);
+    if (inFileExt == outFileExt) {
+        DBG("extensions must be complimentary (e.g. if input extension is tsb, output should be json)");
+        return;
+    }
 
-    return {
-        .numSamples = numSamps,
-        .sampleRate = reader->sampleRate,
-        .bitDepth = reader->bitsPerSample
-    };
 }
 
 int main (const int argc, char* argv[])
 {
-    ScopedJuceInitialiser_GUI juceInit; // This class is particularly handy to use at the beginning of a console app's main() function, because it'll take care of shutting down whenever you return from the main() call.
-
+    ScopedJuceInitialiser_GUI juceInit;
     ConsoleApplication app;
-
-    auto getInputFile = [] (const ArgumentList &args) -> File
-    {
-        if (args.arguments.size() < 2)
-            return {};
-        return args.arguments[1].resolveAsExistingFile();
-    };
-
-    auto getOutputFile = [] (const ArgumentList &args) -> File
-    {
-        if (args.arguments.size() < 3) {
-            return {};
-        }
-        auto outputFile = File::getCurrentWorkingDirectory()
-                              .getChildFile(args.arguments[2].text);
-
-        if (const bool forceOverwrite = args.containsOption("--force|-f");
-            outputFile.existsAsFile() && !forceOverwrite)
-        {
-            std::cout << "Warning: Output file '" << outputFile.getFullPathName()
-                      << "' already exists.\n";
-            std::cout << "Overwrite? (y/n): ";
-
-            std::string response;
-            std::getline(std::cin, response);
-
-            if (response.empty() || (response[0] != 'y' && response[0] != 'Y'))
-            {
-                std::cout << "Operation cancelled.\n";
-                return {};
-            }
-        }
-
-        return outputFile;
-    };
-
-    auto makeSettingsParentTree = [] (double sampleRate, const String &filePath)
-    {
-        nvs::analysis::AnalyzerSettings settings;
-        settings.analysis.sampleRate = sampleRate;
-        settings.info.sampleFilePath = filePath;
-        settings.analysis.numThreads = 8;
-
-        const auto settingsParentTree = nvs::analysis::createParentTreeFromSettings(settings);
-        return settingsParentTree;
-    };
-
-    struct AnalyzerResult {
-        std::optional<nvs::analysis::TimbreAnalysisResult> timbres {};
-        std::shared_ptr<nvs::analysis::OnsetAnalysisResult> onsets {};
-    };
-    auto runAnalyzer = [](const std::span<const float> &channel, const String &fileName, auto &settingsTree) -> AnalyzerResult
-    {
-        if (!nvs::analysis::verifySettingsStructure(settingsTree)) {
-            DBG("Settings structure verification failed");
-            return {};
-        }
-
-        nvs::analysis::ThreadedAnalyzer analyzer;
-        analyzer.updateStoredAudio(channel, fileName);
-        analyzer.updateSettings(settingsTree, true);
-        if (!analyzer.startThread(Thread::Priority::normal)) {
-            DBG("Failed to start analysis thread\n");
-            return {};
-        }
-
-        Logger::writeToLog("Analysis thread begun...");
-        while (analyzer.isThreadRunning()) {
-            Thread::sleep(100);
-        }
-        jassert(analyzer.onsetsReady() && analyzer.timbreAnalysisReady());
-
-        auto timbreSpaceRepr = analyzer.stealTimbreSpaceRepresentation();
-        auto onsets = analyzer.shareOnsetAnalysis();
-        return AnalyzerResult{
-            .timbres = std::move(timbreSpaceRepr),
-            .onsets = std::move(onsets)
-        };
-    };
-
-    auto mainAnalysisProgram = [&getInputFile, &makeSettingsParentTree, &runAnalyzer, &getOutputFile](const ArgumentList &args) -> void
-    {
-        const File inputFile = getInputFile(args);
-        if (inputFile == juce::File{}) {
-            DBG("Error: Please specify an input file");
-            jassertfalse;
-            return;
-        }
-
-        const auto fileName = inputFile.getFileName();
-        Logger::writeToLog("Opening " + fileName + "...");
-
-        AudioSampleBuffer buffer;
-        const auto [numSamples, sampleRate, bitDepth] = readIntoBuffer(buffer, inputFile);
-
-        const auto rp = buffer.getReadPointer(0);
-        const std::span channel0(rp, numSamples);
-
-        const auto& audioFileFullAbsPath = inputFile.getFullPathName();
-        const auto settingsParentTree = makeSettingsParentTree(sampleRate, audioFileFullAbsPath);
-        const auto treeStr = nvs::util::valueTreeToXmlStringSafe(settingsParentTree);
-        Logger::writeToLog(treeStr);
-
-        auto /*cant be const*/ settingsTree = settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings);
-        const auto analysisResult = runAnalyzer(channel0, fileName, settingsTree);
-        if ((analysisResult.onsets == nullptr) || (analysisResult.timbres == std::nullopt)) {
-            DBG("Analysis failed; returning");
-            jassertfalse;
-            return;
-        }
-
-        Logger::writeToLog("Analysis complete!");
-        const auto timbreSpaceRepr = (*analysisResult.timbres).timbreMeasurements;
-        const auto onsets = (*analysisResult.onsets).onsets;
-        const auto waveformHash = (*analysisResult.timbres).waveformHash;
-        // const String waveformHash = nvs::util::hashAudioData(std::vector(channel0.begin(), channel0.end()));
-
-
-        const auto timbreSpaceVT = nvs::analysis::timbreSpaceReprToVT(timbreSpaceRepr,
-            onsets, waveformHash, audioFileFullAbsPath);
-
-        if (const File outFile = getOutputFile(args);
-            outFile == juce::File{})
-        {
-            Logger::writeToLog(nvs::util::valueTreeToXmlStringSafe(timbreSpaceVT));
-        }
-        else {
-            Logger::writeToLog("Writing to " + outFile.getFullPathName());
-            nvs::util::saveValueTreeToJSON(timbreSpaceVT, outFile);
-        }
-    };
 
     app.addHelpCommand ("--help|-h", "TSN Analyzer - Audio timbre space analysis tool", true);
     app.addVersionCommand ("--version|-v", "version: " + juce::String(LIB_VERSION));
+
+    app.addCommand({
+        "--convert",
+        "--convert <input_file> <output_file>",
+        "Converts a .json file to .tsb file or vice versa.",
+        "Converts a .json file to .tsb (binary, losslessly compressed) file or vice versa. json is human-readable " + newLine +
+        "but a fairly large file, while tsb is only machine-readable but much smaller in size. The only downside to " + newLine +
+            "latter is the inability to read the file. ",
+        conversionProgram
+    });
 
     app.addCommand ({
         "--analyze",
         "--analyze <input_file>",
         "Analyzes the audio file and extracts timbre features",
-        "This application analyzes an input audio file by splitting it into either events or " + newLine
-        + String("uniformly-spaced frames, then analyzing each event/frame in terms of pitch, loudness, and" + newLine
-            + String("timbral features.")),
+        "This application analyzes an input audio file by splitting it into either events or uniformly-spaced frames, then analyzing each event/frame in terms of pitch, loudness, and timbral features.",
         mainAnalysisProgram
     });
 
