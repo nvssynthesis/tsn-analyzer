@@ -6,8 +6,25 @@
 
 #include "TSNValueTreeUtilities.h"
 #include "version.h"
+#include "juce_utils.h"
 
 namespace nvs::analysis {
+
+bool validateAnalysisVT(const juce::ValueTree &analysisVT) {
+    if (const auto analysisFileTree = analysisVT.getChildWithName(nvs::axiom::tsn::TimbreAnalysis);
+    analysisFileTree.isValid())
+    {
+        DBG(fmt::format("tree being set: {}", nvs::util::valueTreeToXmlStringSafe(analysisFileTree).toStdString()));
+        // we need to know if we even SHOULD load the analysisFile pointed to by the state
+        if (const auto metadataTree = analysisFileTree.getChildWithName(nvs::axiom::tsn::Metadata);
+            metadataTree.isValid())
+        {
+            return true;
+        }
+    }
+    Logger::writeToLog("analysis file tree invalid");
+    return false;
+}
 
 void addEventwiseStatistics(juce::ValueTree& tree, const EventwiseStatisticsF& stats) {
     tree.setProperty(axiom::tsn::mean, stats.mean, nullptr);

@@ -1,6 +1,5 @@
 #include "AnalysisProgram.h"
 #include "lib/StringAxiom.h"
-#include "lib/util.h"
 #include "lib/OnsetAnalysis/OnsetProcessing.h"
 #include "juce_utils.h"
 

@@ -1,7 +1,9 @@
 #include <JuceHeader.h>
 
 #include "AnalysisProgram.h"
+#include "TSNValueTreeUtilities.h"
 #include "./version.h"
+#include "juce_utils.h"
 
 void conversionProgram(const ArgumentList &args) {
     if (args.arguments.size() < 2) {
@@ -29,8 +31,6 @@ void conversionProgram(const ArgumentList &args) {
         DBG("invalid extension; returning...");
         return;
     }
-
-
     const auto outFileExt = outFile.getFileExtension();
 
     if ( (inFileExt != ".tsb" && inFileExt != ".json") || (outFileExt != ".tsb" && outFileExt != ".json") )
@@ -39,10 +39,24 @@ void conversionProgram(const ArgumentList &args) {
         return;
     }
     if (inFileExt == outFileExt) {
-        DBG("extensions must be complimentary (e.g. if input extension is tsb, output should be json)");
+        DBG("extensions must be complimentary (e.g. if input extension is .tsb, output should be .json)");
         return;
     }
 
+    if (inFileExt == ".tsb") {
+        if (const ValueTree analysisVT = nvs::util::loadValueTreeFromBinary(inFile);
+            nvs::analysis::validateAnalysisVT(analysisVT))
+        {
+            nvs::util::saveValueTreeToJSON(analysisVT, outFile);
+        }
+    }
+    else {
+        if (const ValueTree analysisVT = nvs::util::loadValueTreeFromJSON(inFile);
+            nvs::analysis::validateAnalysisVT(analysisVT))
+        {
+            nvs::util::saveValueTreeToBinary(analysisVT, outFile);
+        }
+    }
 }
 
 int main (const int argc, char* argv[])

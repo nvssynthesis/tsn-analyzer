@@ -2,3 +2,4 @@
 essentia/
 .run/
 *.json
+*.tsb

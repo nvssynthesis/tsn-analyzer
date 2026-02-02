@@ -43,8 +43,10 @@ using standardFactory = essentia::standard::AlgorithmFactory;
 
 using array2dReal = TNT::Array2D<Real>;
 
+using File = juce::File;
 using String = juce::String;
 using StringArray = juce::StringArray;
+using Logger = juce::Logger;
 using ValueTree = juce::ValueTree;
 using var = juce::var;
 

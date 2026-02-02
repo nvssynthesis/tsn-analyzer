@@ -9,8 +9,11 @@
 #include "FeatureOperations.h"
 #include "StringAxiom.h"
 #include "TimbreAnalysis/TimbreAnalysisResult.h"
+#include "AnalysisUsing.h"
 
 namespace nvs::analysis {
+
+bool validateAnalysisVT(const juce::ValueTree &analysisVT);
 
 void addEventwiseStatistics(juce::ValueTree& tree, const EventwiseStatisticsF& stats);
 
