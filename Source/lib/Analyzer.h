@@ -135,6 +135,7 @@ public:
 
 	bool updateSettings(juce::ValueTree &newSettings, bool attemptFix);
 	AnalyzerSettings const &getSettings() const;
+    ValueTree getSettingsParentTree() const;
     juce::String getSettingsHash() const {
         return _settingsHash;
     }

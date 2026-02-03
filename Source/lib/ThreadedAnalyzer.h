@@ -43,9 +43,12 @@ public:
     std::shared_ptr<OnsetAnalysisResult> shareOnsetAnalysis();
     std::optional<TimbreAnalysisResult> stealTimbreSpaceRepresentation();
     //===============================================================================
+    [[deprecated("any reason we would want to get the raw analyzer, there should just be an intermediate method")]]
     Analyzer &getAnalyzer() { return _analyzer; }
+
     RunLoopStatus &getStatus() noexcept { return _rls; }
     String getSettingsHash() const noexcept { return _analyzer.getSettingsHash(); }
+    ValueTree getSettingsParentTree() const { return _analyzer.getSettingsParentTree(); }
     //===============================================================================
 private:
     Analyzer _analyzer;

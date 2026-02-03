@@ -48,6 +48,9 @@ bool Analyzer::updateSettings(juce::ValueTree &newSettings, const bool attemptFi
 AnalyzerSettings const &Analyzer::getSettings() const {
     return settings;
 }
+ValueTree Analyzer::getSettingsParentTree() const {
+    return createParentTreeFromSettings(settings);
+}
 
 float Analyzer::getAnalyzedFileSampleRate() const {
     return static_cast<float>(settings.analysis.sampleRate);
