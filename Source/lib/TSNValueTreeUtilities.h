@@ -15,6 +15,12 @@ namespace nvs::analysis {
 
 bool validateAnalysisVT(const juce::ValueTree &analysisVT);
 
+ValueTree makeSuperTree(const ValueTree &timbreSpaceTree,
+    const String &sampleFilePath,
+    double sampleRate,
+    const String &waveformHash,
+    const String &settingsHash);
+
 void addEventwiseStatistics(juce::ValueTree& tree, const EventwiseStatisticsF& stats);
 
 [[nodiscard]]

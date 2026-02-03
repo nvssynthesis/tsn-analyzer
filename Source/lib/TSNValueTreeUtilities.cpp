@@ -26,6 +26,32 @@ bool validateAnalysisVT(const juce::ValueTree &analysisVT) {
     return false;
 }
 
+ValueTree makeSuperTree(const ValueTree &timbreSpaceTree,
+    const String &sampleFilePath,
+    const double sampleRate,
+    const String &waveformHash,
+    const String &settingsHash)
+{
+    ValueTree analysisSuperVT("super");
+
+    /* metadata needs:
+     -audio sample absolute path (for loading audio file when analysis is imported)
+     -audio file sample rate?
+     -settings hash (to quickly confirm that analysis has/has not been done for a given analysisSettings on a given
+     audio file) -audio wave hash (for confirming that the analysis is definitely relevant for a given audio file (e.g.
+     if the audio gets analyzed, but then is later edited, this will require new analysis)) -later: maybe the settings
+     themselves, which would allow to load analysis file and populate the settings of the plugin instance?
+    */
+    auto timbreSpaceMetaDataTree = timbreSpaceTree.getChildWithName(nvs::axiom::tsn::Metadata);
+    timbreSpaceMetaDataTree.setProperty(nvs::axiom::tsn::sampleFilePath, sampleFilePath, nullptr);
+    timbreSpaceMetaDataTree.setProperty(nvs::axiom::tsn::sampleRate, sampleRate, nullptr);
+    timbreSpaceMetaDataTree.setProperty(nvs::axiom::tsn::audioHash, waveformHash, nullptr);
+    timbreSpaceMetaDataTree.setProperty(nvs::axiom::tsn::settingsHash, settingsHash, nullptr);
+    analysisSuperVT.addChild(timbreSpaceTree, 1, nullptr);
+
+    return analysisSuperVT;
+}
+
 void addEventwiseStatistics(juce::ValueTree& tree, const EventwiseStatisticsF& stats) {
     tree.setProperty(axiom::tsn::mean, stats.mean, nullptr);
     tree.setProperty(axiom::tsn::median, stats.median, nullptr);
