@@ -9,6 +9,7 @@
 */
 
 #include "OnsetAnalysis.h"
+#include "essentia/scheduler/network.h"
 
 /** TODO:
  consolidate onsetsInSeconds with onsetAnalysis.

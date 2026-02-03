@@ -9,6 +9,7 @@
 */
 
 #include "TimbreAnalysis.h"
+#include "essentia/streaming/algorithms/poolstorage.h"
 
 namespace nvs::analysis {
 

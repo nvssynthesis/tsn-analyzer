@@ -11,12 +11,8 @@
 #pragma once
 #include "EssentiaSetup.h"
 
-#include "essentia/streaming/algorithms/poolstorage.h"
-#include "essentia/scheduler/network.h"
 #include "essentia/streaming/algorithms/vectorinput.h"
 #include "essentia/streaming/algorithms/vectoroutput.h"
-#include "essentia/utils/tnt/tnt2vector.h"
-#include "essentia/essentiamath.h"
 
 #include "juce_core/juce_core.h"
 #include "juce_data_structures/juce_data_structures.h"
@@ -31,15 +27,14 @@ using namespace essentia::scheduler;
 using Real = float;
 using vecReal = std::vector<Real>;
 using vecVecReal = std::vector<vecReal>;
-using vectorInput = essentia::streaming::VectorInput<Real> ;
-using vectorInputCumulative = essentia::streaming::VectorInput<vecReal> ;
-using vectorOutput = essentia::streaming::VectorOutput<Real>;
-using vectorOutputCumulative = essentia::streaming::VectorOutput<vecReal> ;
-//using matrixInput = essentia::streaming::VectorInput<std::vector<vecReal>> ;
+using vectorInput = VectorInput<Real> ;
+using vectorInputCumulative = VectorInput<vecReal> ;
+using vectorOutput = VectorOutput<Real>;
+using vectorOutputCumulative = VectorOutput<vecReal> ;
 using startAndEndTimesVec = std::pair<vecReal, vecReal> ;
 
-using streamingFactory = essentia::streaming::AlgorithmFactory;
-using standardFactory = essentia::standard::AlgorithmFactory;
+using streamingFactory = streaming::AlgorithmFactory;
+using standardFactory = standard::AlgorithmFactory;
 
 using array2dReal = TNT::Array2D<Real>;
 

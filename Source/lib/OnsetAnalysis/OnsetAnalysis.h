@@ -13,6 +13,9 @@
 #include "Settings.h"
 #include "../RunLoopStatus.h"
 
+#include "essentia/utils/tnt/tnt2vector.h"
+#include "essentia/essentiamath.h"
+
 namespace nvs {
 namespace analysis {
 
