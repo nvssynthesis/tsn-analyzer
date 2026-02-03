@@ -10,20 +10,20 @@
 
 namespace nvs::analysis {
 
-bool validateAnalysisVT(const juce::ValueTree &analysisVT) {
-    if (const auto analysisFileTree = analysisVT.getChildWithName(nvs::axiom::tsn::TimbreAnalysis);
-    analysisFileTree.isValid())
+bool validateAnalysisVT(const ValueTree &analysisSuperVT) {
+    if (const auto timbreAnalysisTree = analysisSuperVT.getChildWithName(nvs::axiom::tsn::TimbreAnalysis);
+        !timbreAnalysisTree.isValid())
     {
-        DBG(fmt::format("tree being set: {}", nvs::util::valueTreeToXmlStringSafe(analysisFileTree).toStdString()));
-        // we need to know if we even SHOULD load the analysisFile pointed to by the state
-        if (const auto metadataTree = analysisFileTree.getChildWithName(nvs::axiom::tsn::Metadata);
-            metadataTree.isValid())
-        {
-            return true;
-        }
+        Logger::writeToLog("analysis file tree invalid");
+        return false;
     }
-    Logger::writeToLog("analysis file tree invalid");
-    return false;
+    if (const auto metadataTree = analysisSuperVT.getChildWithName(nvs::axiom::tsn::Metadata);
+        !metadataTree.isValid())
+    {
+        Logger::writeToLog("analysis file tree invalid");
+        return false;
+    }
+    return true;
 }
 
 ValueTree makeSuperTree(const ValueTree &timbreSpaceTree,
@@ -57,7 +57,7 @@ ValueTree makeSuperTree(const ValueTree &timbreSpaceTree,
     return analysisSuperVT;
 }
 
-void addEventwiseStatistics(juce::ValueTree& tree, const EventwiseStatisticsF& stats) {
+void addEventwiseStatistics(ValueTree& tree, const EventwiseStatisticsF& stats) {
     tree.setProperty(axiom::tsn::mean, stats.mean, nullptr);
     tree.setProperty(axiom::tsn::median, stats.median, nullptr);
     tree.setProperty(axiom::tsn::variance, stats.variance, nullptr);
@@ -65,7 +65,7 @@ void addEventwiseStatistics(juce::ValueTree& tree, const EventwiseStatisticsF& s
     tree.setProperty(axiom::tsn::kurtosis, stats.kurtosis, nullptr);
 }
 
-EventwiseStatisticsF toEventwiseStatistics(juce::ValueTree const &vt){
+EventwiseStatisticsF toEventwiseStatistics(ValueTree const &vt){
     return {
         .mean = vt.getProperty(axiom::tsn::mean),
         .median = vt.getProperty(axiom::tsn::median),
@@ -75,10 +75,10 @@ EventwiseStatisticsF toEventwiseStatistics(juce::ValueTree const &vt){
     };
 }
 
-juce::ValueTree timbreSpaceReprToVT(std::vector<FeatureContainer<EventwiseStatisticsF>> const &fullTimbreSpace,
+ValueTree timbreSpaceReprToVT(std::vector<FeatureContainer<EventwiseStatisticsF>> const &fullTimbreSpace,
                                            std::vector<Real> const &normalizedOnsets,
-                                           const juce::String& waveformHash,
-                                           const juce::String& audioAbsPath){
+                                           const String& waveformHash,
+                                           const String& audioAbsPath){
     ValueTree vt(axiom::tsn::TimbreAnalysis);
     {
         var onsetArray;
@@ -99,7 +99,7 @@ juce::ValueTree timbreSpaceReprToVT(std::vector<FeatureContainer<EventwiseStatis
             {
                 const auto &bfccs = timbreFrame.bfccs();
                 for (int bfccIdx = 0; bfccIdx < static_cast<int>(bfccs.size()); ++bfccIdx){
-                    ValueTree bfccTree("BFCC" + juce::String(bfccIdx));
+                    ValueTree bfccTree("BFCC" + String(bfccIdx));
                     addEventwiseStatistics(bfccTree, bfccs[bfccIdx]);
                     bfccsTree.addChild(bfccTree, bfccIdx, nullptr);
                 }
@@ -122,7 +122,7 @@ juce::ValueTree timbreSpaceReprToVT(std::vector<FeatureContainer<EventwiseStatis
     return vt;
 }
 
-std::vector<FeatureContainer<EventwiseStatisticsF>> valueTreeToTimbreSpace(juce::ValueTree const &vt)
+std::vector<FeatureContainer<EventwiseStatisticsF>> valueTreeToTimbreSpace(ValueTree const &vt)
 {
     using namespace analysis;
 
@@ -167,7 +167,7 @@ std::vector<FeatureContainer<EventwiseStatisticsF>> valueTreeToTimbreSpace(juce:
     return timbreSpace;
 }
 
-std::vector<Real> valueTreeToNormalizedOnsets(juce::ValueTree const &vt)
+std::vector<Real> valueTreeToNormalizedOnsets(ValueTree const &vt)
 {
     std::vector<Real> normalizedOnsets;
 
@@ -194,8 +194,7 @@ std::vector<Real> valueTreeToNormalizedOnsets(juce::ValueTree const &vt)
 // Internal template that works with any container
 template<typename Container>
 [[nodiscard]]
-std::vector<Real>
-extractFeaturesFromTreeImpl(const juce::ValueTree &frameTree,
+std::vector<Real> extractFeaturesFromTreeImpl(const ValueTree &frameTree,
                              const Container &featuresToUse,
                              const Statistic statisticToUse)
 {
@@ -206,7 +205,7 @@ extractFeaturesFromTreeImpl(const juce::ValueTree &frameTree,
         out.reserve(featuresToUse.size());
     }
 
-    juce::String statPropName;
+    String statPropName;
     switch (statisticToUse) {
        case Statistic::Mean:     statPropName = axiom::tsn::mean;     break;
        case Statistic::Median:   statPropName = axiom::tsn::median;   break;
@@ -228,7 +227,7 @@ extractFeaturesFromTreeImpl(const juce::ValueTree &frameTree,
           }
        }
        else {
-          juce::String childName;
+          String childName;
           switch (f) {
             case Feature_e::SpectralCentroid:    childName = axiom::tsn::SpectralCentroid; break;
             case Feature_e::SpectralDecrease:    childName = axiom::tsn::SpectralDecrease; break;
@@ -255,8 +254,7 @@ extractFeaturesFromTreeImpl(const juce::ValueTree &frameTree,
     return out;
 }
 
-std::vector<Real>
-extractFeaturesFromTree(const juce::ValueTree &frameTree,
+std::vector<Real> extractFeaturesFromTree(const ValueTree &frameTree,
                         const std::vector<Feature_e> &featuresToUse,
                         const Statistic statisticToUse)
 {
@@ -264,8 +262,7 @@ extractFeaturesFromTree(const juce::ValueTree &frameTree,
 }
 
 // Overload for single feature - wraps it in a std::array for iteration
-std::vector<Real>
-extractFeaturesFromTree(const juce::ValueTree &frameTree,
+std::vector<Real> extractFeaturesFromTree(const ValueTree &frameTree,
                         const Feature_e featureToUse,
                         const Statistic statisticToUse)
 {

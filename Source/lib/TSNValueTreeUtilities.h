@@ -13,8 +13,10 @@
 
 namespace nvs::analysis {
 
-bool validateAnalysisVT(const juce::ValueTree &analysisVT);
+[[nodiscard]]
+bool validateAnalysisVT(const ValueTree &analysisSuperVT);
 
+[[nodiscard]]
 ValueTree makeSuperTree(const ValueTree &timbreSpaceTree,
     const String &sampleFilePath,
     double sampleRate,
@@ -22,33 +24,31 @@ ValueTree makeSuperTree(const ValueTree &timbreSpaceTree,
     const String &settingsHash,
     const ValueTree &settingsTree);
 
-void addEventwiseStatistics(juce::ValueTree& tree, const EventwiseStatisticsF& stats);
+void addEventwiseStatistics(ValueTree& tree, const EventwiseStatisticsF& stats);
 
 [[nodiscard]]
-EventwiseStatisticsF toEventwiseStatistics(juce::ValueTree const &vt);
+EventwiseStatisticsF toEventwiseStatistics(ValueTree const &vt);
 
 [[nodiscard]]
-juce::ValueTree timbreSpaceReprToVT(std::vector<nvs::analysis::FeatureContainer<EventwiseStatisticsF>> const &fullTimbreSpace,
+ValueTree timbreSpaceReprToVT(std::vector<FeatureContainer<EventwiseStatisticsF>> const &fullTimbreSpace,
                                            std::vector<Real> const &normalizedOnsets,
-                                           const juce::String& waveformHash,
-                                           const juce::String& audioAbsPath);
+                                           const String& waveformHash,
+                                           const String& audioAbsPath);
 
 [[nodiscard]]
-std::vector<nvs::analysis::FeatureContainer<EventwiseStatisticsF>> valueTreeToTimbreSpace(juce::ValueTree const &vt);
+std::vector<FeatureContainer<EventwiseStatisticsF>> valueTreeToTimbreSpace(ValueTree const &vt);
 
 [[nodiscard]]
-std::vector<Real> valueTreeToNormalizedOnsets(juce::ValueTree const &vt);
+std::vector<Real> valueTreeToNormalizedOnsets(ValueTree const &vt);
 
 [[nodiscard]]
-std::vector<Real>
-extractFeaturesFromTree(const juce::ValueTree &frameTree,
+std::vector<Real> extractFeaturesFromTree(const ValueTree &frameTree,
                         const std::vector<Feature_e> &featuresToUse,
                         Statistic statisticToUse);
 
 // Overload for single feature - wraps it in a std::array for iteration
 [[nodiscard]]
-std::vector<Real>
-extractFeaturesFromTree(const juce::ValueTree &frameTree,
+std::vector<Real> extractFeaturesFromTree(const ValueTree &frameTree,
                         Feature_e featureToUse,
                         Statistic statisticToUse);
 
