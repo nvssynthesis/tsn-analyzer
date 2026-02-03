@@ -97,7 +97,7 @@ void mainAnalysisProgram(const ArgumentList &args)
     const auto treeStr = nvs::util::valueTreeToXmlStringSafe(settingsParentTree);
     Logger::writeToLog(treeStr);
 
-    auto /*cant be const*/ settingsTree = settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings);
+    auto /*can't be const*/ settingsTree = settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings);
     const auto analysisResult = runAnalyzer(channel0, audioFileFullAbsPath, settingsTree);
     if ((analysisResult.onsets == nullptr) || (analysisResult.timbres == std::nullopt)) {
         DBG("Analysis failed; returning");
@@ -129,7 +129,8 @@ void mainAnalysisProgram(const ArgumentList &args)
             audioFileFullAbsPath,
             sampleRate,
             waveformHash,
-            analysisResult.settingsHash);
+            analysisResult.settingsHash,
+            settingsTree);
 
         if (outFile.getFileExtension() == ".json") {
             nvs::util::saveValueTreeToJSON(superTree, outFile);

@@ -30,7 +30,8 @@ ValueTree makeSuperTree(const ValueTree &timbreSpaceTree,
     const String &sampleFilePath,
     const double sampleRate,
     const String &waveformHash,
-    const String &settingsHash)
+    const String &settingsHash,
+    const ValueTree &settingsTree)
 {
     ValueTree analysisSuperVT("super");
 
@@ -42,12 +43,16 @@ ValueTree makeSuperTree(const ValueTree &timbreSpaceTree,
      if the audio gets analyzed, but then is later edited, this will require new analysis)) -later: maybe the settings
      themselves, which would allow to load analysis file and populate the settings of the plugin instance?
     */
-    auto timbreSpaceMetaDataTree = timbreSpaceTree.getChildWithName(nvs::axiom::tsn::Metadata);
-    timbreSpaceMetaDataTree.setProperty(nvs::axiom::tsn::sampleFilePath, sampleFilePath, nullptr);
-    timbreSpaceMetaDataTree.setProperty(nvs::axiom::tsn::sampleRate, sampleRate, nullptr);
-    timbreSpaceMetaDataTree.setProperty(nvs::axiom::tsn::audioHash, waveformHash, nullptr);
-    timbreSpaceMetaDataTree.setProperty(nvs::axiom::tsn::settingsHash, settingsHash, nullptr);
-    analysisSuperVT.addChild(timbreSpaceTree, 1, nullptr);
+    auto metaDataTree = analysisSuperVT.getOrCreateChildWithName(axiom::tsn::Metadata, nullptr);
+    metaDataTree.setProperty(axiom::tsn::Version, LIB_VERSION, nullptr);
+    metaDataTree.setProperty(axiom::tsn::CreationTime, juce::Time::getCurrentTime().toString(true, true, true, true), nullptr);
+    metaDataTree.setProperty(axiom::tsn::sampleFilePath, sampleFilePath, nullptr);
+    metaDataTree.setProperty(axiom::tsn::sampleRate, sampleRate, nullptr);
+    metaDataTree.setProperty(axiom::tsn::audioHash, waveformHash, nullptr);
+    metaDataTree.setProperty(axiom::tsn::settingsHash, settingsHash, nullptr);
+    metaDataTree.addChild(settingsTree.createCopy(), 1, nullptr);
+    analysisSuperVT.addChild(metaDataTree, 1, nullptr);
+    analysisSuperVT.addChild(timbreSpaceTree, 2, nullptr);
 
     return analysisSuperVT;
 }
@@ -75,15 +80,6 @@ juce::ValueTree timbreSpaceReprToVT(std::vector<FeatureContainer<EventwiseStatis
                                            const juce::String& waveformHash,
                                            const juce::String& audioAbsPath){
     ValueTree vt(axiom::tsn::TimbreAnalysis);
-    {
-        ValueTree md(axiom::tsn::Metadata);
-        md.setProperty(axiom::tsn::Version, LIB_VERSION, nullptr);
-        md.setProperty(axiom::tsn::audioHash, waveformHash, nullptr);
-        md.setProperty(axiom::tsn::AudioFilePathAbsolute, audioAbsPath, nullptr);
-        md.setProperty(axiom::tsn::CreationTime, {}, nullptr);
-        md.setProperty(axiom::tsn::AnalysisSettings, {}, nullptr);
-        vt.addChild(md, 0, nullptr);
-    }
     {
         var onsetArray;
         for (auto const &o : normalizedOnsets) {

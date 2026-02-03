@@ -19,7 +19,8 @@ ValueTree makeSuperTree(const ValueTree &timbreSpaceTree,
     const String &sampleFilePath,
     double sampleRate,
     const String &waveformHash,
-    const String &settingsHash);
+    const String &settingsHash,
+    const ValueTree &settingsTree);
 
 void addEventwiseStatistics(juce::ValueTree& tree, const EventwiseStatisticsF& stats);
 
