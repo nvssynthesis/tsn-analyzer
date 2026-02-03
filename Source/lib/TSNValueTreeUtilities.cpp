@@ -165,7 +165,7 @@ std::vector<FeatureContainer<EventwiseStatisticsF>> valueTreeToTimbreSpace(juce:
             }
         }
 
-        timbreSpace.push_back(std::move(frame));
+        timbreSpace.push_back(frame);
     }
 
     return timbreSpace;
