@@ -3,8 +3,8 @@
 #include <JuceHeader.h>
 #include <span>
 #include "lib/ThreadedAnalyzer.h"
-#include "lib/Settings.h"
 #include "lib/TSNValueTreeUtilities.h"
+#include "lib/Settings.h"
 
 using namespace juce;
 
@@ -19,9 +19,7 @@ struct AnalyzerResult {
     std::shared_ptr<nvs::analysis::OnsetAnalysisResult> onsets {};
 };
 
-AudioFileInfo readIntoBuffer(AudioSampleBuffer &buff, const juce::File &file);
-File getInputFile(const ArgumentList &args);
-File getOutputFile(const ArgumentList &args);
+AudioFileInfo readIntoBuffer(AudioSampleBuffer &buff, const File &file);
 ValueTree makeSettingsParentTree(double sampleRate, const String &filePath);
 AnalyzerResult runAnalyzer(const std::span<const float> &channel, const String &fileName, auto &settingsTree);
 void mainAnalysisProgram(const ArgumentList &args);
