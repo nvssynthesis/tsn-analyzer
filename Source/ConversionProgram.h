@@ -6,7 +6,7 @@
 #include "juce_utils.h"
 #include "ProgramUtils.h"
 
-void conversionProgram(const ArgumentList &args) {
+inline void conversionProgram(const ArgumentList &args) {
     if (args.arguments.size() < 2) {
         Logger::writeToLog("Not enough arguments");
         return;

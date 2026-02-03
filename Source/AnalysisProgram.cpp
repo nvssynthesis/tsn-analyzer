@@ -45,7 +45,7 @@ ValueTree makeSettingsParentTree(double sampleRate, const String &filePath)
     return settingsParentTree;
 }
 
-AnalyzerResult runAnalyzer(const std::span<const float> &channel, const String &fileName, auto &settingsTree)
+AnalyzerResult runAnalyzer(const std::span<const float> &channel, const String &audioFileFullAbsolutePath, auto &settingsTree)
 {
     if (!nvs::analysis::verifySettingsStructure(settingsTree)) {
         DBG("Settings structure verification failed");
@@ -53,7 +53,7 @@ AnalyzerResult runAnalyzer(const std::span<const float> &channel, const String &
     }
 
     nvs::analysis::ThreadedAnalyzer analyzer;
-    analyzer.updateStoredAudio(channel, fileName);
+    analyzer.updateStoredAudio(channel, audioFileFullAbsolutePath);
     analyzer.updateSettings(settingsTree, true);
     if (!analyzer.startThread(Thread::Priority::normal)) {
         DBG("Failed to start analysis thread\n");
@@ -70,35 +70,35 @@ AnalyzerResult runAnalyzer(const std::span<const float> &channel, const String &
     auto onsets = analyzer.shareOnsetAnalysis();
     return AnalyzerResult{
         .timbres = std::move(timbreSpaceRepr),
-        .onsets = std::move(onsets)
+        .onsets = std::move(onsets),
+        .settingsHash = analyzer.getSettingsHash()
     };
 }
 
 void mainAnalysisProgram(const ArgumentList &args)
 {
-    const File inputFile = getInputFile(args);
-    if (inputFile == juce::File{}) {
+    const File inputAudioFile = getInputFile(args);
+    if (inputAudioFile == juce::File{}) {
         DBG("Error: Please specify an input file");
         jassertfalse;
         return;
     }
 
-    const auto fileName = inputFile.getFileName();
-    Logger::writeToLog("Opening " + fileName + "...");
+    Logger::writeToLog("Opening " + inputAudioFile.getFileName() + "...");
 
     AudioSampleBuffer buffer;
-    const auto [numSamples, sampleRate, bitDepth] = readIntoBuffer(buffer, inputFile);
+    const auto [numSamples, sampleRate, bitDepth] = readIntoBuffer(buffer, inputAudioFile);
 
     const auto rp = buffer.getReadPointer(0);
     const std::span channel0(rp, numSamples);
 
-    const auto& audioFileFullAbsPath = inputFile.getFullPathName();
+    const auto& audioFileFullAbsPath = inputAudioFile.getFullPathName();
     const auto settingsParentTree = makeSettingsParentTree(sampleRate, audioFileFullAbsPath);
     const auto treeStr = nvs::util::valueTreeToXmlStringSafe(settingsParentTree);
     Logger::writeToLog(treeStr);
 
     auto /*cant be const*/ settingsTree = settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings);
-    const auto analysisResult = runAnalyzer(channel0, fileName, settingsTree);
+    const auto analysisResult = runAnalyzer(channel0, audioFileFullAbsPath, settingsTree);
     if ((analysisResult.onsets == nullptr) || (analysisResult.timbres == std::nullopt)) {
         DBG("Analysis failed; returning");
         jassertfalse;
@@ -106,20 +106,36 @@ void mainAnalysisProgram(const ArgumentList &args)
     }
 
     Logger::writeToLog("Analysis complete!");
-    const auto timbreSpaceRepr = (*analysisResult.timbres).timbreMeasurements;
-    const auto onsets = (*analysisResult.onsets).onsets;
-    const auto waveformHash = (*analysisResult.timbres).waveformHash;
+    const auto timbreSpaceRepr = analysisResult.timbres->timbreMeasurements;
+    const auto onsets = analysisResult.onsets->onsets;
+    const auto waveformHash = analysisResult.timbres->waveformHash;
 
     const auto timbreSpaceVT = nvs::analysis::timbreSpaceReprToVT(timbreSpaceRepr,
         onsets, waveformHash, audioFileFullAbsPath);
 
+    jassert((analysisResult.onsets->audioFileAbsPath == analysisResult.timbres->audioFileAbsPath) &&
+            (analysisResult.onsets->audioFileAbsPath == audioFileFullAbsPath));
+
     if (const File outFile = getOutputFile(args);
-        outFile == juce::File{})
+        outFile == File{})
     {
+        Logger::writeToLog("No output file argument; printing analysis tree...\n");
         Logger::writeToLog(nvs::util::valueTreeToXmlStringSafe(timbreSpaceVT));
     }
     else {
         Logger::writeToLog("Writing to " + outFile.getFullPathName());
-        nvs::util::saveValueTreeToJSON(timbreSpaceVT, outFile);
+        const auto superTree = nvs::analysis::makeSuperTree(
+            timbreSpaceVT,
+            audioFileFullAbsPath,
+            sampleRate,
+            waveformHash,
+            analysisResult.settingsHash);
+
+        if (outFile.getFileExtension() == ".json") {
+            nvs::util::saveValueTreeToJSON(superTree, outFile);
+        }
+        else if (outFile.getFileExtension() == ".tsb") {
+            nvs::util::saveValueTreeToBinary(superTree, outFile);
+        }
     }
 }
