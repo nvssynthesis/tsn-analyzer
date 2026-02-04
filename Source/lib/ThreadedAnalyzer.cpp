@@ -45,6 +45,7 @@ void ThreadedAnalyzer::updateSettings(juce::ValueTree &settingsTree, const bool 
 	}
 }
 
+
 void ThreadedAnalyzer::run() {
 	// first, clear everything so that if any analysis is terminated early, we don't have garbage leftover
     _onsetAnalysisResult.reset();
@@ -68,7 +69,9 @@ void ThreadedAnalyzer::run() {
 		_rls.set("Calculating Onsets...");
 	    const String audioHash = util::hashAudioData(_inputWave);
 
-	    const auto unnormalizedOnsets = [this, shouldExit, audioHash]()-> vecReal {
+	    const auto sr = _analyzer.getAnalyzedFileSampleRate();
+
+	    const auto unnormalizedOnsets = [this, shouldExit, audioHash, sr]()-> vecReal {
 	        const auto onsetOpt = _analyzer.calculateOnsetsInSeconds(_inputWave, _rls, shouldExit);
 	        if (threadShouldExit()) {
 	            DBG("Threaded Analyzer: exit requested");
@@ -82,10 +85,8 @@ void ThreadedAnalyzer::run() {
 		        return {};
 		    }
 
+		    _onsetAnalysisResult = std::make_shared<OnsetAnalysisResult>(onsetOpt.value(), audioHash, _audioFileAbsPath, sr);
 
-		    _onsetAnalysisResult = std::make_shared<OnsetAnalysisResult>(onsetOpt.value(), audioHash, _audioFileAbsPath);
-
-		    auto const sr = _analyzer.getAnalyzedFileSampleRate();
 		    const auto lengthInSeconds = getLengthInSeconds(_inputWave.size(), sr);
 
 		    filterOnsets(_onsetAnalysisResult->onsets, lengthInSeconds);
@@ -121,7 +122,8 @@ void ThreadedAnalyzer::run() {
 		        return;
 		    }
 
-		    _timbreAnalysisResult.emplace(timbreMeasurementsOpt.value(), audioHash, _audioFileAbsPath);
+		    jassert (sr == _analyzer.getAnalyzedFileSampleRate());  // sr should not have possibly changed... sanity check
+		    _timbreAnalysisResult.emplace(timbreMeasurementsOpt.value(), audioHash, _audioFileAbsPath, sr);
 		    // only NOW do we send change message, and its a single message which should properly cause ALL data to be visualized etc.
 		    sendChangeMessage();
 	    }

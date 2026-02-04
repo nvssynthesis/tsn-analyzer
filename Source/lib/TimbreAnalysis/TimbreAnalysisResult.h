@@ -10,16 +10,19 @@ namespace nvs::analysis {
 struct TimbreAnalysisResult {
     TimbreAnalysisResult(std::vector<FeatureContainer<EventwiseStatisticsF>> timbreMeasurements_,
         juce::String hash_,
-        juce::String path_)
+        juce::String path_,
+        const double sampleRate_)
     :   timbreMeasurements(std::move(timbreMeasurements_))
     , waveformHash(std::move(hash_))
     , audioFileAbsPath(std::move(path_))
+    , sampleRate(sampleRate_)
     {}
 
     std::vector<FeatureContainer<EventwiseStatisticsF>> timbreMeasurements;
 
     juce::String waveformHash {};
     juce::String audioFileAbsPath {};
+    double sampleRate {};
 };
 
 } // namespace nvs::analysis

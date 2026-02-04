@@ -31,9 +31,7 @@ EventwiseStatisticsF toEventwiseStatistics(ValueTree const &vt);
 
 [[nodiscard]]
 ValueTree timbreSpaceReprToVT(std::vector<FeatureContainer<EventwiseStatisticsF>> const &fullTimbreSpace,
-                                           std::vector<Real> const &normalizedOnsets,
-                                           const String& waveformHash,
-                                           const String& audioAbsPath);
+                                           std::vector<Real> const &normalizedOnsets);
 
 [[nodiscard]]
 std::vector<FeatureContainer<EventwiseStatisticsF>> valueTreeToTimbreSpace(ValueTree const &vt);

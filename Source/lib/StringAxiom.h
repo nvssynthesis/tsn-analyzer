@@ -11,6 +11,7 @@ namespace nvs::axiom::tsn {
 #endif
 
 STRAXIOMIZE(Metadata);
+STRAXIOMIZE(super);
 STRAXIOMIZE(Version);
 
 STRAXIOMIZE(CreationTime);

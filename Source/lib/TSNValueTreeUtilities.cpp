@@ -33,7 +33,7 @@ ValueTree makeSuperTree(const ValueTree &timbreSpaceTree,
     const String &settingsHash,
     const ValueTree &settingsTree)
 {
-    ValueTree analysisSuperVT("super");
+    ValueTree analysisSuperVT(axiom::tsn::super);
 
     /* metadata needs:
      -audio sample absolute path (for loading audio file when analysis is imported)
@@ -50,9 +50,11 @@ ValueTree makeSuperTree(const ValueTree &timbreSpaceTree,
     metaDataTree.setProperty(axiom::tsn::sampleRate, sampleRate, nullptr);
     metaDataTree.setProperty(axiom::tsn::audioHash, waveformHash, nullptr);
     metaDataTree.setProperty(axiom::tsn::settingsHash, settingsHash, nullptr);
-    metaDataTree.addChild(settingsTree.createCopy(), 1, nullptr);
-    analysisSuperVT.addChild(metaDataTree, 1, nullptr);
-    analysisSuperVT.addChild(timbreSpaceTree, 2, nullptr);
+
+    metaDataTree.addChild(settingsTree.createCopy(), -1, nullptr);
+
+    analysisSuperVT.addChild(metaDataTree, -1, nullptr);
+    analysisSuperVT.addChild(timbreSpaceTree, -1, nullptr);
 
     return analysisSuperVT;
 }
@@ -76,9 +78,7 @@ EventwiseStatisticsF toEventwiseStatistics(ValueTree const &vt){
 }
 
 ValueTree timbreSpaceReprToVT(std::vector<FeatureContainer<EventwiseStatisticsF>> const &fullTimbreSpace,
-                                           std::vector<Real> const &normalizedOnsets,
-                                           const String& waveformHash,
-                                           const String& audioAbsPath){
+                                           std::vector<Real> const &normalizedOnsets){
     ValueTree vt(axiom::tsn::TimbreAnalysis);
     {
         var onsetArray;
