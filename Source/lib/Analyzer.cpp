@@ -72,9 +72,12 @@ std::optional<vecReal> Analyzer::calculateOnsetsInSeconds(const vecReal &wave, R
         return onsets;
     }
 
-    const analysis::array2dReal onsets2d = calculateOnsetsMatrix(wave, ess_hold.factory, settings, rls, shouldExit);
+    const array2dReal onsets2d = calculateOnsetsMatrix(wave, ess_hold.factory, settings, rls, shouldExit);
+    if (shouldExit()) {
+        return std::nullopt;
+    }
     std::cout << "analyzed onsets\n";
-    const essentia::standard::AlgorithmFactory &tmpStFac = essentia::standard::AlgorithmFactory::instance();
+    const standard::AlgorithmFactory &tmpStFac = standard::AlgorithmFactory::instance();
 
 #pragma message("it is a problem that we have not the ability to inject a runLoopCallback here, since onsetsInSeconds uses StandardFactory instead of StreamingFactory")
 

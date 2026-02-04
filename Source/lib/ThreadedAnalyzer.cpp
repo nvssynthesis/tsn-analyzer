@@ -19,7 +19,7 @@ ThreadedAnalyzer::ThreadedAnalyzer()
 	:	juce::Thread("Analyzer")
 {}
 ThreadedAnalyzer::~ThreadedAnalyzer(){
-	stopThread(5000);
+	stopThread(10000);
 }
 
 void ThreadedAnalyzer::updateStoredAudio(std::span<float const> wave, const juce::String &audioFileAbsPath) {
@@ -70,12 +70,18 @@ void ThreadedAnalyzer::run() {
 
 	    const auto unnormalizedOnsets = [this, shouldExit, audioHash]()-> vecReal {
 	        const auto onsetOpt = _analyzer.calculateOnsetsInSeconds(_inputWave, _rls, shouldExit);
-		    jassert(onsetOpt.has_value());
+	        if (threadShouldExit()) {
+	            DBG("Threaded Analyzer: exit requested");
+	            sendChangeMessage();
+	            return {};
+	        }
+	        jassert(onsetOpt.has_value());
 		    if (onsetOpt.value().empty()) {
 		        DBG("Threaded Analyzer: zero onsets... returning");
 		        sendChangeMessage();
 		        return {};
 		    }
+
 
 		    _onsetAnalysisResult = std::make_shared<OnsetAnalysisResult>(onsetOpt.value(), audioHash, _audioFileAbsPath);
 
@@ -94,6 +100,11 @@ void ThreadedAnalyzer::run() {
 	        DBG("Threaded Analyzer: zero onsets... returning");
 	        return;
 	    }
+	    if (threadShouldExit()) {
+	        DBG("Threaded Analyzer: exit requested");
+	        sendChangeMessage();
+	        return;
+	    }
 
         // perform onsetwise BFCC analysis
 		_rls.set("Calculating Onsetwise TimbreSpace...");
@@ -101,6 +112,11 @@ void ThreadedAnalyzer::run() {
 	        const auto timbreMeasurementsOpt = _analyzer.calculateOnsetwiseTimbreSpace(_inputWave, unnormalizedOnsets, _rls, shouldExit);
 		    if (!timbreMeasurementsOpt.has_value()) {
 		        DBG("no timbre measurement accomplished, likely due to early exit");
+		        sendChangeMessage();
+		        return;
+		    }
+		    if (threadShouldExit()) {
+		        DBG("Threaded Analyzer: exit requested");
 		        sendChangeMessage();
 		        return;
 		    }

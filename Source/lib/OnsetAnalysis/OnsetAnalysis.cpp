@@ -162,7 +162,7 @@ array2dReal calculateOnsetsMatrix(std::vector<Real> const &waveform,
 	rls.set("Computing onset matrix...");
 	while (n.runStep()){
 		if (shouldExit()) {
-			break;
+			return {};
 		}
 	}
 	rls.set(1.0);
