@@ -78,7 +78,7 @@ EventwiseStatisticsF toEventwiseStatistics(ValueTree const &vt){
 }
 
 ValueTree timbreSpaceReprToVT(std::vector<FeatureContainer<EventwiseStatisticsF>> const &fullTimbreSpace,
-                                           std::vector<Real> const &normalizedOnsets){
+                                           vecReal const &normalizedOnsets){
     ValueTree vt(axiom::tsn::TimbreAnalysis);
     {
         var onsetArray;

@@ -31,22 +31,22 @@ EventwiseStatisticsF toEventwiseStatistics(ValueTree const &vt);
 
 [[nodiscard]]
 ValueTree timbreSpaceReprToVT(std::vector<FeatureContainer<EventwiseStatisticsF>> const &fullTimbreSpace,
-                                           std::vector<Real> const &normalizedOnsets);
+                                           vecReal const &normalizedOnsets);
 
 [[nodiscard]]
 std::vector<FeatureContainer<EventwiseStatisticsF>> valueTreeToTimbreSpace(ValueTree const &vt);
 
 [[nodiscard]]
-std::vector<Real> valueTreeToNormalizedOnsets(ValueTree const &vt);
+vecReal valueTreeToNormalizedOnsets(ValueTree const &vt);
 
 [[nodiscard]]
-std::vector<Real> extractFeaturesFromTree(const ValueTree &frameTree,
+vecReal extractFeaturesFromTree(const ValueTree &frameTree,
                         const std::vector<Feature_e> &featuresToUse,
                         Statistic statisticToUse);
 
 // Overload for single feature - wraps it in a std::array for iteration
 [[nodiscard]]
-std::vector<Real> extractFeaturesFromTree(const ValueTree &frameTree,
+vecReal extractFeaturesFromTree(const ValueTree &frameTree,
                         Feature_e featureToUse,
                         Statistic statisticToUse);
 

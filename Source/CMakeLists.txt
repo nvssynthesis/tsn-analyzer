@@ -69,7 +69,7 @@ target_include_directories(tsn_analyze
 
 target_link_libraries(tsn_analyze
         PRIVATE
-        tsn_analyzer
+        tsn::analyzer   # :: syntax tells cmake this MUST be a target rather than a system or library name. good practice to use when linking to my own libs.
         juce::juce_core
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags

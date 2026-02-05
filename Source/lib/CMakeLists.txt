@@ -9,7 +9,7 @@ configure_file(
 
 include(ExternalProject)
 
-# Options
+# options
 option(USE_SYSTEM_LIBRARIES "Use system-installed libraries instead of fetching" OFF)
 
 # ============================================================================
@@ -121,7 +121,7 @@ ExternalProject_Add(essentia_external
         LOG_INSTALL TRUE
 )
 
-# Set up Essentia include directories
+# set up essentia include directories
 set(ESSENTIA_INCLUDE_DIRS
         "${ESSENTIA_DIR}/src"
         "${EIGEN_INCLUDE_DIR}"
@@ -134,7 +134,7 @@ if(EXISTS "${ESSENTIA_INSTALL_DIR}/include")
     endif()
 endif()
 
-# Platform-specific system libraries for Essentia
+# platform-specific system libs for essentia
 if(APPLE)
     find_library(ACCELERATE_FRAMEWORK Accelerate)
     find_library(CORE_AUDIO_FRAMEWORK CoreAudio)
@@ -183,7 +183,7 @@ endif()
 
 set(ESSENTIA_LIBRARY "${ESSENTIA_INSTALL_DIR}/lib/libessentia.a")
 
-# Create imported target for Essentia
+# create imported target for Essentia
 add_library(essentia_built STATIC IMPORTED GLOBAL)
 set_target_properties(essentia_built PROPERTIES
         IMPORTED_LOCATION "${ESSENTIA_LIBRARY}"
@@ -204,26 +204,25 @@ endif()
 # TSN Analyzer Library
 # ============================================================================
 
-# Collect all source files
+# collect all source files
 file(GLOB_RECURSE TSN_ANALYZER_SOURCES
         "./*.cpp"
         "./*.h"
 )
 
-# Create the library
-add_library(lib_tsn_analyze STATIC ${TSN_ANALYZER_SOURCES})
-add_library(tsn::analyzer ALIAS lib_tsn_analyze)
+# create the library
+add_library(tsn_analyzer STATIC ${TSN_ANALYZER_SOURCES})
+add_library(tsn::analyzer ALIAS tsn_analyzer)
 
-# Add dependency on Essentia build
-add_dependencies(lib_tsn_analyze essentia_external)
+# add dependency on Essentia build
+add_dependencies(tsn_analyzer essentia_external)
 
 message(STATUS "CMAKE_SOURCE_DIR: ${CMAKE_SOURCE_DIR}/juce_utils")
 
-# Include directories
-target_include_directories(lib_tsn_analyze
+target_include_directories(tsn_analyzer
         PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        $<INSTALL_INTERFACE:include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>      # BUILD_INTERFACE is used when building target itself, or other targets in same build tree link against this target
+        $<INSTALL_INTERFACE:include>                        # INSTALL_INTERFACE is used when target has been installed or external projects find and link against installed version
         $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/tsn_analyze_artefacts/JuceLibraryCode>
         SYSTEM # suppress warnings from these headers:
         ${ESSENTIA_INCLUDE_DIRS}
@@ -232,8 +231,7 @@ target_include_directories(lib_tsn_analyze
         "${CMAKE_CURRENT_BINARY_DIR}"
 )
 
-# Link libraries
-target_link_libraries(lib_tsn_analyze
+target_link_libraries(tsn_analyzer
         PUBLIC
         juce::juce_core
         juce::juce_audio_basics
@@ -248,12 +246,11 @@ target_link_libraries(lib_tsn_analyze
         Eigen3::Eigen
 )
 
-# Compiler features
-target_compile_features(lib_tsn_analyze PUBLIC cxx_std_20)
+target_compile_features(tsn_analyzer PUBLIC cxx_std_20)
 
-# Platform-specific settings
+# platform-specific settings
 if(APPLE)
-    target_compile_options(lib_tsn_analyze PRIVATE
+    target_compile_options(tsn_analyzer PRIVATE
             -Wall -Wextra -Wshadow -Wuninitialized
     )
 endif()

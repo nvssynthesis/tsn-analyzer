@@ -110,8 +110,7 @@ void mainAnalysisProgram(const ArgumentList &args)
     const auto onsets = analysisResult.onsets->onsets;
     const auto waveformHash = analysisResult.timbres->waveformHash;
 
-    const auto timbreSpaceVT = nvs::analysis::timbreSpaceReprToVT(timbreSpaceRepr,
-        onsets, waveformHash, audioFileFullAbsPath);
+    const auto timbreSpaceVT = nvs::analysis::timbreSpaceReprToVT(timbreSpaceRepr, onsets);
 
     jassert((analysisResult.onsets->audioFileAbsPath == analysisResult.timbres->audioFileAbsPath) &&
             (analysisResult.onsets->audioFileAbsPath == audioFileFullAbsPath));
