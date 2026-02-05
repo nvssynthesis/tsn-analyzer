@@ -211,20 +211,20 @@ file(GLOB_RECURSE TSN_ANALYZER_SOURCES
 )
 
 # Create the library
-add_library(tsn_analyzer STATIC ${TSN_ANALYZER_SOURCES})
-add_library(tsn::analyzer ALIAS tsn_analyzer)
+add_library(lib_tsn_analyze STATIC ${TSN_ANALYZER_SOURCES})
+add_library(tsn::analyzer ALIAS lib_tsn_analyze)
 
 # Add dependency on Essentia build
-add_dependencies(tsn_analyzer essentia_external)
+add_dependencies(lib_tsn_analyze essentia_external)
 
 message(STATUS "CMAKE_SOURCE_DIR: ${CMAKE_SOURCE_DIR}/juce_utils")
 
 # Include directories
-target_include_directories(tsn_analyzer
+target_include_directories(lib_tsn_analyze
         PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<INSTALL_INTERFACE:include>
-        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/tsn_analyzer_app_artefacts/JuceLibraryCode>
+        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/tsn_analyze_artefacts/JuceLibraryCode>
         SYSTEM # suppress warnings from these headers:
         ${ESSENTIA_INCLUDE_DIRS}
         ${EIGEN_INCLUDE_DIR}
@@ -233,7 +233,7 @@ target_include_directories(tsn_analyzer
 )
 
 # Link libraries
-target_link_libraries(tsn_analyzer
+target_link_libraries(lib_tsn_analyze
         PUBLIC
         juce::juce_core
         juce::juce_audio_basics
@@ -249,11 +249,11 @@ target_link_libraries(tsn_analyzer
 )
 
 # Compiler features
-target_compile_features(tsn_analyzer PUBLIC cxx_std_20)
+target_compile_features(lib_tsn_analyze PUBLIC cxx_std_20)
 
 # Platform-specific settings
 if(APPLE)
-    target_compile_options(tsn_analyzer PRIVATE
+    target_compile_options(lib_tsn_analyze PRIVATE
             -Wall -Wextra -Wshadow -Wuninitialized
     )
 endif()

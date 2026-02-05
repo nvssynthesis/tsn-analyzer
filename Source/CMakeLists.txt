@@ -45,29 +45,29 @@ add_subdirectory(lib)
 # ============================================================================
 # Console Application
 # ============================================================================
-juce_add_console_app(tsn_analyzer_app
+juce_add_console_app(tsn_analyze
         PRODUCT_NAME "TSN Analyzer"
         COMPANY_NAME "CorrodeAudio"
 )
 
-juce_generate_juce_header(tsn_analyzer_app)
+juce_generate_juce_header(tsn_analyze)
 
 #target_sources(AnalysisProgram
 
-target_sources(tsn_analyzer_app
+target_sources(tsn_analyze
         PRIVATE
         Main.cpp
         AnalysisProgram.cpp
 )
 
-add_dependencies(tsn_analyzer_app essentia_external)
+add_dependencies(tsn_analyze essentia_external)
 
-target_include_directories(tsn_analyzer_app
+target_include_directories(tsn_analyze
         PUBLIC
         "${CMAKE_CURRENT_BINARY_DIR}/lib"
 )
 
-target_link_libraries(tsn_analyzer_app
+target_link_libraries(tsn_analyze
         PRIVATE
         tsn_analyzer
         juce::juce_core
@@ -77,7 +77,7 @@ target_link_libraries(tsn_analyzer_app
 
 # Platform-specific settings
 if(APPLE)
-    target_compile_options(tsn_analyzer_app PRIVATE
+    target_compile_options(tsn_analyze PRIVATE
             -Wall -Wextra -Wshadow -Wuninitialized
     )
 endif()
@@ -85,10 +85,10 @@ endif()
 message(STATUS "TSN Analyzer Console App Configuration Complete")
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    add_custom_command(TARGET tsn_analyzer_app POST_BUILD
+    add_custom_command(TARGET tsn_analyze POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E create_symlink
-            $<TARGET_FILE:tsn_analyzer_app>
-            $ENV{HOME}/bin/tsn_analyzer_app
+            $<TARGET_FILE:tsn_analyze>
+            $ENV{HOME}/bin/tsn_analyze
             COMMENT "Symlinking to ~/bin"
     )
 endif()
