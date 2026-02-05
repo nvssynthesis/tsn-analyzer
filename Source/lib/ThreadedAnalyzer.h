@@ -31,7 +31,7 @@ public:
     void updateStoredAudio(std::span<float const> wave, const juce::String &audioFileAbsPath);
     void updateSettings(juce::ValueTree &settingsTree, bool attemptFix);
     //===============================================================================
-    void stopAnalysis() { signalThreadShouldExit(); }
+    void stopAnalysis() { DBG("Stopping analysis thread..."); signalThreadShouldExit(); }
     //===============================================================================
     bool onsetsReady() const {
         return _onsetAnalysisResult != nullptr;
@@ -39,8 +39,16 @@ public:
     bool timbreAnalysisReady() const {
         return _timbreAnalysisResult.has_value();
     }
+    enum class State {
+        Idle,
+        Analyzing,
+        Complete,
+        Failed
+    };
+
+    State getState() const { return _state.load(); }
     //===============================================================================
-    std::shared_ptr<OnsetAnalysisResult> shareOnsetAnalysis();
+    std::shared_ptr<OnsetAnalysisResult> shareOnsetAnalysis() const;
     std::optional<TimbreAnalysisResult> stealTimbreSpaceRepresentation();
     //===============================================================================
     [[deprecated("any reason we would want to get the raw analyzer, there should just be an intermediate method")]]
@@ -59,6 +67,8 @@ private:
     String _audioFileAbsPath {};
 
     RunLoopStatus _rls;
+
+    std::atomic<State> _state {State::Idle};
 
     void run() override;
 };

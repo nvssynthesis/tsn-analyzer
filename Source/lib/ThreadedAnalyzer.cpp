@@ -23,20 +23,28 @@ ThreadedAnalyzer::~ThreadedAnalyzer(){
 }
 
 void ThreadedAnalyzer::updateStoredAudio(std::span<float const> wave, const juce::String &audioFileAbsPath) {
+    jassert(!isThreadRunning());
+    _state = State::Idle;
+    sendChangeMessage();
+
 	_inputWave.assign(wave.begin(), wave.end());
 	_audioFileAbsPath = audioFileAbsPath;
     _onsetAnalysisResult.reset();
     _timbreAnalysisResult.reset();
 }
-auto ThreadedAnalyzer::shareOnsetAnalysis() -> std::shared_ptr<OnsetAnalysisResult> {
+auto ThreadedAnalyzer::shareOnsetAnalysis() const -> std::shared_ptr<OnsetAnalysisResult> {
     return _onsetAnalysisResult;
 }
-auto ThreadedAnalyzer::stealTimbreSpaceRepresentation() -> std::optional<TimbreAnalysisResult>{
-	return std::exchange(_timbreAnalysisResult, std::nullopt);
+auto ThreadedAnalyzer::stealTimbreSpaceRepresentation() -> std::optional<TimbreAnalysisResult> {
+    return std::exchange(_timbreAnalysisResult, std::nullopt);
 }
 
 void ThreadedAnalyzer::updateSettings(juce::ValueTree &settingsTree, const bool attemptFix){
-	jassert( settingsTree.hasType(nvs::axiom::tsn::Settings) );
+    jassert(!isThreadRunning());
+
+    jassert( settingsTree.hasType(nvs::axiom::tsn::Settings) );
+    _state = State::Idle;
+    sendChangeMessage();
 
 	if (!_analyzer.updateSettings(settingsTree, attemptFix))
 	{
@@ -48,6 +56,9 @@ void ThreadedAnalyzer::updateSettings(juce::ValueTree &settingsTree, const bool 
 
 void ThreadedAnalyzer::run() {
 	// first, clear everything so that if any analysis is terminated early, we don't have garbage leftover
+    _state = State::Idle;
+    sendChangeMessage();
+
     _onsetAnalysisResult.reset();
     _timbreAnalysisResult.reset();
 	if (!(_inputWave.data() && !_inputWave.empty())){
@@ -55,6 +66,8 @@ void ThreadedAnalyzer::run() {
 	}
 	_rls.set(0.0);
 
+    _state = State::Analyzing;
+    sendChangeMessage();    // to signal STARTING analysis
 	try {
 		// let any sub-step know if we’ve been asked to exit:
 		auto shouldExit = [this]() {
@@ -73,17 +86,13 @@ void ThreadedAnalyzer::run() {
 
 	    const auto unnormalizedOnsets = [this, shouldExit, audioHash, sr]()-> vecReal {
 	        const auto onsetOpt = _analyzer.calculateOnsetsInSeconds(_inputWave, _rls, shouldExit);
-	        if (threadShouldExit()) {
+	        if (threadShouldExit() || onsetOpt.value().empty()) {
 	            DBG("Threaded Analyzer: exit requested");
+                _state = State::Failed;
 	            sendChangeMessage();
 	            return {};
 	        }
 	        jassert(onsetOpt.has_value());
-		    if (onsetOpt.value().empty()) {
-		        DBG("Threaded Analyzer: zero onsets... returning");
-		        sendChangeMessage();
-		        return {};
-		    }
 
 		    _onsetAnalysisResult = std::make_shared<OnsetAnalysisResult>(onsetOpt.value(), audioHash, _audioFileAbsPath, sr);
 
@@ -94,15 +103,13 @@ void ThreadedAnalyzer::run() {
 
 		    const auto retval = _onsetAnalysisResult->onsets;
 		    normalizeOnsets(_onsetAnalysisResult->onsets, lengthInSeconds);
-		    sendChangeMessage();
+	        jassert(_state == State::Analyzing);
+		    sendChangeMessage();    // signal that onsets are ready
 	        return retval;
 	    }();
-	    if (unnormalizedOnsets.empty()) {
-	        DBG("Threaded Analyzer: zero onsets... returning");
-	        return;
-	    }
-	    if (threadShouldExit()) {
+	    if (unnormalizedOnsets.empty() || threadShouldExit()) {
 	        DBG("Threaded Analyzer: exit requested");
+	        _state = State::Failed;
 	        sendChangeMessage();
 	        return;
 	    }
@@ -111,33 +118,32 @@ void ThreadedAnalyzer::run() {
 		_rls.set("Calculating Onsetwise TimbreSpace...");
 	    {
 	        const auto timbreMeasurementsOpt = _analyzer.calculateOnsetwiseTimbreSpace(_inputWave, unnormalizedOnsets, _rls, shouldExit);
-		    if (!timbreMeasurementsOpt.has_value()) {
-		        DBG("no timbre measurement accomplished, likely due to early exit");
-		        sendChangeMessage();
-		        return;
-		    }
-		    if (threadShouldExit()) {
+		    if (!timbreMeasurementsOpt.has_value() || threadShouldExit()) {
 		        DBG("Threaded Analyzer: exit requested");
+		        _state = State::Failed;
 		        sendChangeMessage();
 		        return;
 		    }
 
 		    jassert (sr == _analyzer.getAnalyzedFileSampleRate());  // sr should not have possibly changed... sanity check
 		    _timbreAnalysisResult.emplace(timbreMeasurementsOpt.value(), audioHash, _audioFileAbsPath, sr);
-		    // only NOW do we send change message, and its a single message which should properly cause ALL data to be visualized etc.
-		    sendChangeMessage();
+		    _state = State::Complete;
+		    sendChangeMessage();    // signal that timbre analyses are ready
 	    }
 	} catch (const essentia::EssentiaException& e) {
 		DBG("Essentia exception: " << e.what());
+	    _state = State::Failed;
 		sendChangeMessage(); // Let GUI know something changed
 		return;
 	}
 	catch (const std::exception& e) {
 		DBG("Standard exception in analysis thread: " << e.what());
+	    _state = State::Failed;
 		sendChangeMessage(); // Let GUI know something changed
 		return;
 	} catch (...) {
 		DBG("Unknown exception in analysis thread");
+	    _state = State::Failed;
 		sendChangeMessage(); // Let GUI know something changed
 		return;
 	}
