@@ -14,7 +14,7 @@ int main (const int argc, char* argv[])
     app.addVersionCommand ("--version|-v", "version: " + juce::String(LIB_VERSION));
 
     app.addCommand({
-        "--convert",
+        "--convert|-c",
         "--convert <input_file> <output_file>",
         "Converts a .json file to .tsb file or vice versa.",
         "Converts a .json file to .tsb (binary, losslessly compressed) file or vice versa. json is human-readable " + newLine +
@@ -24,7 +24,7 @@ int main (const int argc, char* argv[])
     });
 
     app.addCommand ({
-        "--analyze",
+        "--analyze|-a",
         "--analyze <input_file>",
         "Analyzes the audio file and extracts timbre features",
         "This application analyzes an input audio file by splitting it into either events or uniformly-spaced frames, then analyzing each event/frame in terms of pitch, loudness, and timbral features.",
