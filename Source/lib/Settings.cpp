@@ -21,12 +21,21 @@ using NormalisableRangeDouble = juce::NormalisableRange<double>;
 
 static NormalisableRangeDouble makePowerOfTwoRange (double minValue, double maxValue)
 {
-    auto minLog = std::log2 (minValue), maxLog = std::log2 (maxValue);
+    const auto minLog = std::log2 (minValue);
+    const auto maxLog = std::log2 (maxValue);
     return {
         minValue, maxValue,
-        [=] (double, double, double n) { return std::pow (2.0, juce::jmap (n, 0.0, 1.0, minLog, maxLog)); },
-        [=] (double, double, double v) { return juce::jmap (std::log2(v), minLog, maxLog, 0.0, 1.0); },
-        [] (double s, double e, double v) { auto c=juce::jlimit(s, e, v); return std::pow(2.0,std::round(std::log2(double(c)))); }
+        [=] (double, double, const double n) {
+            return std::pow (2.0,
+                juce::jmap (n, 0.0, 1.0, minLog, maxLog));
+        },
+        [=] (double, double, const double v) {
+            return juce::jmap (std::log2(v), minLog, maxLog, 0.0, 1.0);
+        },
+        [] (const double s, const double e, const double v) {
+            const auto c = juce::jlimit(s, e, v);
+            return std::pow(2.0,std::round(std::log2(static_cast<double>(c))));
+        }
     };
 }
 
