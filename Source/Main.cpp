@@ -2,6 +2,7 @@
 
 #include "AnalysisProgram.h"
 #include "ConversionProgram.h"
+#include "SettingsPrograms.h"
 #include "./version.h"
 #include "juce_utils.h"
 
@@ -12,6 +13,18 @@ int main (const int argc, char* argv[])
 
     app.addHelpCommand ("--help|-h", "TSN Analyzer - Audio timbre space analysis tool", true);
     app.addVersionCommand ("--version|-v", "version: " + juce::String(LIB_VERSION));
+
+    app.addCommand({"--config-path|-p",
+        "--config-path|-p",
+        "Prints the path to the config directory.",
+        "Prints the path to the config directory.",
+        printConfigPath});
+
+    app.addCommand({"--config-default|-d",
+        "--config-default|-d",
+        "Prints the current default config.",
+        "Prints the current default config.",
+        printCurrentConfig});
 
     app.addCommand({
         "--convert|-c",

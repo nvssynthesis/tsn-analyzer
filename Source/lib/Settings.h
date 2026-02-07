@@ -52,7 +52,6 @@ using AnySpec = std::variant<
 extern const std::map<juce::String, AnySpec> analysisSpecs, bfccSpecs, onsetSpecs, sBicSpecs, pitchSpecs, splitSpecs, timbreSpaceSpecs;
 extern const std::map<juce::String, const std::map<juce::String,AnySpec>*> specsByBranch;
 
-
 struct AnalyzerSettings {
     struct Analysis {
         double sampleRate = 0.0;
