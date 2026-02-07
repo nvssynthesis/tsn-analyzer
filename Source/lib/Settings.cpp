@@ -39,6 +39,8 @@ static NormalisableRangeDouble makePowerOfTwoRange (double minValue, double maxV
     };
 }
 
+/// TODO: add metadata subtree within settings, including author, creation date, and description
+
 const std::map<juce::String, AnySpec> analysisSpecs
 {
 	{ axiom::tsn::frameSize,     RangedSettingsSpec<int>{   makePowerOfTwoRange(64, 8192), 1024 } },

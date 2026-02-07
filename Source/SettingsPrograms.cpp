@@ -72,8 +72,7 @@ void printCurrentSettings(const ArgumentList &args) {
 
 void createSettingsPresetFromDefault(const ArgumentList &args) {
     // query args for new preset name
-    // also get optional preset description from string
-    // also get optional author from string
+    /// TODO: also get optional entries <author> and <preset description>
 
     const auto &presetsDir = nvs::analysis::customPresetsDirectory;
     if (const Result presetDirCreated = presetsDir.createDirectory(); !presetDirCreated) {
