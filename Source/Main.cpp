@@ -6,25 +6,33 @@
 #include "./version.h"
 #include "juce_utils.h"
 
-int main (const int argc, char* argv[])
-{
+int main (const int argc, char* argv[]) {
     ScopedJuceInitialiser_GUI juceInit;
     ConsoleApplication app;
 
     app.addHelpCommand ("--help|-h", "TSN Analyzer - Audio timbre space analysis tool", true);
     app.addVersionCommand ("--version|-v", "version: " + juce::String(LIB_VERSION));
 
-    app.addCommand({"--config-path|-p",
-        "--config-path|-p",
-        "Prints the path to the config directory.",
-        "Prints the path to the config directory.",
-        printConfigPath});
+    app.addCommand({"--settings-path|-p",
+        "--settings-path|-p",
+        "Prints the path to the settings directory.",
+        "Prints the path to the settings directory.",
+        printSettingsPath
+    });
 
-    app.addCommand({"--config-default|-d",
-        "--config-default|-d",
-        "Prints the current default config.",
-        "Prints the current default config.",
-        printCurrentConfig});
+    app.addCommand({"--settings-default|-d",
+        "--settings-default|-d",
+        "Prints the current default settings preset.",
+        "Prints current default settings.",
+        printCurrentSettings
+    });
+
+    app.addCommand({"--create-settings|-s",
+        "--create-settings|-s",
+        "Creates new settings from default.",
+        "Creates a new settings preset from the current default settings.",
+        createSettingsPresetFromDefault
+    });
 
     app.addCommand({
         "--convert|-c",
@@ -40,7 +48,8 @@ int main (const int argc, char* argv[])
         "--analyze|-a",
         "--analyze <input_file>",
         "Analyzes the audio file and extracts timbre features",
-        "This application analyzes an input audio file by splitting it into either events or uniformly-spaced frames, then analyzing each event/frame in terms of pitch, loudness, and timbral features.",
+        "This application analyzes an input audio file by splitting it into either events or " + newLine +
+            "uniformly-spaced frames, then analyzing each event/frame in terms of pitch, loudness, and timbral features.",
         mainAnalysisProgram
     });
 
