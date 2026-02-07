@@ -58,6 +58,7 @@ target_sources(tsn_analyze
         PRIVATE
         Main.cpp
         AnalysisProgram.cpp
+        SettingsPrograms.cpp
 )
 
 add_dependencies(tsn_analyze essentia_external)

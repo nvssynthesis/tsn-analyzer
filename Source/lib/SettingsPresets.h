@@ -5,10 +5,12 @@
 #pragma once
 #include "Settings.h"
 #include "juce_core/juce_core.h"
+#include "juce_utils.h"
 
 namespace nvs::analysis {
 
-using File = juce::File;
+using juce::ValueTree;
+using juce::File;
 
 const auto settingsPresetLocation = File::getSpecialLocation(File::userApplicationDataDirectory).getChildFile("tsn_analyzer");
 const auto systemDefaultSettingsPreset = settingsPresetLocation.getChildFile("default_settings.json");
@@ -17,10 +19,10 @@ const auto customPresetsDirectory = settingsPresetLocation.getChildFile("presets
 
 inline ValueTree loadValueTreeFromFile(const juce::File &vtFile) {
     if (vtFile.getFileExtension() == ".tsb") {
-        return util::loadValueTreeFromBinary(vtFile);
+        return nvs::util::loadValueTreeFromBinary(vtFile);
     }
     if (vtFile.getFileExtension() == ".json") {
-        return util::loadValueTreeFromJSON(vtFile);
+        return nvs::util::loadValueTreeFromJSON(vtFile);
     }
     std::cerr << "loadValueTreeFromFile: Error loading file: " << vtFile.getFileName() << std::endl;
     return ValueTree();
