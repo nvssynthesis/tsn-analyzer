@@ -53,7 +53,7 @@ inline void printCurrentConfig(const ArgumentList &args) {
     // if we're here, the default file has been properly created
     // const nvs::analysis::AnalyzerSettings settings; // default settings
     // convert settings object to value tree
-    ValueTree vt = {};
+    ValueTree vt("Settings");
     nvs::analysis::initializeSettingsBranches(vt);
     std::cout << nvs::util::valueTreeToXmlStringSafe(vt) << std::endl;
 }
