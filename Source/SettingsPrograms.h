@@ -55,5 +55,7 @@ inline void printCurrentConfig(const ArgumentList &args) {
     // convert settings object to value tree
     ValueTree vt("Settings");
     nvs::analysis::initializeSettingsBranches(vt);
-    std::cout << nvs::util::valueTreeToXmlStringSafe(vt) << std::endl;
+    nvs::util::saveValueTreeToJSON(vt, systemDefaultSettingsPreset.getFullPathName());
+
+    printValueTreeFile(systemDefaultSettingsPreset);
 }
