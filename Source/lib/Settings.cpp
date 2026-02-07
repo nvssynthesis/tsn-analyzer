@@ -136,7 +136,7 @@ const std::map<juce::String, const std::map<juce::String,AnySpec>*>
 	{ axiom::tsn::Onset,    &onsetSpecs    },
 	{ axiom::tsn::sBic,     &sBicSpecs     },
 	{ axiom::tsn::Pitch,    &pitchSpecs    },
-	{ axiom::tsn::Loudness,  &loudnessSpecs    },
+	{ axiom::tsn::Loudness, &loudnessSpecs },
 	{ axiom::tsn::Split,    &splitSpecs    },
 };
 
