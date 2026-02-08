@@ -87,7 +87,7 @@ struct AnalyzerSettings {
 
         double alpha = 0.1;
         int numFrames_shortOnsetFilter = 5;
-        double silenceThreshold = 0.1;
+        double silenceThreshold = 0.03125;
         double weight_complex = 0.5;
         double weight_complexPhase = 0.5;
         double weight_flux = 0.5;

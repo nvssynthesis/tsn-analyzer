@@ -48,7 +48,7 @@ const std::map<juce::String, AnySpec> analysisSpecs
 	{ axiom::tsn::windowingType,  ChoiceSettingsSpec{ 	{axiom::tsn::hann, axiom::tsn::hamming, axiom::tsn::hannnsgcq,
 		axiom::tsn::triangular, axiom::tsn::square, axiom::tsn::blackmanharris62, axiom::tsn::blackmanharris70,
 		axiom::tsn::blackmanharris74, 	axiom::tsn::blackmanharris92}, /* default: */		axiom::tsn::hann 		} },
-    { axiom::tsn::numThreads, RangedSettingsSpec<int>{NormalisableRangeDouble(1, juce::SystemStats::getNumCpus()), juce::SystemStats::getNumPhysicalCpus(),
+    { axiom::tsn::numThreads, RangedSettingsSpec<int>{NormalisableRangeDouble(1, juce::SystemStats::getNumPhysicalCpus()), juce::SystemStats::getNumPhysicalCpus(),
         "The number of threads used for timbral analysis. Higher # of threads => faster analysis, but limited testing has been done for greater than 1 thread."}}
 };
 
