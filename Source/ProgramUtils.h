@@ -12,13 +12,25 @@ inline File getInputFile(const ArgumentList &args)
     return args.arguments[1].resolveAsExistingFile();
 }
 
-inline File getOutputFile(const ArgumentList &args)
-{
-    if (args.arguments.size() < 3) {
+inline File getOutputFile(const ArgumentList &args) {
+    const auto outputFlagIter = std::ranges::find(args.arguments.begin()+1,
+        args.arguments.end(),
+        "-o",
+        [](const auto &x) {
+        return x.text;
+    });
+    if (outputFlagIter == args.arguments.end()) {
+        std::cerr << "Could not find output file; should be preceded by '-o'" << std::endl;
         return {};
     }
-    auto outputFile = File::getCurrentWorkingDirectory()
-                          .getChildFile(args.arguments[2].text);
+    const auto outputFileArgIter = std::next(outputFlagIter);
+    if (outputFileArgIter == args.arguments.end()) {
+        std::cerr << "-o must be followed by an output filname" << std::endl;
+        return {};
+    }
+    auto outputFile = File::getCurrentWorkingDirectory().getChildFile( outputFileArgIter->text );
+    std::cout << outputFile.getFullPathName() << std::endl;
+
 
     if (const bool forceOverwrite = args.containsOption("--force|-f");
         outputFile.existsAsFile() && !forceOverwrite)

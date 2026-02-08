@@ -16,7 +16,6 @@ inline void conversionProgram(const ArgumentList &args) {
 
     const auto outFile = [&args, &inFile, &inFileExt]() -> File {
         if (args.arguments.size() < 3) {
-            // const String outFn =  inFile.getFileNameWithoutExtension();
             if (inFileExt == ".tsb") {
                 return inFile.withFileExtension(".json");
             }
