@@ -4,6 +4,8 @@
 #include "ConversionProgram.h"
 #include "SettingsPrograms.h"
 #include "./version.h"
+#include "lib/version.h"
+
 #include "juce_utils.h"
 
 int main (const int argc, char* argv[]) {
@@ -13,7 +15,9 @@ int main (const int argc, char* argv[]) {
     ConsoleApplication app;
 
     app.addHelpCommand ("--help|-h", "TSN Analyzer - Audio timbre space analysis tool", true);
-    app.addVersionCommand ("--version|-v", "version: " + juce::String(LIB_VERSION));
+    app.addVersionCommand ("--version|-v",
+        "tsn_analyzer lib version: " + String(LIB_VERSION) + newLine +
+        "tsn_analyze program version: " + String(PROGRAM_VERSION));
 
     app.addCommand({"--settings-path|-p",
         "--settings-path|-p",

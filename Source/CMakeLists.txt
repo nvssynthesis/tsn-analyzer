@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(tsn-analyzer VERSION 0.1.2)
+project(tsn-analyzer VERSION 0.1.3)
+
+configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/version.h.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/version.h"
+)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -65,7 +70,7 @@ add_dependencies(tsn_analyze essentia_external)
 
 target_include_directories(tsn_analyze
         PUBLIC
-        "${CMAKE_CURRENT_BINARY_DIR}/lib"
+        "${CMAKE_CURRENT_BINARY_DIR}"
 )
 
 target_link_libraries(tsn_analyze
