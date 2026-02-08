@@ -65,5 +65,5 @@ int main (const int argc, char* argv[]) {
         mainAnalysisProgram
     });
 
-    return app.findAndRunCommand (ArgumentList(argc, argv), true);
+    return app.findAndRunCommand (ArgumentList(argc, argv), false);
 }

@@ -93,6 +93,11 @@ void createSettingsPresetFromDefault(const ArgumentList &args) {
     // query args for new preset name
     /// TODO: also get optional entries <author> and <preset description>
 
+    if (args.arguments.size() < 2) {
+        std::cerr << "Not enough arguments";
+        return;
+    }
+
     const auto &presetsDir = nvs::analysis::customPresetsDirectory;
     if (const Result presetDirCreated = presetsDir.createDirectory(); !presetDirCreated) {
         std::cerr << presetDirCreated.getErrorMessage() << std::endl;
@@ -104,6 +109,10 @@ void createSettingsPresetFromDefault(const ArgumentList &args) {
     // check if same file name already exists
     if (outputSettingsFile.existsAsFile()) {
         std::cerr << "File already exists; returning..." << std::endl;
+        return;
+    }
+    if ((outputSettingsFile.getFileExtension() != ".tsb") && (outputSettingsFile.getFileExtension() != ".json")) {
+        std::cerr << "Output settings file must end with tsb or json." << std::endl;
         return;
     }
 

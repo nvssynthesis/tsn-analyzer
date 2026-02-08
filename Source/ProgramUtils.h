@@ -7,6 +7,7 @@
 
 inline File getInputFile(const ArgumentList &args)
 {
+    // of course this only applies for modes where 1st arg is input file.
     if (args.arguments.size() < 2)
         return {};
     return args.arguments[1].resolveAsExistingFile();
