@@ -140,7 +140,6 @@ void createSettingsPresetFromDefault(const ArgumentList &args) {
                     // yes create new settings preset file even though similar name exists
                     std::cout << "proceeding with creation of new preset file" << std::endl;
                 } else {
-                    jassert(String(response).startsWithIgnoreCase("n"));
                     // do not create new settings preset file
                     std::cout << "aborting..." << std::endl;
                     return;

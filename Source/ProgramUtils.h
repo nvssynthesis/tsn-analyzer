@@ -44,7 +44,7 @@ inline bool checkForYesNoResponse() {
     return jresponse.startsWith("y");
 }
 
-inline File getOutputFile(const ArgumentList &args, const File &directoryWithin) {
+inline File getOutputFile(const ArgumentList &args, const File &directoryWithin, const bool createParentDirectories=true) {
     const auto outputFlagIter = std::ranges::find(std::next(args.arguments.begin()),
         args.arguments.end(),
         "-o",
@@ -69,12 +69,21 @@ inline File getOutputFile(const ArgumentList &args, const File &directoryWithin)
                   << "' already exists.\n";
         std::cout << "Overwrite? (y/N): ";
 
-        if (checkForYesNoResponse())
+        if (!checkForYesNoResponse()) // if 'no'
         {
             std::cout << "Operation cancelled.\n";
             return {};
         }
     }
 
+    if (createParentDirectories) {
+        if (const Result res = outputFile.getParentDirectory().createDirectory();
+            !res)
+        {
+            Logger::writeToLog("In getOutputFile, error when creating directories: ");
+            Logger::writeToLog(res.getErrorMessage() + "\n returning...");
+            return {};
+        }
+    }
     return outputFile;
 }
