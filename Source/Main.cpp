@@ -10,20 +10,25 @@
 
 int main (const int argc, char* argv[]) {
     /// TODO: -n for dry run, --verbose when relevant
-
+    /// TODO: global config file in ~/.config
+    ///
     ScopedJuceInitialiser_GUI juceInit;
     ConsoleApplication app;
 
     app.addHelpCommand ("--help|-h", "TSN Analyzer - Audio timbre space analysis tool", true);
+
     app.addVersionCommand ("--version|-v",
         "tsn_analyzer lib version: " + String(LIB_VERSION) + newLine +
         "tsn_analyze program version: " + String(PROGRAM_VERSION));
 
-    app.addCommand({"--settings-path|-p",
-        "--settings-path|-p",
-        "Prints the path to the settings directory.",
-        "Prints the path to the settings directory.",
-        printSettingsPath
+    app.addCommand({"--print-path|-p",
+        "--print-path|-p [--settings|-s] [--config|-c]",
+        "Prints one of the paths used for the functionality of tsn_analyzer lib and tsn_analyze app.",
+        "Prints one of the paths used for the functionality of tsn_analyzer lib and tsn_analyze app." + newLine +
+            "The [--settings|-s] flag will print the path of the directory containing all preset files." + newLine +
+                "The [--config|-c] flag (TODO) will print the path of the singular config file, which is responsible for holding" + newLine +
+                    "authorship information, default locations to use for finding/saving analysis and settings files, etc.",
+        printPath
     });
 
     app.addCommand({"--settings-default|-d",
@@ -33,8 +38,8 @@ int main (const int argc, char* argv[]) {
         printCurrentSettings
     });
 
-    app.addCommand({"--create-settings|-s",
-        "--create-settings|-s",
+    app.addCommand({"--settings|-s",
+        "--settings|-s <output_file>",  // in the future there might be modes within '--settings' e.g. -c for 'create', -i for 'interactive', etc.
         "Creates new settings from default.",
         "Creates a new settings preset from the current default settings.",
         createSettingsPresetFromDefault

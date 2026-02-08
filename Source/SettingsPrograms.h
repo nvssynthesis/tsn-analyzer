@@ -6,7 +6,7 @@ using juce::File;
 using juce::ArgumentList;
 
 
-void printSettingsPath(const ArgumentList &);
+void printPath(const ArgumentList &args);
 
 void printCurrentSettings(const ArgumentList &);
 

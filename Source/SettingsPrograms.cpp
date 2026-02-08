@@ -1,21 +1,40 @@
 #include "SettingsPrograms.h"
 #include "juce_utils.h"
+#include "ProgramUtils.h"
 
 using juce::String;
 using juce::Array;
 using juce::Result;
 
-void printSettingsPath(const ArgumentList &) {
-    using nvs::analysis::settingsPresetLocation;
 
-    if (const auto result = settingsPresetLocation.createDirectory();
-        !result)
+void printPath(const ArgumentList &args) {
+
+    bool some_flag_found = false;
+    if (foundFlag(args, {"-s", "--settings"}))
     {
-        std::cerr << result.getErrorMessage() << std::endl;
-        std::cerr << "Failed to create analyzer settings directory at " << settingsPresetLocation.getFullPathName() << std::endl;
-        return;
+        some_flag_found = true;
+        using nvs::analysis::settingsPresetLocation;
+
+        if (const auto result = settingsPresetLocation.createDirectory();
+            !result)
+        {
+            std::cerr << result.getErrorMessage() << std::endl;
+            std::cerr << "Failed to create analyzer settings directory at " << settingsPresetLocation.getFullPathName() << std::endl;
+            return;
+        }
+        std::cout << "settings preset location: " <<
+            settingsPresetLocation.getFullPathName() << std::endl;
     }
-    std::cout << settingsPresetLocation.getFullPathName() << std::endl;
+    if (foundFlag(args, {"-c", "--config"}))
+    {
+        some_flag_found = true;
+        std::cout << "tsn_analyzer config location: " << "\n";
+        std::cerr << "NOT YET IMPLEMENTED" << std::endl;
+    }
+    if (!some_flag_found) {
+        std::cerr << "no element to print was found." << std::endl;
+        std::cout << "optional flags for --print-path: [--settings|-s] [--config|-c]" << std::endl;
+    }
 }
 
 void printValueTreeFile(const juce::File &valueTreeFile) {
@@ -79,16 +98,17 @@ void createSettingsPresetFromDefault(const ArgumentList &args) {
         std::cerr << presetDirCreated.getErrorMessage() << std::endl;
     }
 
-    const File newSettingsFile = presetsDir.getChildFile(args.arguments[1].resolveAsFile().getFileName());
+
+    const File outputSettingsFile = presetsDir.getChildFile(args.arguments[1].resolveAsFile().getFileName());
 
     // check if same file name already exists
-    if (newSettingsFile.existsAsFile()) {
+    if (outputSettingsFile.existsAsFile()) {
         std::cerr << "File already exists; returning..." << std::endl;
         return;
     }
 
     { // check for name match regardless of extension as well
-        const auto fnWithoutExt = newSettingsFile.getFileNameWithoutExtension();
+        const auto fnWithoutExt = outputSettingsFile.getFileNameWithoutExtension();
         Array<File> directoryFiles = presetsDir.findChildFiles(
             File::TypesOfFileToFind::findFilesAndDirectories,
             true,
@@ -116,18 +136,7 @@ void createSettingsPresetFromDefault(const ArgumentList &args) {
             }
             { // get response on whether to create anyway
                 std::cout << "Create new preset file at " << fnWithoutExt << " anyway? (y/N)" << std::endl;
-                std::string response {""};
-                auto checkResponse = [&response]() {
-                    if (!(String(response).startsWithIgnoreCase("y") || String(response).startsWithIgnoreCase("n"))) {
-                        std::cout << "please answer with 'y' or 'N' (case insensitive)" << std::endl;
-                        return false;
-                    }
-                    return true;
-                };
-                do {
-                    std::cin >> response;
-                } while (!checkResponse());
-                if (String(response).startsWithIgnoreCase("y")) {
+                if (checkForYesNoResponse()) {
                     // yes create new settings preset file even though similar name exists
                     std::cout << "proceeding with creation of new preset file" << std::endl;
                 } else {
@@ -147,13 +156,13 @@ void createSettingsPresetFromDefault(const ArgumentList &args) {
         return createDefaultPresetFile();
     }();
 
-    if (newSettingsFile.getFileExtension() == ".tsb") {
+    if (outputSettingsFile.getFileExtension() == ".tsb") {
         // convert default settings to .tsb file and save it in presets
-        nvs::util::saveValueTreeToBinary(defaultVT, newSettingsFile);
-        std::cout << "New settings file created at " << newSettingsFile.getFullPathName() << std::endl;
-    } else if (newSettingsFile.getFileExtension() == ".json") {
-        nvs::util::saveValueTreeToJSON(defaultVT, newSettingsFile);
-        std::cout << "New settings file created at " << newSettingsFile.getFullPathName() << std::endl;
+        nvs::util::saveValueTreeToBinary(defaultVT, outputSettingsFile);
+        std::cout << "New settings file created at " << outputSettingsFile.getFullPathName() << std::endl;
+    } else if (outputSettingsFile.getFileExtension() == ".json") {
+        nvs::util::saveValueTreeToJSON(defaultVT, outputSettingsFile);
+        std::cout << "New settings file created at " << outputSettingsFile.getFullPathName() << std::endl;
     }
     else {
         std::cerr << "File must have extension .tsb or .json" << std::endl;

@@ -5,6 +5,7 @@
 #pragma once
 #include "juce_utils.h"
 #include "ProgramUtils.h"
+#include "./lib/config.h"
 
 inline void conversionProgram(const ArgumentList &args) {
     if (args.arguments.size() < 2) {
@@ -14,7 +15,9 @@ inline void conversionProgram(const ArgumentList &args) {
     const auto inFile = getInputFile(args);
     const auto inFileExt = inFile.getFileExtension();
 
+
     const auto outFile = [&args, &inFile, &inFileExt]() -> File {
+        // try making outFile from inFile if only args are program name and program mode
         if (args.arguments.size() < 3) {
             if (inFileExt == ".tsb") {
                 return inFile.withFileExtension(".json");
@@ -25,7 +28,7 @@ inline void conversionProgram(const ArgumentList &args) {
             Logger::writeToLog("extensions must be either .json or .tsb");
             return {};
         }
-        return getOutputFile(args);
+        return getOutputFile(args, nvs::config::analysisFilesLocation);
     }();
     if (outFile == File()) {
         Logger::writeToLog("invalid extension; returning...");

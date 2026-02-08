@@ -3,6 +3,7 @@
 #include "lib/OnsetAnalysis/OnsetProcessing.h"
 #include "juce_utils.h"
 #include "ProgramUtils.h"
+#include "./lib/config.h"
 
 using namespace juce;
 
@@ -118,14 +119,15 @@ void mainAnalysisProgram(const ArgumentList &args)
     jassert((analysisResult.onsets->audioFileAbsPath == analysisResult.timbres->audioFileAbsPath) &&
             (analysisResult.onsets->audioFileAbsPath == audioFileFullAbsPath));
 
-    if (const File outFile = getOutputFile(args);
-        outFile == File{})
+
+    if (const File outAnalysisFile = getOutputFile(args, nvs::config::analysisFilesLocation);
+        outAnalysisFile == File{})
     {
         Logger::writeToLog("No output file argument; printing analysis tree...\n");
         Logger::writeToLog(nvs::util::valueTreeToXmlStringSafe(timbreSpaceVT));
     }
     else {
-        Logger::writeToLog("Writing to " + outFile.getFullPathName());
+        Logger::writeToLog("Writing to " + outAnalysisFile.getFullPathName());
         const auto superTree = nvs::analysis::makeSuperTree(
             timbreSpaceVT,
             audioFileFullAbsPath,
@@ -134,11 +136,11 @@ void mainAnalysisProgram(const ArgumentList &args)
             analysisResult.settingsHash,
             settingsTree);
 
-        if (outFile.getFileExtension() == ".json") {
-            nvs::util::saveValueTreeToJSON(superTree, outFile);
+        if (outAnalysisFile.getFileExtension() == ".json") {
+            nvs::util::saveValueTreeToJSON(superTree, outAnalysisFile);
         }
-        else if (outFile.getFileExtension() == ".tsb") {
-            nvs::util::saveValueTreeToBinary(superTree, outFile);
+        else if (outAnalysisFile.getFileExtension() == ".tsb") {
+            nvs::util::saveValueTreeToBinary(superTree, outAnalysisFile);
         }
     }
 }
