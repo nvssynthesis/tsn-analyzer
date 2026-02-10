@@ -78,12 +78,13 @@ AnalyzerResult runAnalyzer(const std::span<const float> &channel, const String &
 
 void mainAnalysisProgram(const ArgumentList &args)
 {
-    if (args.arguments.size() < 2) {
+    if (args.arguments.size() < 3) {
         Logger::writeToLog("Not enough arguments");
+        return;
     }
-    const File inputAudioFile = getInputFile(args);
-    if (inputAudioFile == juce::File{}) {
-        DBG("Error: Please specify an input file");
+    const File inputAudioFile = getInputFile(args, File::getCurrentWorkingDirectory());
+    if (inputAudioFile == File{}) {
+        Logger::writeToLog("Error: Please specify an input file");
         jassertfalse;
         return;
     }

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(tsn-analyzer VERSION 0.1.4)
+project(tsn-analyzer VERSION 0.1.5)
 
 configure_file(
         "${CMAKE_CURRENT_SOURCE_DIR}/version.h.in"

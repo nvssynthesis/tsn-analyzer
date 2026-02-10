@@ -93,7 +93,7 @@ void createSettingsPresetFromDefault(const ArgumentList &args) {
     // query args for new preset name
     /// TODO: also get optional entries <author> and <preset description>
 
-    if (args.arguments.size() < 2) {
+    if (args.arguments.size() < 3) {
         std::cerr << "Not enough arguments";
         return;
     }
@@ -104,7 +104,7 @@ void createSettingsPresetFromDefault(const ArgumentList &args) {
     }
 
 
-    const File outputSettingsFile = presetsDir.getChildFile(args.arguments[1].resolveAsFile().getFileName());
+    const File outputSettingsFile = getOutputFile(args, presetsDir, true); // presetsDir.getChildFile(args.arguments[1].resolveAsFile().getFileName());
 
     // check if same file name already exists
     if (outputSettingsFile.existsAsFile()) {

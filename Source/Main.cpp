@@ -11,7 +11,7 @@
 int main (const int argc, char* argv[]) {
     /// TODO: -n for dry run, --verbose when relevant
     /// TODO: global config file in ~/.config
-    ///
+
     ScopedJuceInitialiser_GUI juceInit;
     ConsoleApplication app;
 
@@ -39,7 +39,7 @@ int main (const int argc, char* argv[]) {
     });
 
     app.addCommand({"--settings|-s",
-        "--settings|-s <output_file>",  // in the future there might be modes within '--settings' e.g. -c for 'create', -i for 'interactive', etc.
+        "--settings|-s --output|-o <output_file>",
         "Creates new settings from default.",
         "Creates a new settings preset from the current default settings.",
         createSettingsPresetFromDefault
@@ -47,7 +47,7 @@ int main (const int argc, char* argv[]) {
 
     app.addCommand({
         "--convert|-c",
-        "--convert <input_file>",
+        "--convert|-c --input|-i <input_file>",
         "Converts a .json file to .tsb file or vice versa.",
         "Converts a .json file to .tsb (binary, losslessly compressed) file or vice versa. json is human-" + newLine +
         "readable but a fairly large file, while tsb is only machine-readable but much smaller in size. The only downside" + newLine +
@@ -57,7 +57,7 @@ int main (const int argc, char* argv[]) {
 
     app.addCommand ({
         "--analyze|-a",
-        "--analyze <input_file> [-s <settings_file>] [-o <output_file>]",
+        "--analyze|-a --input|-i <input_file> [-s <settings_file>] [-o <output_file>]",
         "Analyzes the audio file and extracts timbre features",
         "This application analyzes an input audio file by splitting it into either events or " + newLine +
             "uniformly-spaced frames, then analyzing each event/frame in terms of pitch, loudness, and timbral features." + newLine +

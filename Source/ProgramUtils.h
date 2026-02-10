@@ -5,12 +5,39 @@
 #pragma once
 #include <JuceHeader.h>
 
-inline File getInputFile(const ArgumentList &args)
+inline bool createParentDirectories(const File &f) {
+    if (const Result res = f.getParentDirectory().createDirectory();
+        !res)
+    {
+        Logger::writeToLog("In getOutputFile, error when creating directories: ");
+        Logger::writeToLog(res.getErrorMessage() + "\n returning...");
+        return false;
+    }
+    return true;
+}
+
+inline File asAbsPathOrWithinDirectory(const StringRef fileEntry, const File &directoryWithin) {
+    if (File::isAbsolutePath(fileEntry)) {  // if they went out of their way to specify a full path, they can have it
+        return File(fileEntry);
+    }
+    return directoryWithin.getChildFile(fileEntry); // otherwise we work from parent directoryWithin
+}
+
+inline File getInputFile(const ArgumentList &args, const File &directoryWithin, const bool shouldCreateParentDirectories=true)
 {
     // of course this only applies for modes where 1st arg is input file.
-    if (args.arguments.size() < 2)
+    const String inputFileEntry = args.getValueForOption("--input|-i");
+    if (inputFileEntry.isEmpty()) {
         return {};
-    return args.arguments[1].resolveAsExistingFile();
+    }
+    const auto inputFile = asAbsPathOrWithinDirectory(inputFileEntry, directoryWithin);
+    if (shouldCreateParentDirectories) {
+        createParentDirectories(inputFile);
+    }
+    if (!inputFile.exists()) {
+        return {};
+    }
+    return inputFile;
 }
 
 inline bool foundFlag(const ArgumentList &args, const Array<String> &flagsToFind) {
@@ -45,23 +72,12 @@ inline bool checkForYesNoResponse() {
     return jresponse.startsWith("y");
 }
 
-inline File getOutputFile(const ArgumentList &args, const File &directoryWithin, const bool createParentDirectories=true) {
-    const auto outputFlagIter = std::ranges::find(std::next(args.arguments.begin()),
-        args.arguments.end(),
-        "-o",
-        [](const auto &x) {
-        return x.text;
-    });
-    if (outputFlagIter == args.arguments.end()) {
-        std::cerr << "Could not find output filename; should be preceded by '-o'" << std::endl;
-        return {};
+inline File getOutputFile(const ArgumentList &args, const File &directoryWithin, const bool shouldCreateParentDirectories=true) {
+    const auto outputFileEntry = args.getValueForOption("--output|-o");
+    if (outputFileEntry.isEmpty()) {
+        std::cout << "please specify an output file via --output|-o <output_filename>" << std::endl;
     }
-    const auto outputFileArgIter = std::next(outputFlagIter);
-    if (outputFileArgIter == args.arguments.end()) {
-        std::cerr << "-o must be followed by an output filename" << std::endl;
-        return {};
-    }
-    auto outputFile = directoryWithin.getChildFile( outputFileArgIter->text );
+    const auto outputFile = asAbsPathOrWithinDirectory(outputFileEntry, directoryWithin);
 
     if (const bool forceOverwrite = args.containsOption("--force|-f");
         outputFile.existsAsFile() && !forceOverwrite)
@@ -77,14 +93,8 @@ inline File getOutputFile(const ArgumentList &args, const File &directoryWithin,
         }
     }
 
-    if (createParentDirectories) {
-        if (const Result res = outputFile.getParentDirectory().createDirectory();
-            !res)
-        {
-            Logger::writeToLog("In getOutputFile, error when creating directories: ");
-            Logger::writeToLog(res.getErrorMessage() + "\n returning...");
-            return {};
-        }
+    if (shouldCreateParentDirectories) {
+        createParentDirectories(outputFile);
     }
     return outputFile;
 }
