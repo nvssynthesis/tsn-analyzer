@@ -41,6 +41,8 @@ endif()
 # ============================================================================
 include(FetchContent)
 
+set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
+
 FetchContent_Declare(
         essentia
         GIT_REPOSITORY https://github.com/MTG/essentia.git
