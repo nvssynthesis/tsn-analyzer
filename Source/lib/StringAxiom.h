@@ -120,6 +120,7 @@ STRAXIOMIZE(histogram_equalization);
 STRAXIOMIZE(filtered_feature);
 STRAXIOMIZE(filtered_feature_min);
 STRAXIOMIZE(filtered_feature_max);
+STRAXIOMIZE(decorrelateFromPitchAndLoudness);
 
 STRAXIOMIZE(statistic);
 STRAXIOMIZE(mean);
