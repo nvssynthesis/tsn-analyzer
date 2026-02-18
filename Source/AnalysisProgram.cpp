@@ -3,6 +3,7 @@
 #include "lib/OnsetAnalysis/OnsetProcessing.h"
 #include "juce_utils.h"
 #include "ProgramUtils.h"
+#include "SettingsPresets.h"
 #include "./lib/config.h"
 
 using namespace juce;
@@ -45,7 +46,18 @@ ValueTree makeSettingsParentTree(double sampleRate, const String &filePath)
     const auto settingsParentTree = nvs::analysis::createParentTreeFromSettings(settings);
     return settingsParentTree;
 }
+ValueTree makeSettingsParentTree(const ValueTree settingsTree, double sampleRate, const String &filePath)
+{
+    ValueTree settingsParentTree("Root");
 
+    ValueTree fileInfoTree(nvs::axiom::tsn::FileInfo);
+    fileInfoTree.setProperty(nvs::axiom::tsn::sampleFilePath, filePath, nullptr);
+    fileInfoTree.setProperty(nvs::axiom::tsn::sampleRate, sampleRate, nullptr);
+    settingsParentTree.appendChild(fileInfoTree, nullptr);
+
+    settingsParentTree.addChild(settingsTree, -1, nullptr);
+    return settingsParentTree;
+}
 AnalyzerResult runAnalyzer(const std::span<const float> &channel, const String &audioFileFullAbsolutePath, auto &settingsTree)
 {
     if (!nvs::analysis::verifySettingsStructure(settingsTree)) {
@@ -92,15 +104,24 @@ void mainAnalysisProgram(const ArgumentList &args)
     Logger::writeToLog("Opening " + inputAudioFile.getFileName() + "...");
 
     AudioSampleBuffer buffer;
-    const auto [numSamples, sampleRate, bitDepth] = readIntoBuffer(buffer, inputAudioFile);
+    const auto audioFileInfo = readIntoBuffer(buffer, inputAudioFile);
 
     const auto rp = buffer.getReadPointer(0);
-    const std::span channel0(rp, numSamples);
+    const std::span channel0(rp, audioFileInfo.numSamples);
 
     const auto& audioFileFullAbsPath = inputAudioFile.getFullPathName();
-    const auto settingsParentTree = makeSettingsParentTree(sampleRate, audioFileFullAbsPath);
+
+    const auto settingsParentTree = [&args, &audioFileInfo, &audioFileFullAbsPath]() {
+        if (const auto settingsStr = args.getValueForOption("--settings|-s");
+        !settingsStr.isEmpty())
+        {
+            const File settingsFile = asAbsPathOrWithinDirectory(settingsStr, nvs::analysis::settingsPresetLocation);
+            const auto settingsVT = nvs::analysis::loadValueTreeFromFile(settingsFile);
+            return makeSettingsParentTree(settingsVT, audioFileInfo.sampleRate, audioFileFullAbsPath);
+        }
+        return makeSettingsParentTree(audioFileInfo.sampleRate, audioFileFullAbsPath);
+    }();
     const auto treeStr = nvs::util::valueTreeToXmlStringSafe(settingsParentTree);
-    Logger::writeToLog(treeStr);
 
     auto /*can't be const*/ settingsTree = settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings);
     const auto analysisResult = runAnalyzer(channel0, audioFileFullAbsPath, settingsTree);
@@ -121,7 +142,7 @@ void mainAnalysisProgram(const ArgumentList &args)
             (analysisResult.onsets->audioFileAbsPath == audioFileFullAbsPath));
 
 
-    if (const File outAnalysisFile = getOutputFile(args, nvs::config::analysisFilesLocation);
+    if (const File outAnalysisFile = getOutputFile(args, nvs::config::analysisFilesLocation, true);
         outAnalysisFile == File{})
     {
         Logger::writeToLog("No output file argument; printing analysis tree...\n");
@@ -132,7 +153,7 @@ void mainAnalysisProgram(const ArgumentList &args)
         const auto superTree = nvs::analysis::makeSuperTree(
             timbreSpaceVT,
             audioFileFullAbsPath,
-            sampleRate,
+            audioFileInfo.sampleRate,
             waveformHash,
             analysisResult.settingsHash,
             settingsTree);

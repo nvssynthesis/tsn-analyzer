@@ -17,7 +17,7 @@ const auto systemDefaultSettingsPreset = settingsPresetLocation.getChildFile("de
 const auto customPresetsDirectory = settingsPresetLocation.getChildFile("presets");
 
 
-inline ValueTree loadValueTreeFromFile(const juce::File &vtFile) {
+inline ValueTree loadValueTreeFromFile(const File &vtFile) {
     if (vtFile.getFileExtension() == ".tsb") {
         return nvs::util::loadValueTreeFromBinary(vtFile);
     }
@@ -25,7 +25,7 @@ inline ValueTree loadValueTreeFromFile(const juce::File &vtFile) {
         return nvs::util::loadValueTreeFromJSON(vtFile);
     }
     std::cerr << "loadValueTreeFromFile: Error loading file: " << vtFile.getFileName() << std::endl;
-    return ValueTree();
+    return {};
 }
 
 

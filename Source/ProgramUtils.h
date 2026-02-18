@@ -72,12 +72,14 @@ inline bool checkForYesNoResponse() {
     return jresponse.startsWith("y");
 }
 
-inline File getOutputFile(const ArgumentList &args, const File &directoryWithin, const bool shouldCreateParentDirectories=true) {
+inline File getOutputFile(const ArgumentList &args, const File &directoryWithin,
+    const bool shouldCreateParentDirectories=true) {
     const auto outputFileEntry = args.getValueForOption("--output|-o");
     if (outputFileEntry.isEmpty()) {
-        std::cout << "please specify an output file via --output|-o <output_filename>" << std::endl;
+        std::cerr << "please specify an output file via --output|-o <output_filename>" << std::endl;
+        return {};
     }
-    const auto outputFile = asAbsPathOrWithinDirectory(outputFileEntry, directoryWithin);
+    auto outputFile = asAbsPathOrWithinDirectory(outputFileEntry, directoryWithin);
 
     if (const bool forceOverwrite = args.containsOption("--force|-f");
         outputFile.existsAsFile() && !forceOverwrite)
