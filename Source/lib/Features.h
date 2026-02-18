@@ -43,8 +43,8 @@ enum class Feature_e {
 	NumFeatures
 };
 static constexpr int NumBFCC = 13;
-static constexpr auto NumTimbralFeatures = static_cast<int>(Feature_e::StrongPeak);
-static_assert(NumTimbralFeatures == 18);
+static constexpr auto NumTimbralFeatures = static_cast<int>(Feature_e::StrongPeak) + 1;
+static_assert(NumTimbralFeatures == 19);
 
 const std::set bfccSet {
 	Feature_e::bfcc0,

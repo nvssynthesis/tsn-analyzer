@@ -336,7 +336,14 @@ FeatureContainer<vecReal> calculateTimbres(std::span<Real const> waveSpan, Analy
         Real spectralComplexity;
         spectralComplexity_a->input("spectrum").set(spectrumVec);
         spectralComplexity_a->output("spectralComplexity").set(spectralComplexity);
+        spectralComplexity_a->compute();
         timbres[Feature_e::SpectralComplexity].push_back(spectralComplexity);
+
+        Real strongPeak;
+        strongPeakinesses_a->input("spectrum").set(spectrumVec);
+        strongPeakinesses_a->output("strongPeak").set(strongPeak);
+        strongPeakinesses_a->compute();
+        timbres[Feature_e::StrongPeak].push_back(strongPeak);
 
         frameCounter++;
     }
