@@ -9,6 +9,7 @@
 */
 
 #include <concepts>
+#include <ranges>
 
 #include <juce_audio_formats/juce_audio_formats.h>
 #include "Analyzer.h"
@@ -126,21 +127,44 @@ static std::vector<T> weightedMeanFrames(const std::vector<std::vector<T>>& fram
     return result;
 }
 
+std::vector<float> filterByTopPercentile(
+    const std::vector<float>& x,
+    const std::vector<float>& confidences,
+    const float upper_prcntl = 0.90f)
+{
+    if (x.empty()) return {};
+
+    std::vector<float> sorted_confidences = confidences;
+    std::ranges::sort(sorted_confidences);
+
+    size_t threshold_idx = static_cast<size_t>(upper_prcntl * sorted_confidences.size());
+    threshold_idx = std::min(threshold_idx, sorted_confidences.size() - 1);
+    const float threshold = sorted_confidences[threshold_idx];
+
+    const auto indices = std::views::iota(0uz, x.size());
+    auto result = indices
+        | std::views::filter([&](const size_t i) { return confidences[i] >= threshold; })
+        | std::views::transform([&](const size_t i) { return x[i]; });
+
+    return std::vector<float>(result.begin(), result.end());
+}
 
 void Analyzer::calculateEventwisePitchDescription(const vecReal &waveEvent, FeatureContainer<EventwiseStats> &features) const {
     const auto [pitches, confidences] = calculatePitchesAndConfidences(waveEvent, settings);
-#pragma message("not using confidences yet")
 
-    const auto p_mean = mean(pitches);
+    vecReal confidentPitches = filterByTopPercentile(pitches, confidences, 0.2f);
+
+    const auto p_mean = mean(confidentPitches);
     const auto c_mean = mean(confidences);
+
 
     features[Feature_e::f0] = {
         EventwiseStats {
             .mean = p_mean,
-            .median = essentia::median(pitches),
-            .variance = essentia::variance(pitches, p_mean),
-            .skewness = essentia::skewness(pitches, p_mean),
-            .kurtosis = essentia::kurtosis(pitches, p_mean)
+            .median = essentia::median(confidentPitches),
+            .variance = essentia::variance(confidentPitches, p_mean),
+            .skewness = essentia::skewness(confidentPitches, p_mean),
+            .kurtosis = essentia::kurtosis(confidentPitches, p_mean)
         }
     };
     features[Feature_e::Periodicity] = {

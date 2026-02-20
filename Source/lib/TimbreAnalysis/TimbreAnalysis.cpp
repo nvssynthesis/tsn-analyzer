@@ -149,7 +149,7 @@ PitchesAndConfidences calculatePitchesEssentiaProbabilisticYin(std::span<Real> w
             confidences.begin(),    // first2
             pitches.begin(),    // output
             [&pitchSettings = settings.pitch](const float pitch, const float confidence) {
-                if (pitch == 0.f) {
+                if (pitch <= 0.f) {
                     return 0.0f;
                 }
         // NOTE: PitchYinProbabilistic already takes care of this EXCEPT the nyquist setting
@@ -158,7 +158,12 @@ PitchesAndConfidences calculatePitchesEssentiaProbabilisticYin(std::span<Real> w
                         return pitchSettings.dismal_replacement_constant;
                     }
                 }
-                return 69.f + 12.f * std::log2(pitch / 440.f);
+                const auto retval = 69.f + 12.f * std::log2(pitch / 440.f);
+                if (std::isnan(retval)) {
+                    jassertfalse;
+                    return 0.0f;
+                }
+                return retval;
             }
         );
         return PitchesAndConfidences{pitches, confidences};
@@ -175,9 +180,7 @@ PitchesAndConfidences calculatePitchesAndConfidences (vecReal waveEvent,
         return calculatePitchesEssentiaYin (waveEvent, settings);
     }
     if (algo == "pYin") {
-        jassertfalse;  // not implemented
-        return {};
-        //		return calculatePitchesEssentiaPYin (waveEvent, factory, settingsTree);
+        return calculatePitchesEssentiaProbabilisticYin (waveEvent, settings);
     }
     if (algo == "chroma") {
         jassertfalse;  // not implemented
