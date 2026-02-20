@@ -18,14 +18,20 @@ const auto customPresetsDirectory = settingsPresetLocation.getChildFile("presets
 
 
 inline ValueTree loadValueTreeFromFile(const File &vtFile) {
-    if (vtFile.getFileExtension() == ".tsb") {
-        return nvs::util::loadValueTreeFromBinary(vtFile);
+    const auto retval = [&vtFile] () -> ValueTree{
+        if (vtFile.getFileExtension() == ".tsb") {
+            return nvs::util::loadValueTreeFromBinary(vtFile);
+        }
+        if (vtFile.getFileExtension() == ".json") {
+            return nvs::util::loadValueTreeFromJSON(vtFile);
+        }
+        return ValueTree();
+    }();
+    if (!retval.isValid()) {
+        std::cerr << "loadValueTreeFromFile: Error loading file: " << vtFile.getFileName() << std::endl;
+        return {};
     }
-    if (vtFile.getFileExtension() == ".json") {
-        return nvs::util::loadValueTreeFromJSON(vtFile);
-    }
-    std::cerr << "loadValueTreeFromFile: Error loading file: " << vtFile.getFileName() << std::endl;
-    return {};
+    return retval;
 }
 
 

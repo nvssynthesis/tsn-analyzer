@@ -61,7 +61,7 @@ ValueTree makeSettingsParentTree(const ValueTree settingsTree, double sampleRate
 AnalyzerResult runAnalyzer(const std::span<const float> &channel, const String &audioFileFullAbsolutePath, auto &settingsTree)
 {
     if (!nvs::analysis::verifySettingsStructure(settingsTree)) {
-        DBG("Settings structure verification failed");
+        Logger::writeToLog("Settings structure verification failed");
         return {};
     }
 
@@ -69,7 +69,7 @@ AnalyzerResult runAnalyzer(const std::span<const float> &channel, const String &
     analyzer.updateStoredAudio(channel, audioFileFullAbsolutePath);
     analyzer.updateSettings(settingsTree, true);
     if (!analyzer.startThread(Thread::Priority::normal)) {
-        DBG("Failed to start analysis thread\n");
+        Logger::writeToLog("Failed to start analysis thread\n");
         return {};
     }
 
@@ -125,8 +125,8 @@ void mainAnalysisProgram(const ArgumentList &args)
 
     auto /*can't be const*/ settingsTree = settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings);
     const auto analysisResult = runAnalyzer(channel0, audioFileFullAbsPath, settingsTree);
-    if ((analysisResult.onsets == nullptr) || (analysisResult.timbres == std::nullopt)) {
-        DBG("Analysis failed; returning");
+    if (analysisResult.onsets == nullptr || analysisResult.timbres == std::nullopt) {
+        Logger::writeToLog("Analysis failed; returning");
         jassertfalse;
         return;
     }

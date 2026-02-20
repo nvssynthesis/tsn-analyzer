@@ -188,6 +188,7 @@ void initializeSettingsBranches(ValueTree& settingsVT, const bool dbg){
 bool verifySettingsStructure (const ValueTree& settingsVT)
 {
 	if (! settingsVT.isValid()){
+	    Logger::writeToLog("Settings refers to invalid data; returning...");
 		return false;
 	}
 	for (auto const& [branchName, specMapPtr] : specsByBranch) {
@@ -196,6 +197,7 @@ bool verifySettingsStructure (const ValueTree& settingsVT)
 		
 		// check branch validity
 		if (! branchVT.isValid()) {
+    	    Logger::writeToLog("Branch " + branchId.toString() + " refers to invalid data; returning...");
 			return false; // missing entire branch
 		}
 
@@ -204,6 +206,7 @@ bool verifySettingsStructure (const ValueTree& settingsVT)
             if (juce::Identifier propertyId (propertyName);
                 !branchVT.hasProperty(propertyId))
             {
+        	    Logger::writeToLog("Branch has no property " + propertyId.toString() + "; returning...");
 				return false;
 			}
 		}
