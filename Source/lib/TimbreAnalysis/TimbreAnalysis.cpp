@@ -20,7 +20,7 @@ PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, Anal
     int const frameSize = settings.analysis.frameSize;
     int const zeroPadding = frameSize;
 
-    auto frameCutter = std::unique_ptr<standard::Algorithm>(standardFactory::create ("FrameCutter",
+    const auto frameCutter = std::unique_ptr<standard::Algorithm>(standardFactory::create ("FrameCutter",
                 "frameSize",            frameSize,
                 "hopSize",              settings.analysis.hopSize,
                 "lastFrameToEndOfFile", true,
@@ -29,7 +29,7 @@ PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, Anal
             ));
 
 
-    auto windowing = std::unique_ptr<standard::Algorithm>(standardFactory::create ("Windowing",
+    const auto windowing = std::unique_ptr<standard::Algorithm>(standardFactory::create ("Windowing",
                 "normalized", false,
                 "size",        frameSize,
                 "zeroPadding", zeroPadding,
@@ -41,7 +41,7 @@ PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, Anal
             {"yin", "PitchYin"}
     };	// for now we only handle this
 
-    auto pitchDet = std::unique_ptr<standard::Algorithm>(standardFactory::create (pitchAlgoNicknameMap[settings.pitch.pitchDetectionAlgorithm.toStdString()],
+    const auto pitchDet = std::unique_ptr<standard::Algorithm>(standardFactory::create (pitchAlgoNicknameMap[settings.pitch.pitchDetectionAlgorithm.toStdString()],
                 "frameSize",   frameSize,
                 "interpolate",  settings.pitch.interpolate,
                 "maxFrequency", settings.pitch.maxFrequency,
@@ -86,14 +86,22 @@ PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, Anal
         vecReal pitches = std::move(frequencies);
         assert(pitches.size() == confidences.size());
 
-        std::ranges::transform(pitches, pitches.begin(),
-                               [](const float x) {
-                                   if (x == 0.f) {
-                                       return 0.0f;
-                                   }
-                                   return 69.f + 12.f * std::log2(x / 440.f);
-                               }
-                );
+        // if we move to c++23, replace with zip iteration
+        std::transform(pitches.begin(), pitches.end(), // first1, last1
+            confidences.begin(),    // first2
+            pitches.begin(),    // output
+            [&pitchSettings = settings.pitch](const float pitch, const float confidence) {
+                if (pitch == 0.f) {
+                    return 0.0f;
+                }
+                if (pitchSettings.replace_dismal_with_constant) {
+                    if (confidence <= pitchSettings.dismal_confidence_threshold) {
+                        return pitchSettings.dismal_replacement_constant;
+                    }
+                }
+                return 69.f + 12.f * std::log2(pitch / 440.f);
+            }
+        );
         return PitchesAndConfidences{pitches, confidences};
     }
 }

@@ -101,6 +101,10 @@ struct AnalyzerSettings {
         double minFrequency = 100.0;
         juce::String pitchDetectionAlgorithm = "yin";
         double tolerance = 0.15;
+
+        bool replace_dismal_with_constant = true;
+        double dismal_confidence_threshold = 0.0; // equal to or below this, corresponding pitch will be considered useless
+        float dismal_replacement_constant = -1.0f;
     } pitch;
 
     struct Loudness {
