@@ -94,7 +94,7 @@ PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, Anal
                 if (pitch == 0.f) {
                     return 0.0f;
                 }
-                if (pitchSettings.replace_dismal_with_constant) {
+                if (pitchSettings.replace_dismal_confidences_with_constant) {
                     if (confidence <= pitchSettings.dismal_confidence_threshold) {
                         return pitchSettings.dismal_replacement_constant;
                     }

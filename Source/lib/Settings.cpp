@@ -116,7 +116,10 @@ const std::map<juce::String, AnySpec> pitchSpecs
 	{ axiom::tsn::interpolate,              BoolSettingsSpec{ true } },
 	{ axiom::tsn::maxFrequency,             RangedSettingsSpec<double>{ {20.0,22050.0, 1.0, 1.0}, 4000.0 } },
 	{ axiom::tsn::minFrequency,             RangedSettingsSpec<double>{ {20.0,22050.0, 1.0, 1.0},  140.0 } },
-	{ axiom::tsn::tolerance,                RangedSettingsSpec<double>{ {0.0, 1.0,  0.001f, 1.0},   0.15 } }
+	{ axiom::tsn::tolerance,                RangedSettingsSpec<double>{ {0.0, 1.0,  0.001f, 1.0},   0.15 } },
+    { axiom::tsn::replace_dismal_confidences_with_constant, BoolSettingsSpec{ true } },
+    { axiom::tsn::dismal_confidence_threshold, RangedSettingsSpec<double>{ {0.0, 1.0, 0.0 }, 0.0, "The maximum pitch confidence at which the detected pitch value is allowed to pass without replacement.", 3 } },
+    { axiom::tsn::dismal_replacement_constant, ChoiceSettingsSpec{ {"negative", "zero", "nyquist"}, "negative", "The value with which to replace any detected pitches with low confidence. "}}
 };
 
 const std::map<juce::String, AnySpec> loudnessSpecs
@@ -315,6 +318,9 @@ juce::ValueTree createParentTreeFromSettings(const AnalyzerSettings& settings) {
     pitchNode.setProperty(axiom::tsn::minFrequency, settings.pitch.minFrequency, nullptr);
     pitchNode.setProperty(axiom::tsn::pitchDetectionAlgorithm, settings.pitch.pitchDetectionAlgorithm, nullptr);
     pitchNode.setProperty(axiom::tsn::tolerance, settings.pitch.tolerance, nullptr);
+    pitchNode.setProperty(axiom::tsn::replace_dismal_confidences_with_constant, settings.pitch.replace_dismal_confidences_with_constant, nullptr);
+    pitchNode.setProperty(axiom::tsn::dismal_confidence_threshold, settings.pitch.dismal_confidence_threshold, nullptr);
+    pitchNode.setProperty(axiom::tsn::dismal_replacement_constant, settings.pitch.dismal_replacement_constant, nullptr);
     settingsTree.appendChild(pitchNode, nullptr);
 
     // Loudness node
