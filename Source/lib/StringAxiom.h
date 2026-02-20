@@ -90,14 +90,20 @@ STRAXIOMIZE(equalizeLoudness);
 STRAXIOMIZE(yin);
 STRAXIOMIZE(pYin);
 STRAXIOMIZE(chroma);
+// pitch confidences
+STRAXIOMIZE(replace_dismal_confidences_with_constant);
+STRAXIOMIZE(dismal_confidence_threshold);
+STRAXIOMIZE(dismal_replacement_constant);
+// yin
 STRAXIOMIZE(interpolate);
 STRAXIOMIZE(maxFrequency);
 STRAXIOMIZE(minFrequency);
 STRAXIOMIZE(pitchDetectionAlgorithm);
 STRAXIOMIZE(tolerance);
-STRAXIOMIZE(replace_dismal_confidences_with_constant);
-STRAXIOMIZE(dismal_confidence_threshold);
-STRAXIOMIZE(dismal_replacement_constant);
+// pyin
+STRAXIOMIZE(lowRMSThreshold);
+STRAXIOMIZE(preciseTime);
+
 STRAXIOMIZE(Split);
 STRAXIOMIZE(fadeInSamps);
 STRAXIOMIZE(fadeOutSamps);

@@ -96,12 +96,22 @@ struct AnalyzerSettings {
     } onset;
 
     struct Pitch {
-        bool interpolate = true;
-        double maxFrequency = 3000.0;
-        double minFrequency = 100.0;
-        juce::String pitchDetectionAlgorithm = "yin";
-        double tolerance = 0.15;
+        juce::String pitchDetectionAlgorithm = "yin";   // or pYin
 
+        //----------------only for yin----------------
+        struct yin {
+            double maxFrequency = 3000.0;
+            double minFrequency = 100.0;
+            bool interpolate = true;    // only for yin
+            double tolerance = 0.15;    // only for yin
+        } _yin;
+        //----------------only for pYin----------------
+        struct pYin {
+            double lowRMSThreshold = 0.1;
+            bool preciseTime = false;
+        } _pYin;
+
+        //-------------confidence replacement------------
         bool replace_dismal_confidences_with_constant = true;
         double dismal_confidence_threshold = 0.0; // equal to or below this, corresponding pitch will be considered useless
         float dismal_replacement_constant = -1.0f;

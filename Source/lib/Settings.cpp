@@ -113,13 +113,18 @@ const std::map<juce::String, AnySpec> sBicSpecs
 const std::map<juce::String, AnySpec> pitchSpecs
 {
 	{ axiom::tsn::pitchDetectionAlgorithm,  ChoiceSettingsSpec{ {axiom::tsn::yin,axiom::tsn::pYin,axiom::tsn::chroma}, axiom::tsn::yin } },
-	{ axiom::tsn::interpolate,              BoolSettingsSpec{ true } },
+
+    { axiom::tsn::interpolate,              BoolSettingsSpec{ true } },
 	{ axiom::tsn::maxFrequency,             RangedSettingsSpec<double>{ {20.0,22050.0, 1.0, 1.0}, 4000.0 } },
 	{ axiom::tsn::minFrequency,             RangedSettingsSpec<double>{ {20.0,22050.0, 1.0, 1.0},  140.0 } },
 	{ axiom::tsn::tolerance,                RangedSettingsSpec<double>{ {0.0, 1.0,  0.001f, 1.0},   0.15 } },
+
     { axiom::tsn::replace_dismal_confidences_with_constant, BoolSettingsSpec{ true } },
     { axiom::tsn::dismal_confidence_threshold, RangedSettingsSpec<double>{ {0.0, 1.0, 0.0 }, 0.0, "The maximum pitch confidence at which the detected pitch value is allowed to pass without replacement.", 3 } },
-    { axiom::tsn::dismal_replacement_constant, ChoiceSettingsSpec{ {"negative", "zero", "nyquist"}, "negative", "The value with which to replace any detected pitches with low confidence. "}}
+    { axiom::tsn::dismal_replacement_constant, ChoiceSettingsSpec{ {"negative", "zero", "nyquist"}, "negative", "The value with which to replace any detected pitches with low confidence. "} },
+
+    { axiom::tsn::lowRMSThreshold, RangedSettingsSpec<double>{{ 0.0, 1.0 }, 0.1, "", 2} },
+    { axiom::tsn::preciseTime, BoolSettingsSpec{ false } }
 };
 
 const std::map<juce::String, AnySpec> loudnessSpecs
@@ -312,16 +317,26 @@ juce::ValueTree createParentTreeFromSettings(const AnalyzerSettings& settings) {
     settingsTree.appendChild(onsetNode, nullptr);
 
     // Pitch node
-    juce::ValueTree pitchNode(axiom::tsn::Pitch);
-    pitchNode.setProperty(axiom::tsn::interpolate, settings.pitch.interpolate, nullptr);
-    pitchNode.setProperty(axiom::tsn::maxFrequency, settings.pitch.maxFrequency, nullptr);
-    pitchNode.setProperty(axiom::tsn::minFrequency, settings.pitch.minFrequency, nullptr);
-    pitchNode.setProperty(axiom::tsn::pitchDetectionAlgorithm, settings.pitch.pitchDetectionAlgorithm, nullptr);
-    pitchNode.setProperty(axiom::tsn::tolerance, settings.pitch.tolerance, nullptr);
-    pitchNode.setProperty(axiom::tsn::replace_dismal_confidences_with_constant, settings.pitch.replace_dismal_confidences_with_constant, nullptr);
-    pitchNode.setProperty(axiom::tsn::dismal_confidence_threshold, settings.pitch.dismal_confidence_threshold, nullptr);
-    pitchNode.setProperty(axiom::tsn::dismal_replacement_constant, settings.pitch.dismal_replacement_constant, nullptr);
-    settingsTree.appendChild(pitchNode, nullptr);
+    {
+        juce::ValueTree pitchNode(axiom::tsn::Pitch);
+        pitchNode.setProperty(axiom::tsn::pitchDetectionAlgorithm, settings.pitch.pitchDetectionAlgorithm, nullptr);
+
+        pitchNode.setProperty(axiom::tsn::replace_dismal_confidences_with_constant, settings.pitch.replace_dismal_confidences_with_constant, nullptr);
+        pitchNode.setProperty(axiom::tsn::dismal_confidence_threshold, settings.pitch.dismal_confidence_threshold, nullptr);
+        pitchNode.setProperty(axiom::tsn::dismal_replacement_constant, settings.pitch.dismal_replacement_constant, nullptr);
+
+        {   /// TODO: make these subtrees. will involve changing validation and thus spec structure, and retrieval from tree
+            pitchNode.setProperty(axiom::tsn::maxFrequency, settings.pitch._yin.maxFrequency, nullptr);
+            pitchNode.setProperty(axiom::tsn::minFrequency, settings.pitch._yin.minFrequency, nullptr);
+            pitchNode.setProperty(axiom::tsn::interpolate, settings.pitch._yin.interpolate, nullptr);
+            pitchNode.setProperty(axiom::tsn::tolerance, settings.pitch._yin.tolerance, nullptr);
+        }
+        {
+            pitchNode.setProperty(axiom::tsn::lowRMSThreshold, settings.pitch._pYin.lowRMSThreshold, nullptr);
+            pitchNode.setProperty(axiom::tsn::preciseTime, settings.pitch._pYin.preciseTime, nullptr);
+        }
+        settingsTree.appendChild(pitchNode, nullptr);
+    }
 
     // Loudness node
     juce::ValueTree loudnessNode(axiom::tsn::Loudness);
@@ -445,24 +460,37 @@ bool updateSettingsFromValueTree(AnalyzerSettings& settings, const ValueTree& se
 	settings.onset.weight_rms = onsetNode.getProperty(axiom::tsn::weight_rms);
 	
 	// Pitch settings
-	auto pitchNode = settingsTree.getChildWithName(axiom::tsn::Pitch);
-	if (!pitchNode.isValid()) {
-		std::cerr << "Pitch node missing\n";
-		jassertfalse;
-		return false;
-	}
-	if (!pitchNode.hasProperty(axiom::tsn::interpolate) || !pitchNode.hasProperty(axiom::tsn::maxFrequency) ||
-		!pitchNode.hasProperty(axiom::tsn::minFrequency) || !pitchNode.hasProperty(axiom::tsn::pitchDetectionAlgorithm) ||
-		!pitchNode.hasProperty(axiom::tsn::tolerance)) {
-		std::cerr << "Pitch node missing required properties\n";
-		jassertfalse;
-		return false;
-	}
-	settings.pitch.interpolate = pitchNode.getProperty(axiom::tsn::interpolate);
-	settings.pitch.maxFrequency = pitchNode.getProperty(axiom::tsn::maxFrequency);
-	settings.pitch.minFrequency = pitchNode.getProperty(axiom::tsn::minFrequency);
-	settings.pitch.pitchDetectionAlgorithm = pitchNode.getProperty(axiom::tsn::pitchDetectionAlgorithm).toString();
-	settings.pitch.tolerance = pitchNode.getProperty(axiom::tsn::tolerance);
+    {
+        auto pitchNode = settingsTree.getChildWithName(axiom::tsn::Pitch);
+        if (!pitchNode.isValid()) {
+            std::cerr << "Pitch node missing\n";
+            jassertfalse;
+            return false;
+        }
+        if (!pitchNode.hasProperty(axiom::tsn::pitchDetectionAlgorithm)) {
+            std::cerr << "Pitch node missing required properties\n";
+            jassertfalse;
+            return false;
+        }
+
+        settings.pitch.pitchDetectionAlgorithm = pitchNode.getProperty(axiom::tsn::pitchDetectionAlgorithm).toString();
+        {
+            if (!pitchNode.hasProperty(axiom::tsn::interpolate) || !pitchNode.hasProperty(axiom::tsn::maxFrequency) ||
+                !pitchNode.hasProperty(axiom::tsn::minFrequency) || !pitchNode.hasProperty(axiom::tsn::tolerance))
+            {
+                std::cerr << "Pitch node missing required properties\n";
+                jassertfalse;
+                return false;
+            }
+            settings.pitch._yin.interpolate = pitchNode.getProperty(axiom::tsn::interpolate);
+            settings.pitch._yin.maxFrequency = pitchNode.getProperty(axiom::tsn::maxFrequency);
+            settings.pitch._yin.minFrequency = pitchNode.getProperty(axiom::tsn::minFrequency);
+            settings.pitch._yin.tolerance = pitchNode.getProperty(axiom::tsn::tolerance);
+
+            settings.pitch._pYin.lowRMSThreshold = pitchNode.getProperty(axiom::tsn::lowRMSThreshold);
+            settings.pitch._pYin.preciseTime = pitchNode.getProperty(axiom::tsn::preciseTime);
+        }
+    }
 
     // Loudness settings
     auto loudnessNode = settingsTree.getChildWithName(axiom::tsn::Loudness);

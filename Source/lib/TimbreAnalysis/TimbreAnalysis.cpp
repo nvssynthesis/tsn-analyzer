@@ -15,12 +15,13 @@ namespace nvs::analysis {
 
 namespace {
 PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, AnalyzerSettings const& settings){
-    vecReal wave(waveSpan.begin(), waveSpan.end());
+    const vecReal wave(waveSpan.begin(), waveSpan.end());
 
     int const frameSize = settings.analysis.frameSize;
     int const zeroPadding = frameSize;
 
-    const auto frameCutter = std::unique_ptr<standard::Algorithm>(standardFactory::create ("FrameCutter",
+    const auto frameCutter = std::unique_ptr<standard::Algorithm>(
+        standardFactory::create ("FrameCutter",
                 "frameSize",            frameSize,
                 "hopSize",              settings.analysis.hopSize,
                 "lastFrameToEndOfFile", true,
@@ -29,7 +30,8 @@ PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, Anal
             ));
 
 
-    const auto windowing = std::unique_ptr<standard::Algorithm>(standardFactory::create ("Windowing",
+    const auto windowing = std::unique_ptr<standard::Algorithm>(
+        standardFactory::create ("Windowing",
                 "normalized", false,
                 "size",        frameSize,
                 "zeroPadding", zeroPadding,
@@ -37,17 +39,15 @@ PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, Anal
                 "zeroPhase",   false
             ));
 
-    std::map<std::string, std::string> pitchAlgoNicknameMap {
-            {"yin", "PitchYin"}
-    };	// for now we only handle this
 
-    const auto pitchDet = std::unique_ptr<standard::Algorithm>(standardFactory::create (pitchAlgoNicknameMap[settings.pitch.pitchDetectionAlgorithm.toStdString()],
-                "frameSize",   frameSize,
-                "interpolate",  settings.pitch.interpolate,
-                "maxFrequency", settings.pitch.maxFrequency,
-                "minFrequency", settings.pitch.minFrequency,
+    const auto pitchDet = std::unique_ptr<standard::Algorithm>(
+        standardFactory::create ("PitchYin",
                 "sampleRate",   settings.analysis.sampleRate,
-                "tolerance",    settings.pitch.tolerance
+                "frameSize",   frameSize,
+                "interpolate",  settings.pitch._yin.interpolate,
+                "maxFrequency", settings.pitch._yin.maxFrequency,
+                "minFrequency", settings.pitch._yin.minFrequency,
+                "tolerance",    settings.pitch._yin.tolerance
             ));
 
     vecReal frequencies, confidences; // accumulate results manually
@@ -94,6 +94,65 @@ PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, Anal
                 if (pitch == 0.f) {
                     return 0.0f;
                 }
+                if (pitchSettings.replace_dismal_confidences_with_constant) {
+                    if (confidence <= pitchSettings.dismal_confidence_threshold) {
+                        return pitchSettings.dismal_replacement_constant;
+                    }
+                }
+                return 69.f + 12.f * std::log2(pitch / 440.f);
+            }
+        );
+        return PitchesAndConfidences{pitches, confidences};
+    }
+}
+PitchesAndConfidences calculatePitchesEssentiaProbabilisticYin(std::span<Real> waveSpan, AnalyzerSettings const& settings){
+    const vecReal wave(waveSpan.begin(), waveSpan.end());
+
+    const auto outputUnvoiced = [&settings]() -> std::string {
+        if (settings.pitch.replace_dismal_confidences_with_constant) {
+            //  {zero, abs, negative}
+            std::string retval =
+                settings.pitch.dismal_replacement_constant < 0 ? "negative"
+                : settings.pitch.dismal_replacement_constant == 0 ? "zero"
+                    : "abs";
+            return retval;
+        }
+        return "abs";
+    }();
+
+    const auto pitchDet = std::unique_ptr<standard::Algorithm>(
+        standardFactory::create ("PitchYinProbabilistic",
+                "sampleRate",   settings.analysis.sampleRate,
+                "frameSize",     settings.analysis.frameSize,
+                "hopSize",      settings.analysis.hopSize,
+                "lowRMSThreshold", settings.pitch._pYin.lowRMSThreshold,
+                "preciseTime", settings.pitch._pYin.preciseTime,
+                "outputUnvoiced", outputUnvoiced
+            ));
+
+    vecReal frequencies, confidences;
+
+    pitchDet->input("signal").set(wave);
+    pitchDet->output("pitch").set(frequencies);
+    pitchDet->output("voicedProbabilities").set(confidences);
+
+    pitchDet->compute();
+
+    assert(frequencies.size() == confidences.size());
+    {
+        // convert frequency to pitch
+        vecReal pitches = std::move(frequencies);
+        assert(pitches.size() == confidences.size());
+
+        // if we move to c++23, replace with zip iteration
+        std::transform(pitches.begin(), pitches.end(), // first1, last1
+            confidences.begin(),    // first2
+            pitches.begin(),    // output
+            [&pitchSettings = settings.pitch](const float pitch, const float confidence) {
+                if (pitch == 0.f) {
+                    return 0.0f;
+                }
+        // NOTE: PitchYinProbabilistic already takes care of this EXCEPT the nyquist setting
                 if (pitchSettings.replace_dismal_confidences_with_constant) {
                     if (confidence <= pitchSettings.dismal_confidence_threshold) {
                         return pitchSettings.dismal_replacement_constant;
