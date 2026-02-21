@@ -17,7 +17,6 @@ namespace nvs::analysis {
 static constexpr bool TIMBRE_SPACE_SETTINGS_EXIST {false};  // these 'settings' were meant to be automatable, so they are now parameters
 
 using ValueTree = juce::ValueTree;
-using NormalisableRangeDouble = juce::NormalisableRange<double>;
 
 static NormalisableRangeDouble makePowerOfTwoRange (double minValue, double maxValue)
 {
@@ -34,7 +33,7 @@ static NormalisableRangeDouble makePowerOfTwoRange (double minValue, double maxV
         },
         [] (const double s, const double e, const double v) {
             const auto c = juce::jlimit(s, e, v);
-            return std::pow(2.0,std::round(std::log2(static_cast<double>(c))));
+            return std::pow(2.0, std::round(std::log2(c)));
         }
     };
 }
@@ -43,7 +42,7 @@ static NormalisableRangeDouble makePowerOfTwoRange (double minValue, double maxV
 
 const std::map<juce::String, AnySpec> analysisSpecs
 {
-	{ axiom::tsn::frameSize,     RangedSettingsSpec<int>{   makePowerOfTwoRange(64, 8192), 1024 } },
+	{ axiom::tsn::frameSize,     RangedSettingsSpec<int>{   makePowerOfTwoRange(64, 8192), 1024 } }, // NOLINT(readability-redundant-template-arguments)
 	{ axiom::tsn::hopSize,       RangedSettingsSpec<int>{   makePowerOfTwoRange(32, 4096),  512 } },
 	{ axiom::tsn::windowingType,  ChoiceSettingsSpec{ 	{axiom::tsn::hann, axiom::tsn::hamming, axiom::tsn::hannnsgcq,
 		axiom::tsn::triangular, axiom::tsn::square, axiom::tsn::blackmanharris62, axiom::tsn::blackmanharris70,
@@ -82,9 +81,9 @@ const std::map<juce::String, AnySpec> onsetSpecs
 {
     { axiom::tsn::segmentation, ChoiceSettingsSpec {{axiom::tsn::Event, axiom::tsn::Uniform}, axiom::tsn::Event,
         "whether to segment by detected events or uniform frames"} },
-	{ axiom::tsn::silenceThreshold,         RangedSettingsSpec<double>{ {0.0,1.0,0.01f,0.4}, 0.1f,
+	{ axiom::tsn::silenceThreshold,         RangedSettingsSpec<double>{ {0.0,1.0,0.01,0.4}, 0.1,
 	    "the threshold for silence"} },
-	{ axiom::tsn::alpha,                    RangedSettingsSpec<double>{ {0.0,1.0,0.01f,0.4}, 0.1f,
+	{ axiom::tsn::alpha,                    RangedSettingsSpec<double>{ {0.0,1.0,0.01,0.4}, 0.1,
 	    "the proportion of the mean included to reject smaller peaks; filters very short onsets" } },
 	{ axiom::tsn::numFrames_shortOnsetFilter,RangedSettingsSpec<int>  { { 1,  64,  1,   1 },    5,
 	    "the number of frames used to compute the threshold; size of short-onset filter"} },
@@ -97,12 +96,14 @@ const std::map<juce::String, AnySpec> onsetSpecs
 	{ axiom::tsn::weight_flux,              RangedSettingsSpec<double>{ {0.0,1.0,0.01f,1.0},  0.0,
 	    "the Spectral Flux detection function which characterizes changes in magnitude spectrum." } },
 	{ axiom::tsn::weight_rms,               RangedSettingsSpec<double>{ {0.0,1.0,0.01f,1.0},  0.0,
-	    "the difference function, measuring the half-rectified change of the RMS of the magnitude spectrum (i.e., measuring overall energy flux)" } }
+	    "the difference function, measuring the half-rectified change of the RMS of the magnitude spectrum (i.e., measuring overall energy flux)" } },
+    { axiom::tsn::weight_novelty,           RangedSettingsSpec<double>{ {0.0,1.0,0.01f,1.0},  0.0,
+    "the novelty curve function reveals the predominant local pulse. works well with soft onsets." } }
 };
 
 const std::map<juce::String, AnySpec> sBicSpecs
 {
-	{ axiom::tsn::complexityPenaltyWeight, RangedSettingsSpec<double>{ {0.0,10.0,0.1f,1.0}, 1.5f } },
+	{ axiom::tsn::complexityPenaltyWeight, RangedSettingsSpec<double>{ {0.0,10.0,0.1,1.0}, 1.5 } },
 	{ axiom::tsn::incrementFirstPass,      RangedSettingsSpec<int>{   {1,500,1,1},      60  } },
 	{ axiom::tsn::incrementSecondPass,     RangedSettingsSpec<int>{   {1,500,1,1},      20  } },
 	{ axiom::tsn::minSegmentLengthFrames,  RangedSettingsSpec<int>{   {1,100,1,1},      10  } },
@@ -137,6 +138,7 @@ const std::map<juce::String, AnySpec> splitSpecs
 	{ axiom::tsn::fadeInSamps,  RangedSettingsSpec<int>{ {0,10000,1,1}, 5 } },
 	{ axiom::tsn::fadeOutSamps, RangedSettingsSpec<int>{ {0,10000,1,1}, 5 } }
 };
+
 
 const std::map<juce::String, const std::map<juce::String,AnySpec>*>
 	specsByBranch
@@ -314,6 +316,7 @@ juce::ValueTree createParentTreeFromSettings(const AnalyzerSettings& settings) {
     onsetNode.setProperty(axiom::tsn::weight_flux, settings.onset.weight_flux, nullptr);
     onsetNode.setProperty(axiom::tsn::weight_hfc, settings.onset.weight_hfc, nullptr);
     onsetNode.setProperty(axiom::tsn::weight_rms, settings.onset.weight_rms, nullptr);
+    onsetNode.setProperty(axiom::tsn::weight_novelty, settings.onset.weight_novelty, nullptr);
     settingsTree.appendChild(onsetNode, nullptr);
 
     // Pitch node
@@ -458,7 +461,8 @@ bool updateSettingsFromValueTree(AnalyzerSettings& settings, const ValueTree& se
 	settings.onset.weight_flux = onsetNode.getProperty(axiom::tsn::weight_flux);
 	settings.onset.weight_hfc = onsetNode.getProperty(axiom::tsn::weight_hfc);
 	settings.onset.weight_rms = onsetNode.getProperty(axiom::tsn::weight_rms);
-	
+    settings.onset.weight_novelty = onsetNode.getProperty(axiom::tsn::weight_novelty, 0.0);
+
 	// Pitch settings
     {
         auto pitchNode = settingsTree.getChildWithName(axiom::tsn::Pitch);

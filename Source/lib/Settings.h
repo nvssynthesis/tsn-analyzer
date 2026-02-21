@@ -19,10 +19,12 @@ void initializeSettingsBranches(juce::ValueTree& settingsVT, bool dbg=false);
 bool verifySettingsStructure (const juce::ValueTree& settingsVT);
 bool verifySettingsStructureWithAttemptedFix (juce::ValueTree& settingsVT);
 
+using NormalisableRangeDouble = juce::NormalisableRange<double>;
+
 template<typename T>
 struct RangedSettingsSpec
 {
-    juce::NormalisableRange<double> range;
+    NormalisableRangeDouble range;
     T defaultValue;
     juce::String tooltip = {};           // Optional tooltip
     int numDecimalPlaces = 2;            // Default precision
@@ -85,6 +87,7 @@ struct AnalyzerSettings {
             Uniform // use uniformly distributed segments, specified by analysis.hopSize and analysis.frameSize
         } segmentation {Segmentation::Uniform};
 
+
         double alpha = 0.1;
         int numFrames_shortOnsetFilter = 5;
         double silenceThreshold = 0.03125;
@@ -93,6 +96,7 @@ struct AnalyzerSettings {
         double weight_flux = 0.5;
         double weight_hfc = 0.5;
         double weight_rms = 0.5;
+        double weight_novelty = 0.0;
     } onset;
 
     struct Pitch {

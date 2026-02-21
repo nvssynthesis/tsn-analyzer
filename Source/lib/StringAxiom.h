@@ -85,6 +85,7 @@ STRAXIOMIZE(weight_complexPhase);
 STRAXIOMIZE(weight_flux);
 STRAXIOMIZE(weight_hfc);
 STRAXIOMIZE(weight_rms);
+STRAXIOMIZE(weight_novelty);
 STRAXIOMIZE(Pitch);
 STRAXIOMIZE(equalizeLoudness);
 STRAXIOMIZE(yin);

@@ -34,10 +34,12 @@ static vecReal getWeights(const AnalyzerSettings &settings) {
         static_cast<float>(settings.onset.weight_complex),
         static_cast<float>(settings.onset.weight_complexPhase),
         static_cast<float>(settings.onset.weight_flux),
-        static_cast<float>(settings.onset.weight_rms)
+        static_cast<float>(settings.onset.weight_rms),
+        static_cast<float>(settings.onset.weight_novelty)
     };
 }
-array2dReal calculateOnsetsMatrix(std::vector<Real> const &waveform,
+
+    array2dReal calculateOnsetsMatrix(std::vector<Real> const &waveform,
 						  AnalyzerSettings const &settings,
 						  RunLoopStatus& rls,
 						  const ShouldExitFn &shouldExit)
@@ -93,13 +95,14 @@ array2dReal calculateOnsetsMatrix(std::vector<Real> const &waveform,
 
 
 	// ============ Connect individual onset detection algorithms ============
-    vecReal onsetDetVecHFC, onsetDetVecComplex, onsetDetVecComplexPhase, onsetDetVecFlux, onsetDetVecRms;
-    std::vector<std::reference_wrapper<vecReal>> detectionRefs {
+    vecReal onsetDetVecHFC, onsetDetVecComplex, onsetDetVecComplexPhase, onsetDetVecFlux, onsetDetVecRms, onsetDetVecNovelty;
+    std::array<std::reference_wrapper<vecReal>, 6> detectionRefs {
         onsetDetVecHFC,
         onsetDetVecComplex,
         onsetDetVecComplexPhase,
         onsetDetVecFlux,
-        onsetDetVecRms
+        onsetDetVecRms,
+        onsetDetVecNovelty
     };
 
     const auto weights = getWeights(settings);
@@ -157,6 +160,16 @@ array2dReal calculateOnsetsMatrix(std::vector<Real> const &waveform,
         onsetDetectionRms->output("onsetDetection") >> *onsetDetsRms;
     }
 
+    std::vector<std::vector<vecReal>> spectrogramHolder {}; // created in main function scope for lifetime (VectorOutput doesn't seem to take ownership)
+    if (0.f < settings.onset.weight_novelty) {
+        // this scope is all just to PREPARE the necessary spectrogram input FOR NoveltyCurve!
+        VectorOutput<std::vector<vecReal>> *spectrumAccumOutput = new VectorOutput<std::vector<vecReal>>(&spectrogramHolder);   // NOLINT – network takes ownership
+        Algorithm* spectrumFrameAccumulator = StreamingFactory::create("VectorRealAccumulator");
+        carToPol->output("magnitude")               >>      spectrumFrameAccumulator->input("data");
+        carToPol->output("phase")                   >>      essentia::streaming::DEVNULL;
+        spectrumFrameAccumulator->output("array")   >>      *spectrumAccumOutput;
+    }
+
 	Network n(inVec);
 	n.runPrepare();
 	rls.set(0.0);
@@ -169,6 +182,31 @@ array2dReal calculateOnsetsMatrix(std::vector<Real> const &waveform,
 	rls.set(1.0);
 	n.clear();
 
+    VectorOutput<Real> *noveltyAccumOutput = new VectorOutput(&onsetDetVecNovelty);
+    if (0.f < settings.onset.weight_novelty) {
+        jassert(spectrogramHolder.size() == 1);
+        const vecVecReal &spectrogram = spectrogramHolder[0];
+
+        constexpr Real frameRate = internal_sr / hopSize;
+
+        Algorithm* noveltyCurve = StreamingFactory::create("NoveltyCurve",
+            "frameRate", frameRate,
+            "normalize", false);
+
+        auto *spectrogramVecInput = new vectorInputCumulative(&spectrogram);       // NOLINT – network takes ownership
+
+
+        *spectrogramVecInput                        >>   noveltyCurve->input("frequencyBands");
+        noveltyCurve->output("novelty")    >> *noveltyAccumOutput;
+
+        Network n(spectrogramVecInput);
+    	n.runPrepare();
+        n.run();
+
+        n.clear();
+
+        jassert(onsetDetVecNovelty.size() > 0);
+    }
     // this bit just takes all the detection outputs and makes them constant-size (which should only not happen if some of them had a weight of 0)
     const auto correctSizedVec = std::ranges::max_element(detectionRefs,
                                                           [](const vecReal &v0, const vecReal &v1)
@@ -185,13 +223,14 @@ array2dReal calculateOnsetsMatrix(std::vector<Real> const &waveform,
         jassert (d.get().size() == correctSize);
     }
 
-	TNT::Array2D<essentia::Real> onsetsMatrix(5, static_cast<int>(correctSize));
+	TNT::Array2D<essentia::Real> onsetsMatrix(detectionRefs.size(), static_cast<int>(correctSize));
 	for (size_t j = 0; j < correctSize; ++j){
 		onsetsMatrix[0][j] = onsetDetVecHFC[j];
 		onsetsMatrix[1][j] = onsetDetVecComplex[j];
 		onsetsMatrix[2][j] = onsetDetVecComplexPhase[j];
 		onsetsMatrix[3][j] = onsetDetVecFlux[j];
 		onsetsMatrix[4][j] = onsetDetVecRms[j];
+	    onsetsMatrix[5][j] = onsetDetVecNovelty[j];
 	}
 	return onsetsMatrix;
 }
@@ -353,7 +392,6 @@ vecVecReal splitWaveIntoEvents(const vecReal&wave, const vecReal&onsetsInSeconds
 	assert (sampleRate > 8000.f);
 
 	Real const endOfFile = static_cast<Real>(wave.size() - 1) / sampleRate;
-	assert (a < endOfFile);
 	endTimes.back() = endOfFile;
 	assert(*(onsetsInSeconds.end() - 1) == *(endTimes.end() - 2));
 
