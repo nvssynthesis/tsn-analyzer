@@ -37,7 +37,6 @@ static vecReal getWeights(const AnalyzerSettings &settings) {
     };
 }
 array2dReal calculateOnsetsMatrix(std::vector<Real> const &waveform,
-						  StreamingFactory const &factory,
 						  AnalyzerSettings const &settings,
 						  RunLoopStatus& rls,
 						  const ShouldExitFn &shouldExit)
@@ -198,7 +197,6 @@ array2dReal calculateOnsetsMatrix(std::vector<Real> const &waveform,
 
 #pragma message("make this work with StreamingFactory")
 vecReal calculateOnsetsInSeconds(const array2dReal &onsetAnalysisMatrix,
-								 const StandardFactory &factory,
 								 const AnalyzerSettings &settings)
 {
 	/* assuming that the onsetAnalysisMatrix was derived from the above onsetAnalysis,
@@ -233,7 +231,6 @@ vecReal calculateOnsetsInSeconds(const array2dReal &onsetAnalysisMatrix,
 }
 
 vecVecReal featuresForSbic(const vecReal &waveform,
-						   const AlgorithmFactory &factory,
 						   const AnalyzerSettings &settings,
 						   RunLoopStatus& rls,
 						   const ShouldExitFn &shouldExit)
@@ -319,8 +316,7 @@ vecVecReal featuresForSbic(const vecReal &waveform,
 	return BFCCs[0];	// the only dimension that was used
 }
 
-vecReal sBic(const array2dReal &featureMatrix, const StandardFactory &factory,
-			 const AnalyzerSettings &settings){
+vecReal sBic(const array2dReal &featureMatrix, const AnalyzerSettings &settings){
 
 	standard::Algorithm* sbic = StandardFactory::create (
 		"SBic",
@@ -340,7 +336,6 @@ vecReal sBic(const array2dReal &featureMatrix, const StandardFactory &factory,
 }
 
 vecVecReal splitWaveIntoEvents(const vecReal&wave, const vecReal&onsetsInSeconds,
-							   const StreamingFactory &factory,
 							   const AnalyzerSettings &settings,
 							   RunLoopStatus& rls, const ShouldExitFn &shouldExit){
 	size_t const numOnsets {onsetsInSeconds.size()};
@@ -402,7 +397,7 @@ vecVecReal splitWaveIntoEvents(const vecReal&wave, const vecReal&onsetsInSeconds
 	return waveEvents;
 }
 
-void writeWav(const vecReal&wave, const std::string_view name, const StreamingFactory &factory,
+void writeWav(const vecReal&wave, const std::string_view name,
 			  const AnalyzerSettings &settings,
 			  RunLoopStatus& rls,
 			  const ShouldExitFn &shouldExit)
@@ -425,7 +420,7 @@ void writeWav(const vecReal&wave, const std::string_view name, const StreamingFa
 	}
 	n.clear();
 }
-void writeWavs(const vecVecReal &waves, const std::string_view defName, const StreamingFactory &factory,
+void writeWavs(const vecVecReal &waves, const std::string_view defName,
 			   const AnalyzerSettings &settings,
 			   RunLoopStatus& rls,
 			   const ShouldExitFn &shouldExit)
@@ -436,7 +431,7 @@ void writeWavs(const vecVecReal &waves, const std::string_view defName, const St
 		std::string strIdx = std::to_string(idx++);
 		name += strIdx;					// add index to name
 
-		writeWav(wave, name, factory, settings, rls, shouldExit);
+		writeWav(wave, name, settings, rls, shouldExit);
 
 		name.erase(name.back() - strIdx.length(), name.back());	// remove index from name
 	}

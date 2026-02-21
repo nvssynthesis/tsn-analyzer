@@ -73,16 +73,15 @@ std::optional<vecReal> Analyzer::calculateOnsetsInSeconds(const vecReal &wave, R
         return onsets;
     }
 
-    const array2dReal onsets2d = calculateOnsetsMatrix(wave, ess_hold.factory, settings, rls, shouldExit);
+    const array2dReal onsets2d = calculateOnsetsMatrix(wave, settings, rls, shouldExit);
     if (shouldExit()) {
         return std::nullopt;
     }
     std::cout << "analyzed onsets\n";
-    const standard::AlgorithmFactory &tmpStFac = standard::AlgorithmFactory::instance();
 
 #pragma message("it is a problem that we have not the ability to inject a runLoopCallback here, since onsetsInSeconds uses StandardFactory instead of StreamingFactory")
 
-    std::vector<float> onsetsInSeconds = analysis::calculateOnsetsInSeconds(onsets2d, tmpStFac, settings);	// explicit namespace qualifier for clarity
+    std::vector<float> onsetsInSeconds = analysis::calculateOnsetsInSeconds(onsets2d, settings);	// explicit namespace qualifier for clarity
     std::cout << "calculated onsets in seconds\n";
 
     return onsetsInSeconds;
@@ -249,7 +248,7 @@ const -> std::optional<std::vector<FeatureContainer<EventwiseStats>>>
 
     rls.set("Splitting Wave into Events...");
 
-    const vecVecReal events = splitWaveIntoEvents(wave, onsetsInSeconds, ess_hold.factory, settings, rls, shouldExit);
+    const vecVecReal events = splitWaveIntoEvents(wave, onsetsInSeconds, settings, rls, shouldExit);
 #pragma message("probably could benefit from some normalization, possibly based on variance")
 
     const size_t numEvents = events.size();
@@ -377,7 +376,6 @@ void writeEventsToWav(const vecReal &wave,
 
     const auto& settings = analyzer.getSettings();
     const vecVecReal events = splitWaveIntoEvents(wave, onsetsInSeconds,
-                                            analyzer.ess_hold.factory,
                                             settings,
                                             rls,
                                             std::move(shouldExit));

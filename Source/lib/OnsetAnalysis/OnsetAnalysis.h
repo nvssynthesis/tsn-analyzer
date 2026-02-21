@@ -27,20 +27,21 @@ inline array2dReal vecVecToArray2dReal(vecVecReal const &vv){
     return essentia::transpose(essentia::vecvecToArray2D(vv));
 }
 
-array2dReal calculateOnsetsMatrix(vecReal const &waveform, StreamingFactory const &factory, AnalyzerSettings const &settings,
+array2dReal calculateOnsetsMatrix(vecReal const &waveform, AnalyzerSettings const &settings,
 								  RunLoopStatus& rls, const ShouldExitFn &shouldExit);
-vecReal calculateOnsetsInSeconds(const array2dReal &onsetAnalysisMatrix, StandardFactory const &factory, AnalyzerSettings const &settings);
+vecReal calculateOnsetsInSeconds(const array2dReal &onsetAnalysisMatrix, AnalyzerSettings const &settings);
 
-vecVecReal featuresForSbic(vecReal const &waveform, AlgorithmFactory const &factory,  AnalyzerSettings const &settings,
+vecVecReal featuresForSbic(vecReal const &waveform, AnalyzerSettings const &settings,
 						   RunLoopStatus& rls, const ShouldExitFn &shouldExit);
-vecReal sBic(const array2dReal &featureMatrix, StandardFactory const &factory, AnalyzerSettings const &settings);
+vecReal sBic(const array2dReal &featureMatrix, AnalyzerSettings const &settings);
 
-vecVecReal splitWaveIntoEvents(vecReal const &wave, vecReal const &onsetsInSeconds, StreamingFactory const &factory, AnalyzerSettings const &settings,
+vecVecReal splitWaveIntoEvents(vecReal const &wave, vecReal const &onsetsInSeconds, AnalyzerSettings const &settings,
 							   RunLoopStatus& rls, const ShouldExitFn &shouldExit);
 
-void writeWav(vecReal const &wave, std::string_view name, StreamingFactory const &factory, AnalyzerSettings const &settings,
+
+void writeWav(vecReal const &wave, std::string_view name, AnalyzerSettings const &settings,
 			  RunLoopStatus& rls, const ShouldExitFn &shouldExit);
-void writeWavs(vecVecReal const &waves, std::string_view defName, StreamingFactory const &factory, AnalyzerSettings const &settings,
+void writeWavs(vecVecReal const &waves, std::string_view defName, AnalyzerSettings const &settings,
 			   RunLoopStatus& rls, const ShouldExitFn &shouldExit);
 
 }	// namespace analysis
