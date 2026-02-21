@@ -13,7 +13,8 @@
 
 /** TODO:
  consolidate onsetsInSeconds with onsetAnalysis.
- The trouble is that there was a problem figuring out how to use essentia's streaming factory (instead of standard) with the Onsets algorithm. So that function has to reference a different factory.
+ The trouble is that there was a problem figuring out how to use essentia's streaming factory (instead of standard) with
+ the Onsets algorithm. So that function has to reference a different factory.
  */
 
 namespace nvs::analysis {
@@ -206,7 +207,7 @@ vecReal calculateOnsetsInSeconds(const array2dReal &onsetAnalysisMatrix,
 
 	constexpr float frameRate = 44100.f / 512.f;
 
-	essentia::standard::Algorithm* onsetDetectionSeconds = StandardFactory::create (
+	standard::Algorithm* onsetDetectionSeconds = StandardFactory::create (
 		"Onsets",
 		  "frameRate",       frameRate,
 		  "silenceThreshold",settings.onset.silenceThreshold,
@@ -351,8 +352,7 @@ vecVecReal splitWaveIntoEvents(const vecReal&wave, const vecReal&onsetsInSeconds
     const auto sampleRate = static_cast<float>(settings.analysis.sampleRate);
 	assert (sampleRate > 8000.f);
 
-	Real const endOfFile = static_cast<Real>((wave.size() - 1)) / sampleRate;
-	Real const a = onsetsInSeconds.back();
+	Real const endOfFile = static_cast<Real>(wave.size() - 1) / sampleRate;
 	assert (a < endOfFile);
 	endTimes.back() = endOfFile;
 	assert(*(onsetsInSeconds.end() - 1) == *(endTimes.end() - 2));

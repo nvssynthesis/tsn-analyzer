@@ -61,8 +61,8 @@ constexpr auto makeScalarLookup() {
 template<typename T>
 [[nodiscard]]
 std::vector<T>
-extractFeatures(const FeatureContainer<T> & allFeatures,
-				const std::vector<Feature_e> featuresToUse)
+extractFeatures(const FeatureContainer<T> &allFeatures,
+				const std::vector<Feature_e> &featuresToUse)
 {
 	std::vector<T> v;
 	v.reserve(featuresToUse.size());
@@ -103,8 +103,7 @@ extractFeatures(FeatureContainer<EventwiseStatistics<Real>> const & allFeatures,
 }
 
 class Analyzer {
-private:
-	nvs::ess::EssentiaInitializer ess_init;	  // this MUST be initialized before EssentiaHolder.
+	ess::EssentiaInitializer ess_init;	  // this MUST be initialized before EssentiaHolder.
 public:
 	Analyzer();
 	using EventwiseStats = EventwiseStatistics<Real>;
@@ -141,7 +140,7 @@ public:
     }
 
     //====================================================================================
-	nvs::ess::EssentiaHolder ess_hold;
+	ess::EssentiaHolder ess_hold;
 private:
 	AnalyzerSettings settings;
     juce::String _settingsHash {};
@@ -172,6 +171,7 @@ vecReal binwiseStatistic(vecVecReal const &V, Func statisticFunc) {
 	return results;
 }
 
-void writeEventsToWav(vecReal const &wave, std::vector<float> const &onsetsInSeconds, std::string_view ogPath, const Analyzer &analyzer, RunLoopStatus& rls, ShouldExitFn shouldExit);
+void writeEventsToWav(vecReal const &wave, std::vector<float> const &onsetsInSeconds, std::string_view ogPath,
+    const Analyzer &analyzer, RunLoopStatus& rls, const ShouldExitFn &shouldExit);
 
 }	// namespace nvs::analysis

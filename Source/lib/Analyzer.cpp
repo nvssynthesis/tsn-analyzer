@@ -126,17 +126,17 @@ static std::vector<T> weightedMeanFrames(const std::vector<std::vector<T>>& fram
     return result;
 }
 
-std::vector<float> filterByTopPercentile(
-    const std::vector<float>& x,
-    const std::vector<float>& confidences,
+vecReal filterByTopPercentile(
+    const vecReal& x,
+    const vecReal& confidences,
     const float upper_prcntl = 0.90f)
 {
     if (x.empty()) return {};
 
-    std::vector<float> sorted_confidences = confidences;
+    vecReal sorted_confidences = confidences;
     std::ranges::sort(sorted_confidences);
 
-    size_t threshold_idx = static_cast<size_t>(upper_prcntl * sorted_confidences.size());
+    auto threshold_idx = static_cast<size_t>(upper_prcntl * static_cast<float>(sorted_confidences.size()));
     threshold_idx = std::min(threshold_idx, sorted_confidences.size() - 1);
     const float threshold = sorted_confidences[threshold_idx];
 
@@ -145,7 +145,7 @@ std::vector<float> filterByTopPercentile(
         | std::views::filter([&](const size_t i) { return confidences[i] >= threshold; })
         | std::views::transform([&](const size_t i) { return x[i]; });
 
-    return std::vector<float>(result.begin(), result.end());
+    return { result.begin(), result.end() };
 }
 
 void Analyzer::calculateEventwisePitchDescription(const vecReal &waveEvent, FeatureContainer<EventwiseStats> &features) const {
@@ -198,7 +198,7 @@ void Analyzer::calculateEventwiseTimbreDescription(const vecReal &waveEvent, Fea
     vecReal frameWeights;
     frameWeights.reserve(timbres_tmp.features.size());
     for (auto const &bfcc0: timbres_tmp[Feature_e::bfcc0]) {
-        const Real weight = std::exp(bfcc0 * settings.bfcc.BFCC0_frameNormalizationFactor);
+        const Real weight = std::exp(bfcc0 * static_cast<float>(settings.bfcc.BFCC0_frameNormalizationFactor));
         frameWeights.push_back(weight);
     }
     const vecVecReal featurewiseFrames = transpose(std::span(timbres_tmp.features).first(NumTimbralFeatures));
@@ -280,7 +280,7 @@ const -> std::optional<std::vector<FeatureContainer<EventwiseStats>>>
             if (const auto numDone = ++completed;
                 numDone % 4 == 0)
             {
-                rls.set(static_cast<double>(numDone) / numEvents);
+                rls.set(static_cast<double>(numDone) / static_cast<double>(numEvents));
             }
             if (shouldExit()) {
                 cancelled.store(true, std::memory_order_relaxed);
@@ -363,7 +363,7 @@ void writeEventsToWav(const vecReal &wave,
                       std::string_view ogPath,
                       const Analyzer &analyzer,
                       RunLoopStatus& rls,
-                      ShouldExitFn shouldExit)
+                      const ShouldExitFn &shouldExit)
 {
     if ( wave.empty() or onsetsInSeconds.empty() ){
         std::cerr << "unsuccessful write; wave or onsets of size 0\n";
@@ -378,7 +378,7 @@ void writeEventsToWav(const vecReal &wave,
     const vecVecReal events = splitWaveIntoEvents(wave, onsetsInSeconds,
                                             settings,
                                             rls,
-                                            std::move(shouldExit));
+                                            shouldExit);
     juce::WavAudioFormat format;
     std::unique_ptr<juce::AudioFormatWriter> writer;
 
