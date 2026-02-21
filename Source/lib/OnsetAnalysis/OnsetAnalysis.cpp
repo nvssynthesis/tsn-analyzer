@@ -19,7 +19,7 @@
 namespace nvs::analysis {
 
 vecReal makeSweptSine(Real const low, Real const high, size_t const len, Real const sampleRate){
-	std::vector<Real> freqSweep(len, 0.f);
+	vecReal freqSweep(len, 0.f);
 	for (size_t i = 0; i < len; ++i){
 		const Real x = (high - low) * (static_cast<Real>(i) / static_cast<Real>(len)) + low;
 		freqSweep[i] = std::sin(2.f * 3.14159265f * (x / sampleRate));
@@ -37,7 +37,7 @@ static vecReal getWeights(const AnalyzerSettings &settings) {
     };
 }
 array2dReal calculateOnsetsMatrix(std::vector<Real> const &waveform,
-						  streamingFactory const &factory,
+						  StreamingFactory const &factory,
 						  AnalyzerSettings const &settings,
 						  RunLoopStatus& rls,
 						  const ShouldExitFn &shouldExit)
@@ -48,9 +48,9 @@ array2dReal calculateOnsetsMatrix(std::vector<Real> const &waveform,
 	const auto frameSize    = std::min(std::max(512, settings.analysis.frameSize), 2048);
 	constexpr auto hopSize      = 512;
 
-	auto *inVec = new vectorInput(&waveform);
+	auto *inVec = new vectorInput(&waveform);   // NOLINT – network takes ownership
 
-	Algorithm* resampler	= factory.create("Resample",
+	Algorithm* resampler	= StreamingFactory::create("Resample",
 											 "inputSampleRate", input_sr,
 											 "outputSampleRate", internal_sr,
 											 "quality",	2);	/* quality: SRC_SINC_FASTEST
@@ -63,25 +63,26 @@ array2dReal calculateOnsetsMatrix(std::vector<Real> const &waveform,
 																   } ;
 															 */
 
+#pragma message("This FrameCutter config could use a bit more thought. startFromZero should ideally be true, but then the beginning of file fades in with window.")
 	// ============ Main processing chain (variable frameSize) ============
-	Algorithm* frameCutter  = factory.create("FrameCutter",
+	Algorithm* frameCutter  = StreamingFactory::create("FrameCutter",
 											 "frameSize", frameSize,
 											 "hopSize", hopSize,
 											 "startFromZero", false,
 											 "lastFrameToEndOfFile", true,
 											 "validFrameThresholdRatio", 0.0f);
 
-	Algorithm* windowingToFFT = factory.create("Windowing",
+	Algorithm* windowingToFFT = StreamingFactory::create("Windowing",
 											 "normalized", true,
 											 "size", frameSize,
 											 "zeroPhase", false,
 											 "zeroPadding", frameSize,
 											 "type", "hamming");
 
-	Algorithm* FFT			= factory.create("FFT",
+	Algorithm* FFT			= StreamingFactory::create("FFT",
 											 "size", frameSize);
 
-	Algorithm* carToPol		= factory.create("CartesianToPolar");
+	Algorithm* carToPol		= StreamingFactory::create("CartesianToPolar");
 
     // ============ Connect beginning of chain (independent of which onset detectors are used) ============
     *inVec >> resampler->input("signal");
@@ -111,46 +112,46 @@ array2dReal calculateOnsetsMatrix(std::vector<Real> const &waveform,
     }
 
     if (0.f < settings.onset.weight_hfc) {
-        Algorithm* onsetDetectionHfc = factory.create("OnsetDetection",
+        Algorithm* onsetDetectionHfc = StreamingFactory::create("OnsetDetection",
                                                 "method", "hfc",
                                                    "sampleRate", internal_sr);
         carToPol->output("magnitude") >> onsetDetectionHfc->input("spectrum");
         carToPol->output("phase")	>> onsetDetectionHfc->input("phase");
-        auto *onsetDetsHFC = new vectorOutput(&onsetDetVecHFC);
+        auto *onsetDetsHFC = new vectorOutput(&onsetDetVecHFC);     // NOLINT – network takes ownership
         onsetDetectionHfc->output("onsetDetection") >> *onsetDetsHFC;
     }
     if (0.f < settings.onset.weight_complex) {
-        Algorithm* onsetDetectionComplex = factory.create("OnsetDetection",
+        Algorithm* onsetDetectionComplex = StreamingFactory::create("OnsetDetection",
                                                 "method", "complex",
                                                    "sampleRate", internal_sr);
         carToPol->output("magnitude") >> onsetDetectionComplex->input("spectrum");
         carToPol->output("phase")	>> onsetDetectionComplex->input("phase");
-        auto *onsetDetsComplex = new vectorOutput(&onsetDetVecComplex);
+        auto *onsetDetsComplex = new vectorOutput(&onsetDetVecComplex);     // NOLINT – network takes ownership
         onsetDetectionComplex->output("onsetDetection") >> *onsetDetsComplex;
     }
     if (0.f < settings.onset.weight_complexPhase) {
-        Algorithm* onsetDetectionComplexPhase = factory.create("OnsetDetection",
+        Algorithm* onsetDetectionComplexPhase = StreamingFactory::create("OnsetDetection",
                                                 "method", "complex_phase",
                                                    "sampleRate", internal_sr);
         carToPol->output("magnitude") >> onsetDetectionComplexPhase->input("spectrum");
         carToPol->output("phase")	>> onsetDetectionComplexPhase->input("phase");
-        auto *onsetDetsComplexPhase = new vectorOutput(&onsetDetVecComplexPhase);
+        auto *onsetDetsComplexPhase = new vectorOutput(&onsetDetVecComplexPhase);       // NOLINT – network takes ownership
         onsetDetectionComplexPhase->output("onsetDetection") >> *onsetDetsComplexPhase;
     }
     if (0.f < settings.onset.weight_flux) {
-        Algorithm* onsetDetectionFlux = factory.create("OnsetDetection",
+        Algorithm* onsetDetectionFlux = StreamingFactory::create("OnsetDetection",
                                                 "method", "flux",
                                                    "sampleRate", internal_sr);
         carToPol->output("magnitude") >> onsetDetectionFlux->input("spectrum");
         carToPol->output("phase")	>> onsetDetectionFlux->input("phase");
-        auto *onsetDetsFlux = new vectorOutput(&onsetDetVecFlux);
+        auto *onsetDetsFlux = new vectorOutput(&onsetDetVecFlux);       // NOLINT – network takes ownership
         onsetDetectionFlux->output("onsetDetection") >> *onsetDetsFlux;
     }
     if (0.f < settings.onset.weight_rms) {
-        Algorithm* onsetDetectionRms = factory.create("OnsetDetection",
+        Algorithm* onsetDetectionRms = StreamingFactory::create("OnsetDetection",
                                                 "method", "rms",
                                                    "sampleRate", internal_sr);
-        auto *onsetDetsRms = new vectorOutput(&onsetDetVecRms);
+        auto *onsetDetsRms = new vectorOutput(&onsetDetVecRms);     // NOLINT – network takes ownership
         carToPol->output("magnitude") >> onsetDetectionRms->input("spectrum");
         carToPol->output("phase")	>> onsetDetectionRms->input("phase");
         onsetDetectionRms->output("onsetDetection") >> *onsetDetsRms;
@@ -197,7 +198,7 @@ array2dReal calculateOnsetsMatrix(std::vector<Real> const &waveform,
 
 #pragma message("make this work with StreamingFactory")
 vecReal calculateOnsetsInSeconds(const array2dReal &onsetAnalysisMatrix,
-								 const standardFactory &factory,
+								 const StandardFactory &factory,
 								 const AnalyzerSettings &settings)
 {
 	/* assuming that the onsetAnalysisMatrix was derived from the above onsetAnalysis,
@@ -207,7 +208,7 @@ vecReal calculateOnsetsInSeconds(const array2dReal &onsetAnalysisMatrix,
 
 	constexpr float frameRate = 44100.f / 512.f;
 
-	essentia::standard::Algorithm* onsetDetectionSeconds = factory.create (
+	essentia::standard::Algorithm* onsetDetectionSeconds = StandardFactory::create (
 		"Onsets",
 		  "frameRate",       frameRate,
 		  "silenceThreshold",settings.onset.silenceThreshold,
@@ -237,7 +238,7 @@ vecVecReal featuresForSbic(const vecReal &waveform,
 						   RunLoopStatus& rls,
 						   const ShouldExitFn &shouldExit)
 {
-	auto *inVec = new vectorInput(&waveform);
+	auto *inVec = new vectorInput(&waveform);       // NOLINT – network takes ownership
 
     const auto sr = static_cast<float>(settings.analysis.sampleRate);
 	assert (0.0 < sr);
@@ -251,7 +252,7 @@ vecVecReal featuresForSbic(const vecReal &waveform,
 	int const fftSize = frameSize * 2;
 
 
-	Algorithm* frameCutter = factory.create ("FrameCutter",
+	Algorithm* frameCutter = StreamingFactory::create ("FrameCutter",
 		"frameSize",               frameSize,
 		"hopSize",                 hopSize,
 		"lastFrameToEndOfFile",    true,
@@ -260,17 +261,17 @@ vecVecReal featuresForSbic(const vecReal &waveform,
 		"validFrameThresholdRatio", validFrameThresholdRatio
 	);
 
-	Algorithm* windowing = factory.create ("Windowing",
+	Algorithm* windowing = StreamingFactory::create ("Windowing",
 		"normalized", false,
 		"size",        frameSize,
 		"zeroPadding", zeroPadding,
 		"type",        settings.analysis.windowingType.toStdString(),
 		"zeroPhase",   false
 	);
-	Algorithm* spectrum = factory.create ("PowerSpectrum",
+	Algorithm* spectrum = StreamingFactory::create ("PowerSpectrum",
 		"size", fftSize
 	);
-	Algorithm* bfcc = factory.create ("BFCC",
+	Algorithm* bfcc = StreamingFactory::create ("BFCC",
 		"sampleRate",           sr,
 		"dctType",              settings.bfcc.dctType.toStdString(),
 		"highFrequencyBound",   settings.bfcc.highFrequencyBound,
@@ -284,14 +285,14 @@ vecVecReal featuresForSbic(const vecReal &waveform,
 		"type",                 settings.bfcc.spectrumType.toStdString(),
 		"logType",              "dbpow"	// log compr. type. Use ‘dbpow’ if working with power and ‘dbamp’ if working with magnitudes. DONT CHANGE unless also changing PowerSpectrum algo to Spectrum
 	);
-	Algorithm* barkFrameAccumulator = factory.create("VectorRealAccumulator");
-	Algorithm* bfccFrameAccumulator = factory.create("VectorRealAccumulator");
+	Algorithm* barkFrameAccumulator = StreamingFactory::create("VectorRealAccumulator");
+	Algorithm* bfccFrameAccumulator = StreamingFactory::create("VectorRealAccumulator");
 
 	// for some reason, to get this working in as a connection to FrameAccumulator,
 	// these must be vector<vector<vector<Real>>>, and the 1st dimension only has size of 1...
 	std::vector<std::vector<vecReal>> barkBands, BFCCs;
-	VectorOutput<std::vector<vecReal>> *barkAccumOutput = new VectorOutput<std::vector<vecReal>>(&barkBands);
-	VectorOutput<std::vector<vecReal>> *bfccAccumOutput = new VectorOutput<std::vector<vecReal>>(&BFCCs);
+	VectorOutput<std::vector<vecReal>> *barkAccumOutput = new VectorOutput<std::vector<vecReal>>(&barkBands);   // NOLINT – network takes ownership
+	VectorOutput<std::vector<vecReal>> *bfccAccumOutput = new VectorOutput<std::vector<vecReal>>(&BFCCs);       // NOLINT – network takes ownership
 
 	*inVec								>>	frameCutter->input("signal");
 	frameCutter->output("frame")		>>	windowing->input("frame");
@@ -318,10 +319,10 @@ vecVecReal featuresForSbic(const vecReal &waveform,
 	return BFCCs[0];	// the only dimension that was used
 }
 
-vecReal sBic(const array2dReal &featureMatrix, const standardFactory &factory,
+vecReal sBic(const array2dReal &featureMatrix, const StandardFactory &factory,
 			 const AnalyzerSettings &settings){
 
-	standard::Algorithm* sbic = factory.create (
+	standard::Algorithm* sbic = StandardFactory::create (
 		"SBic",
 		  "cpw",       settings.sBic.complexityPenaltyWeight,
 		  "inc1",      settings.sBic.incrementFirstPass,
@@ -339,7 +340,7 @@ vecReal sBic(const array2dReal &featureMatrix, const standardFactory &factory,
 }
 
 vecVecReal splitWaveIntoEvents(const vecReal&wave, const vecReal&onsetsInSeconds,
-							   const streamingFactory &factory,
+							   const StreamingFactory &factory,
 							   const AnalyzerSettings &settings,
 							   RunLoopStatus& rls, const ShouldExitFn &shouldExit){
 	size_t const numOnsets {onsetsInSeconds.size()};
@@ -361,15 +362,15 @@ vecVecReal splitWaveIntoEvents(const vecReal&wave, const vecReal&onsetsInSeconds
 	endTimes.back() = endOfFile;
 	assert(*(onsetsInSeconds.end() - 1) == *(endTimes.end() - 2));
 
-	Algorithm* slicer = factory.create("Slicer",
+	Algorithm* slicer = StreamingFactory::create("Slicer",
 									   "timeUnits", "seconds",
 									   "sampleRate", sampleRate,
 									   "startTimes", onsetsInSeconds,
 									   "endTimes", endTimes);
 
-	auto *waveInput = new vectorInput(&wave);
+	auto *waveInput = new vectorInput(&wave);                                               // NOLINT – network takes ownership
 	vecVecReal waveEvents;
-	vectorOutputCumulative *waveEventsOutput = new vectorOutputCumulative(&waveEvents);
+	vectorOutputCumulative *waveEventsOutput = new vectorOutputCumulative(&waveEvents);     // NOLINT – network takes ownership
 
 	*waveInput >> slicer->input("audio");
 	slicer->output("frame") >> *waveEventsOutput;
@@ -401,18 +402,18 @@ vecVecReal splitWaveIntoEvents(const vecReal&wave, const vecReal&onsetsInSeconds
 	return waveEvents;
 }
 
-void writeWav(const vecReal&wave, const std::string_view name, const streamingFactory &factory,
+void writeWav(const vecReal&wave, const std::string_view name, const StreamingFactory &factory,
 			  const AnalyzerSettings &settings,
 			  RunLoopStatus& rls,
 			  const ShouldExitFn &shouldExit)
 {
     const auto sr = static_cast<float>(settings.analysis.sampleRate);
 	jassert (sr > 20000.f);
-	Algorithm* writer = factory.create("MonoWriter",
+	Algorithm* writer = StreamingFactory::create("MonoWriter",
 									   "filename", std::string(name) + ".wav",
 									   "format", "wav",
 									   "sampleRate", sr);
-	vectorInput *waveInput = new vectorInput(&wave);
+	vectorInput *waveInput = new vectorInput(&wave);        // NOLINT – network takes ownership
 	*waveInput >> writer->input("audio");
 
 	Network n(waveInput);
@@ -424,7 +425,7 @@ void writeWav(const vecReal&wave, const std::string_view name, const streamingFa
 	}
 	n.clear();
 }
-void writeWavs(const vecVecReal &waves, const std::string_view defName, const streamingFactory &factory,
+void writeWavs(const vecVecReal &waves, const std::string_view defName, const StreamingFactory &factory,
 			   const AnalyzerSettings &settings,
 			   RunLoopStatus& rls,
 			   const ShouldExitFn &shouldExit)

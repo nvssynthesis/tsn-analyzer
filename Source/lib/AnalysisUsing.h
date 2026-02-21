@@ -33,8 +33,8 @@ using vectorOutput = VectorOutput<Real>;
 using vectorOutputCumulative = VectorOutput<vecReal> ;
 using startAndEndTimesVec = std::pair<vecReal, vecReal> ;
 
-using streamingFactory = streaming::AlgorithmFactory;
-using standardFactory = standard::AlgorithmFactory;
+using StreamingFactory = streaming::AlgorithmFactory;
+using StandardFactory = standard::AlgorithmFactory;
 
 using array2dReal = TNT::Array2D<Real>;
 

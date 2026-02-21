@@ -21,7 +21,7 @@ PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, Anal
     int const zeroPadding = frameSize;
 
     const auto frameCutter = std::unique_ptr<standard::Algorithm>(
-        standardFactory::create ("FrameCutter",
+        StandardFactory::create ("FrameCutter",
                 "frameSize",            frameSize,
                 "hopSize",              settings.analysis.hopSize,
                 "lastFrameToEndOfFile", true,
@@ -31,7 +31,7 @@ PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, Anal
 
 
     const auto windowing = std::unique_ptr<standard::Algorithm>(
-        standardFactory::create ("Windowing",
+        StandardFactory::create ("Windowing",
                 "normalized", false,
                 "size",        frameSize,
                 "zeroPadding", zeroPadding,
@@ -41,7 +41,7 @@ PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, Anal
 
 
     const auto pitchDet = std::unique_ptr<standard::Algorithm>(
-        standardFactory::create ("PitchYin",
+        StandardFactory::create ("PitchYin",
                 "sampleRate",   settings.analysis.sampleRate,
                 "frameSize",   frameSize,
                 "interpolate",  settings.pitch._yin.interpolate,
@@ -121,7 +121,7 @@ PitchesAndConfidences calculatePitchesEssentiaProbabilisticYin(std::span<Real> w
     }();
 
     const auto pitchDet = std::unique_ptr<standard::Algorithm>(
-        standardFactory::create ("PitchYinProbabilistic",
+        StandardFactory::create ("PitchYinProbabilistic",
                 "sampleRate",   settings.analysis.sampleRate,
                 "frameSize",     settings.analysis.frameSize,
                 "hopSize",      settings.analysis.hopSize,
@@ -201,7 +201,7 @@ vecReal calculateLoudnesses(const std::span<Real const> waveSpan, AnalyzerSettin
 
         [[maybe_unused]] const float sampleRate = settings.analysis.sampleRate;
 
-        const auto equalLoudnessFilter = std::unique_ptr<standard::Algorithm>(standardFactory::create(
+        const auto equalLoudnessFilter = std::unique_ptr<standard::Algorithm>(StandardFactory::create(
                 "EqualLoudness",
                 "sampleRate", sampleRate
                 )); // not using yet
@@ -216,7 +216,7 @@ vecReal calculateLoudnesses(const std::span<Real const> waveSpan, AnalyzerSettin
 
     const int frameSize = settings.analysis.frameSize;
     const int hopSize = settings.analysis.hopSize;
-    const auto frameCutter = std::unique_ptr<standard::Algorithm>(standardFactory::create (
+    const auto frameCutter = std::unique_ptr<standard::Algorithm>(StandardFactory::create (
             "FrameCutter",
             "frameSize",               frameSize,
             "hopSize",                 hopSize,
@@ -225,7 +225,7 @@ vecReal calculateLoudnesses(const std::span<Real const> waveSpan, AnalyzerSettin
             "validFrameThresholdRatio", 0.0
             ));
 
-    const auto windowing = std::unique_ptr<standard::Algorithm>(standardFactory::create (
+    const auto windowing = std::unique_ptr<standard::Algorithm>(StandardFactory::create (
             "Windowing",
             "normalized",  false,
             "size",        frameSize,
@@ -234,7 +234,7 @@ vecReal calculateLoudnesses(const std::span<Real const> waveSpan, AnalyzerSettin
             "zeroPhase",   false
             ));
 
-    const auto loudness = std::unique_ptr<standard::Algorithm>(standardFactory::create("Loudness"));
+    const auto loudness = std::unique_ptr<standard::Algorithm>(StandardFactory::create("Loudness"));
 
     vecReal loudnesses; // NOLINT
 
@@ -281,7 +281,7 @@ FeatureContainer<vecReal> calculateTimbres(std::span<Real const> waveSpan, Analy
     }
 
     const int hopSize = settings.analysis.hopSize;
-    const auto frameCutter = std::unique_ptr<standard::Algorithm>(standardFactory::create (
+    const auto frameCutter = std::unique_ptr<standard::Algorithm>(StandardFactory::create (
         "FrameCutter",
           "frameSize",               frameSize,
           "hopSize",                 hopSize,
@@ -289,7 +289,7 @@ FeatureContainer<vecReal> calculateTimbres(std::span<Real const> waveSpan, Analy
           "startFromZero",           true,
           "validFrameThresholdRatio", 0.0
     ));
-    const auto windowing = std::unique_ptr<standard::Algorithm>(standardFactory::create (
+    const auto windowing = std::unique_ptr<standard::Algorithm>(StandardFactory::create (
         "Windowing",
           "normalized",  false,
           "size",        frameSize,
@@ -300,7 +300,7 @@ FeatureContainer<vecReal> calculateTimbres(std::span<Real const> waveSpan, Analy
     auto const spectrumTypeStr = settings.bfcc.spectrumType.toStdString();
     bool const isPower = (spectrumTypeStr == "power");
     std::string const specAlgoStr = isPower ? "PowerSpectrum" : "Spectrum";
-    const auto spectrum = std::unique_ptr<standard::Algorithm>(standardFactory::create (
+    const auto spectrum = std::unique_ptr<standard::Algorithm>(StandardFactory::create (
             specAlgoStr,
             "size", frameSize * 2
             ));
@@ -313,7 +313,7 @@ FeatureContainer<vecReal> calculateTimbres(std::span<Real const> waveSpan, Analy
             {"Spectrum", "dbamp"}
     };
     const auto sampleRate  = static_cast<float>(settings.analysis.sampleRate);
-    const auto bfcc = std::unique_ptr<standard::Algorithm>(standardFactory::create (
+    const auto bfcc = std::unique_ptr<standard::Algorithm>(StandardFactory::create (
     "BFCC",
     "dctType",             dctTypeStringToInt.at(settings.bfcc.dctType.toStdString()),
     "highFrequencyBound",  settings.bfcc.highFrequencyBound,
@@ -329,15 +329,15 @@ FeatureContainer<vecReal> calculateTimbres(std::span<Real const> waveSpan, Analy
     "type",                spectrumTypeStr,
     "weighting",           settings.bfcc.weightingType.toStdString()
     ));
-    const auto centroid_a = std::unique_ptr<standard::Algorithm>(standardFactory::create ("Centroid",
+    const auto centroid_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("Centroid",
         "range", sampleRate * 0.5));
-    const auto decrease_a = std::unique_ptr<standard::Algorithm>(standardFactory::create ("Decrease",
+    const auto decrease_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("Decrease",
         "range", sampleRate * 0.5));
-    const auto flatnessDB_a = std::unique_ptr<standard::Algorithm>(standardFactory::create ("FlatnessDB"));
-    const auto crest_a = std::unique_ptr<standard::Algorithm>(standardFactory::create ("Crest"));
-    const auto spectralComplexity_a = std::unique_ptr<standard::Algorithm>(standardFactory::create ("SpectralComplexity",
+    const auto flatnessDB_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("FlatnessDB"));
+    const auto crest_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("Crest"));
+    const auto spectralComplexity_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("SpectralComplexity",
         "magnitudeThreshold", settings.spectralComplexity.magnitudeThreshold));
-    const auto strongPeakinesses_a = std::unique_ptr<standard::Algorithm>(standardFactory::create("StrongPeak"));
+    const auto strongPeakinesses_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create("StrongPeak"));
 
     std::string const specInputStr  = isPower ? "signal"        : "frame";
     std::string const specOutputStr = isPower ? "powerSpectrum" : "spectrum";
@@ -436,7 +436,7 @@ vecVecReal PCA(vecVecReal const &V, int num_features_out){
     const std::string namespaceIn {"data"};
     const std::string namespaceOut {"pca"};
 
-    standard::Algorithm* PCA = nvs::analysis::standardFactory::create("PCA",
+    standard::Algorithm* PCA = nvs::analysis::StandardFactory::create("PCA",
                                                                       "dimensions", num_features_out,
                                                                       "namespaceIn", namespaceIn,
                                                                       "namespaceOut", namespaceOut);
