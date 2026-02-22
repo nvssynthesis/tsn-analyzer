@@ -256,4 +256,67 @@ void subdivideOnsetsNaive(std::vector<float>& onsetsInSeconds, const std::vector
     onsetsInSeconds = result;
 }
 
+void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave,
+    const float sampleRate, const unsigned int numSubsections, const float rmsHopProportion)
+{
+    if (numSubsections <= 1) return;
+
+    const std::vector<float> originalOnsets = onsetsInSeconds;
+    const int totalSamples = static_cast<int>(wave.size());
+
+    std::vector<float> resultOnsets;
+    resultOnsets.reserve(originalOnsets.size() * numSubsections);
+
+    for (int i = 0; i < static_cast<int>(originalOnsets.size()); ++i) {
+        resultOnsets.push_back(originalOnsets[i]);
+
+        const int segStartSample = static_cast<int>(originalOnsets[i] * sampleRate);
+        const int segEndSample   = (i + 1 < static_cast<int>(originalOnsets.size()))
+                                     ? static_cast<int>(originalOnsets[i + 1] * sampleRate)
+                                     : totalSamples;
+
+        if (segEndSample <= segStartSample) continue;
+
+        const int segLengthSamples = segEndSample - segStartSample;
+        const int rmsHopSamples    = std::max(1, static_cast<int>(segLengthSamples * rmsHopProportion));
+
+        // --- build RMS energy envelope over segment ---
+        const int rmsHalfWin = rmsHopSamples / 2;
+
+        std::vector<float> energy;
+        for (int s = segStartSample; s < segEndSample; s += rmsHopSamples)
+            energy.push_back(rmsEnergy(wave, s, rmsHalfWin));
+
+        if (energy.size() < 2) continue;
+
+        // --- build cumulative energy ---
+        std::vector<float> cumulative(energy.size());
+        cumulative[0] = energy[0];
+        for (int j = 1; j < static_cast<int>(energy.size()); ++j)
+            cumulative[j] = cumulative[j - 1] + energy[j];
+
+        const float totalEnergy = cumulative.back();
+        if (totalEnergy <= 0.0f) continue;
+
+        // --- place boundaries at equal cumulative energy percentiles ---
+        for (unsigned int cut = 1; cut < numSubsections; ++cut) {
+            const float targetEnergy = totalEnergy * (static_cast<float>(cut) / static_cast<float>(numSubsections));
+
+            const auto it = std::ranges::lower_bound(cumulative, targetEnergy);
+            const int frameIndex = static_cast<int>(std::distance(cumulative.begin(), it));
+
+            const int cutSample = segStartSample + frameIndex * rmsHopSamples;
+
+            if (const float cutTime = static_cast<float>(cutSample) / sampleRate;
+                cutTime > originalOnsets[i] && cutSample < segEndSample)
+            {
+                resultOnsets.push_back(cutTime);
+            }
+        }
+    }
+
+    assert( std::ranges::is_sorted(resultOnsets) );
+    onsetsInSeconds = resultOnsets;
+}
+
 }

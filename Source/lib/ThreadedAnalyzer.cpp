@@ -103,8 +103,9 @@ void ThreadedAnalyzer::run() {
 	        Logger::writeToLog("Processing onsets...");
 	        improveOnsetsInSeconds(_onsetAnalysisResult->onsets, _inputWave, sr);
 		    filterOnsets(_onsetAnalysisResult->onsets, lengthInSeconds);
-	        subdivideOnsetsNaive(_onsetAnalysisResult->onsets, _inputWave, sr, 5);
-		    forceMinimumOnsets(_onsetAnalysisResult->onsets, 4, lengthInSeconds);
+	        // subdivideOnsetsNaive(_onsetAnalysisResult->onsets, _inputWave, sr, 5);
+	        subdivideOnsetsEnergy(_onsetAnalysisResult->onsets, _inputWave, sr, 5);
+	        forceMinimumOnsets(_onsetAnalysisResult->onsets, 4, lengthInSeconds);
 
 		    const auto retval = _onsetAnalysisResult->onsets;
 		    normalizeOnsets(_onsetAnalysisResult->onsets, lengthInSeconds);

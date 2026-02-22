@@ -16,6 +16,9 @@ void improveOnsetsInSeconds(
     float                       searchBackMs    = 500.0f,  // how far back to look for pre-onset silence
     float                       rmsWindowMs     = 30.0f    // RMS analysis window size
 );
+void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave,
+    float sampleRate, unsigned int numSubsections,
+    float rmsHopProportion = 0.005f);
 
 void subdivideOnsetsNaive(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave, float sampleRate, unsigned int numSubsections);
 
