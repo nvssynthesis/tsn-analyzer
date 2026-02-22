@@ -338,7 +338,6 @@ void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vecto
                 }
             }
 
-
             if (cutTimeSeconds > currentOnsetSeconds &&
                 cutSample < segEndSample )
             {
