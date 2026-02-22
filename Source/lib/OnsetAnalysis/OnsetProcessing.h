@@ -14,10 +14,7 @@ void improveOnsetsInSeconds(
     const std::vector<float>&   wave,
     float                       sampleRate,
     float                       searchBackMs    = 500.0f,  // how far back to look for pre-onset silence
-    float                       rmsWindowMs     = 15.0f,    // RMS analysis window size
-    float                       noiseFloorMs    = 100.0f,   // how much of the pre-onset region to use for noise floor estimation
-    float                       thresholdDb     = 3.0f,    // how many dB above noise floor counts as "onset"
-    float                       minSilenceDb    = -60.0f   // absolute floor - if noise is louder than this, don't correct
+    float                       rmsWindowMs     = 30.0f    // RMS analysis window size
 );
 
 void forceMinimumOnsets(std::vector<float> &onsets, int minOnsets, double lengthInSeconds);
