@@ -7,7 +7,7 @@
 
 namespace nvs::analysis {
 
-void filterOnsets(std::vector<float> &onsetsInSeconds, const double lengthInSeconds, float minimumOnsetDeltaSeconds = 0.02f);
+void filterOnsets(std::vector<float> &onsetsInSeconds, double lengthInSeconds, float minimumOnsetDeltaSeconds = 0.02f);
 
 void improveOnsetsInSeconds(
     std::vector<float>&   onsetsInSeconds,

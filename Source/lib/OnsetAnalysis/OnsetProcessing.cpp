@@ -284,19 +284,20 @@ void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vecto
         const int rmsHalfWin = rmsHopSamples / 2;
 
         std::vector<float> energy;
-        for (int s = segStartSample; s < segEndSample; s += rmsHopSamples)
+        for (int s = segStartSample; s < segEndSample; s += rmsHopSamples) {
             energy.push_back(rmsEnergy(wave, s, rmsHalfWin));
-
-        if (energy.size() < 2) continue;
+        }
+        if (energy.size() < 2) { continue; }
 
         // --- build cumulative energy ---
         std::vector<float> cumulative(energy.size());
         cumulative[0] = energy[0];
-        for (int j = 1; j < static_cast<int>(energy.size()); ++j)
+        for (int j = 1; j < static_cast<int>(energy.size()); ++j) {
             cumulative[j] = cumulative[j - 1] + energy[j];
+        }
 
         const float totalEnergy = cumulative.back();
-        if (totalEnergy <= 0.0f) continue;
+        if (totalEnergy <= 0.0f) { continue; }
 
         // --- place boundaries at equal cumulative energy percentiles ---
         for (unsigned int cut = 1; cut < numSubsections; ++cut) {
