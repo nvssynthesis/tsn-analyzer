@@ -80,14 +80,14 @@ if(APPLE)
     message(STATUS "macOS SDK path: ${MACOS_SDK_PATH}")
 
     # suppress warnings for essentia
-    set(ESSENTIA_CXXFLAGS "-w -isysroot ${MACOS_SDK_PATH} -I${EIGEN_INCLUDE_DIR}")
+    set(ESSENTIA_CXXFLAGS "-w -O2 -march=native -mtune=native -flto -isysroot ${MACOS_SDK_PATH} -I${EIGEN_INCLUDE_DIR}")
 
     set(ESSENTIA_ENV
             "SDKROOT=${MACOS_SDK_PATH}"
             "CPPFLAGS=-isysroot ${MACOS_SDK_PATH} -I${EIGEN_INCLUDE_DIR}"
-            "CFLAGS=-isysroot ${MACOS_SDK_PATH}"
+            "CFLAGS=-isysroot ${MACOS_SDK_PATH} -O2 -march=native -mtune=native -flto"
             "CXXFLAGS=${ESSENTIA_CXXFLAGS}"
-            "LDFLAGS=-isysroot ${MACOS_SDK_PATH}"
+            "LDFLAGS=-isysroot ${MACOS_SDK_PATH} -flto"
     )
 else()
     set(ESSENTIA_ENV
