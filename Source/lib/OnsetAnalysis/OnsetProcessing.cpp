@@ -257,7 +257,8 @@ void subdivideOnsetsNaive(std::vector<float>& onsetsInSeconds, const std::vector
 }
 
 void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave,
-    const float sampleRate, const unsigned int numSubsections, const float rmsHopProportion)
+    const float sampleRate, const unsigned int numSubsections, const float rmsHopProportion,
+    float minimumSubdivisionLengthMs)
 {
     if (numSubsections <= 1) return;
 
@@ -267,10 +268,13 @@ void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vecto
     std::vector<float> resultOnsets;
     resultOnsets.reserve(originalOnsets.size() * numSubsections);
 
-    for (int i = 0; i < static_cast<int>(originalOnsets.size()); ++i) {
-        resultOnsets.push_back(originalOnsets[i]);
+    const float minSubdivLengthSamples = (minimumSubdivisionLengthMs / 1000.f) * sampleRate;
 
-        const int segStartSample = static_cast<int>(originalOnsets[i] * sampleRate);
+    for (int i = 0; i < static_cast<int>(originalOnsets.size()); ++i) {
+        const auto currentOnsetSeconds = originalOnsets[i];
+        resultOnsets.push_back(currentOnsetSeconds);
+
+        const int segStartSample = static_cast<int>(currentOnsetSeconds * sampleRate);
         const int segEndSample   = (i + 1 < static_cast<int>(originalOnsets.size()))
                                      ? static_cast<int>(originalOnsets[i + 1] * sampleRate)
                                      : totalSamples;
@@ -278,6 +282,9 @@ void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vecto
         if (segEndSample <= segStartSample) continue;
 
         const int segLengthSamples = segEndSample - segStartSample;
+        if (segLengthSamples < minSubdivLengthSamples) {
+            continue;
+        }
         const int rmsHopSamples    = std::max(1, static_cast<int>(segLengthSamples * rmsHopProportion));
 
         // --- build RMS energy envelope over segment ---
@@ -300,6 +307,7 @@ void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vecto
         if (totalEnergy <= 0.0f) { continue; }
 
         // --- place boundaries at equal cumulative energy percentiles ---
+        float lastOnsetSeconds = currentOnsetSeconds;
         for (unsigned int cut = 1; cut < numSubsections; ++cut) {
             const float targetEnergy = totalEnergy * (static_cast<float>(cut) / static_cast<float>(numSubsections));
 
@@ -307,11 +315,28 @@ void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vecto
             const int frameIndex = static_cast<int>(std::distance(cumulative.begin(), it));
 
             const int cutSample = segStartSample + frameIndex * rmsHopSamples;
+            const float cutTimeSeconds = static_cast<float>(cutSample) / sampleRate;
 
-            if (const float cutTime = static_cast<float>(cutSample) / sampleRate;
-                cutTime > originalOnsets[i] && cutSample < segEndSample)
+            const float ostensibleCutLengthSeconds = cutTimeSeconds - lastOnsetSeconds;
+
+            if (ostensibleCutLengthSeconds < (minimumSubdivisionLengthMs * 0.001f)) {
+                continue;
+            }
+
+            const auto nextOnsetSeconds = i + 1 < originalOnsets.size() ?
+                                                        originalOnsets[i + 1] :
+                                                            totalSamples / sampleRate;
+            const float nextOstensibleLenthSeconds = nextOnsetSeconds - cutTimeSeconds;
+            if (nextOstensibleLenthSeconds < (minimumSubdivisionLengthMs * 0.001f)) {
+                continue;
+            }
+
+
+            if (cutTimeSeconds > currentOnsetSeconds &&
+                cutSample < segEndSample )
             {
-                resultOnsets.push_back(cutTime);
+                resultOnsets.push_back(cutTimeSeconds);
+                lastOnsetSeconds = cutTimeSeconds;
             }
         }
     }

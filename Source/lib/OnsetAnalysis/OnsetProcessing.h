@@ -18,7 +18,8 @@ void improveOnsetsInSeconds(
 );
 void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave,
     float sampleRate, unsigned int numSubsections,
-    float rmsHopProportion = 0.005f);
+    float rmsHopProportion = 0.005f,
+    float minimumSubdivisionLengthMs = 500.f);
 
 void subdivideOnsetsNaive(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave, float sampleRate, unsigned int numSubsections);
 
