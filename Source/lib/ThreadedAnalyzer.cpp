@@ -80,6 +80,7 @@ void ThreadedAnalyzer::run() {
 
 		// perform onset analysis
 		_rls.set("Calculating Onsets...");
+	        Logger::writeToLog("Calculating onsets...");
 	    const String audioHash = util::hashAudioData(_inputWave);
 
 	    const auto sr = _analyzer.getAnalyzedFileSampleRate();
@@ -99,6 +100,7 @@ void ThreadedAnalyzer::run() {
 		    const auto lengthInSeconds = getLengthInSeconds(_inputWave.size(), sr);
 
 	        _rls.set("Processing onsets..");
+	        Logger::writeToLog("Processing onsets...");
 	        improveOnsetsInSeconds(_onsetAnalysisResult->onsets, _inputWave, sr);
 		    filterOnsets(_onsetAnalysisResult->onsets, lengthInSeconds);
 		    forceMinimumOnsets(_onsetAnalysisResult->onsets, 4, lengthInSeconds);
@@ -118,6 +120,7 @@ void ThreadedAnalyzer::run() {
 
         // perform onsetwise BFCC analysis
 		_rls.set("Calculating Onsetwise TimbreSpace...");
+	    Logger::writeToLog("Calculating Onsetwise Timbre Space...");
 	    {
 	        const auto timbreMeasurementsOpt = _analyzer.calculateOnsetwiseTimbreSpace(_inputWave, unnormalizedOnsets, _rls, shouldExit);
 		    if (!timbreMeasurementsOpt.has_value() || threadShouldExit()) {
