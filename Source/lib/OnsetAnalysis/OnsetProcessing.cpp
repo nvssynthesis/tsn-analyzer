@@ -24,11 +24,13 @@ void filterOnsets(std::vector<float> &onsetsInSeconds, const double lengthInSeco
             }
         }
         onsetsInSeconds.resize(numProperOnsets);
-
     }
+
     // filter out redundant onsets (can be defined by onsets which are too close together)
     {
-        const auto new_end = std::ranges::unique(onsetsInSeconds, [minimumOnsetDeltaSeconds](float a, float b){
+        const auto new_end = std::ranges::unique(
+            onsetsInSeconds,
+            [minimumOnsetDeltaSeconds](const float a, const float b){
             return (b - a) < minimumOnsetDeltaSeconds;
         }).begin();
         onsetsInSeconds.erase(new_end, onsetsInSeconds.end());	// erase from new end to original end
@@ -173,25 +175,33 @@ inline float rmsEnergy(const std::vector<float>& wave, const int centerSample, c
 }
 
 
-std::vector<float> improveOnsetsInSeconds(
+void improveOnsetsInSeconds(
+    std::vector<float>& onsetsInSeconds,
     const std::vector<float>& wave,
-    const std::vector<float>& onsetsInSeconds,
-    const float           sampleRate,
-    const float          searchBackMs    = 200.0f,  // how far back to look for pre-onset silence
-    const float          rmsWindowMs     = 5.0f,    // RMS analysis window size
-    const float          noiseFloorMs    = 50.0f,   // how much of the pre-onset region to use for noise floor estimation
-    const float          thresholdDb     = 12.0f,   // how many dB above noise floor counts as "onset"
-    const float          minSilenceDb    = -60.0f   // absolute floor - if noise is louder than this, don't correct
-) {
+    const float          sampleRate,
+    const float          searchBackMs,  // how far back to look for pre-onset silence
+    const float          rmsWindowMs,   // RMS analysis window size
+    const float          noiseFloorMs,  // how much of the pre-onset region to use for noise floor estimation
+    const float          thresholdDb,   // how many dB above noise floor counts as "onset"
+    const float          minSilenceDb   // absolute floor - if noise is louder than this, don't correct
+)
+{
+    if (wave.empty() || onsetsInSeconds.empty()) return;
+
     std::vector<float> improved = onsetsInSeconds;
 
-    const int rmsHalfWin    = static_cast<int>(sampleRate * rmsWindowMs   / 1000.0f / 2.0f);
-    const int searchBackSmp = static_cast<int>(sampleRate * searchBackMs  / 1000.0f);
-    const int noiseRegionSmp= static_cast<int>(sampleRate * noiseFloorMs  / 1000.0f);
+    const size_t numSamples  = wave.size();
+    const int rmsHalfWin     = static_cast<int>(sampleRate * rmsWindowMs   / 1000.0f / 2.0f);
+    const int searchBackSmp  = static_cast<int>(sampleRate * searchBackMs  / 1000.0f);
+    const int noiseRegionSmp = static_cast<int>(sampleRate * noiseFloorMs  / 1000.0f);
     const float threshLinear = std::pow(10.0f, thresholdDb / 20.0f); // amplitude ratio
 
     for (int i = 0; i < static_cast<int>(onsetsInSeconds.size()); ++i) {
         const int onsetSample = static_cast<int>(onsetsInSeconds[i] * sampleRate);
+
+        if (onsetSample < 0 || onsetSample >= numSamples) {
+            continue;
+        }
 
         // --- 1. Determine SEARCH REGION ---
         // avoid searching back past the previous onset
@@ -202,27 +212,30 @@ std::vector<float> improveOnsetsInSeconds(
         }
         searchStart = std::max(searchStart, 0);
 
-        if (searchStart >= onsetSample)
+        if (searchStart >= onsetSample) {
             continue; // no room to search
+        }
 
         // --- 2. Estimate NOISE FLOOR from the early part of the search region ---
         // Use the first `noiseRegionSmp` samples of the search window as "pre-onset silence"
         const int noiseEnd = std::min(searchStart + noiseRegionSmp, onsetSample - 1);
 
         float noiseFloorRms = 0.0f;
-        int noiseSamples = 0;
+        int numNoiseSamples = 0;
         for (int s = searchStart; s <= noiseEnd; s += rmsHalfWin) {
             noiseFloorRms += rmsEnergy(wave, s, rmsHalfWin);
-            noiseSamples++;
+            numNoiseSamples++;
         }
-        if (noiseSamples == 0) continue;
-        noiseFloorRms /= noiseSamples;
+        if (numNoiseSamples == 0) { continue; }
+        noiseFloorRms /= numNoiseSamples;
 
         // If the noise floor is too loud (e.g. sustained note, talking),
         // correction is unreliable — leave this onset alone
         const float absoluteFloor = std::pow(10.0f, minSilenceDb / 20.0f);
-        if (noiseFloorRms > absoluteFloor * 10.0f) // ~20dB headroom check
+        if (noiseFloorRms > absoluteFloor * 10.0f) {
+            // ~20dB headroom check
             continue;
+        }
 
         // --- 3. FORWARD SCAN from searchStart to find where signal crosses threshold ---
         const float triggerLevel = std::max(noiseFloorRms * threshLinear, absoluteFloor);
@@ -242,7 +255,7 @@ std::vector<float> improveOnsetsInSeconds(
         improved[i] = static_cast<float>(correctedSample) / sampleRate;
     }
 
-    return improved;
+    onsetsInSeconds = improved;
 }
 
 }

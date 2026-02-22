@@ -173,6 +173,7 @@ static vecReal getWeights(const AnalyzerSettings &settings) {
 	Network n(inVec);
 	n.runPrepare();
 	rls.set(0.0);
+#pragma message("We should be able to know how many network steps and thus set rls with onset progress.")
 	rls.set("Computing onset matrix...");
 	while (n.runStep()){
 		if (shouldExit()) {
@@ -217,9 +218,18 @@ static vecReal getWeights(const AnalyzerSettings &settings) {
 
     jassert (0 < correctSize);
     for (auto d : detectionRefs) {
-        if (d.get().empty()) {
-            d.get() = vecReal(correctSize, 0.f);
+        auto &ref = d.get();
+        if (ref.empty()) {
+            ref = vecReal(correctSize, 0.f);
         }
+        if (ref.size() < correctSize) {
+            const size_t diff = correctSize - ref.size();
+            // insert zeros on end
+            ref.insert(ref.end(), diff, 0.f);
+        }
+    }
+
+    for (auto d : detectionRefs) {
         jassert (d.get().size() == correctSize);
     }
 

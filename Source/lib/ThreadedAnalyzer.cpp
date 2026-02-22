@@ -98,6 +98,8 @@ void ThreadedAnalyzer::run() {
 
 		    const auto lengthInSeconds = getLengthInSeconds(_inputWave.size(), sr);
 
+	        _rls.set("Processing onsets..");
+	        improveOnsetsInSeconds(_onsetAnalysisResult->onsets, _inputWave, sr);
 		    filterOnsets(_onsetAnalysisResult->onsets, lengthInSeconds);
 		    forceMinimumOnsets(_onsetAnalysisResult->onsets, 4, lengthInSeconds);
 
