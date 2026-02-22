@@ -163,7 +163,7 @@ void denormalizeOnsets(std::vector<float> &normalizedOnsets, const double length
 }
 
 namespace {
-inline float rmsEnergy(const std::vector<float>& wave, const int centerSample, const int halfWindow) {
+float rmsEnergy(const std::vector<float>& wave, const int centerSample, const int halfWindow) {
     const int start = std::max(0, centerSample - halfWindow);
     const int end   = std::min(static_cast<int>(wave.size()) - 1, centerSample + halfWindow);
     float sum = 0.0f;

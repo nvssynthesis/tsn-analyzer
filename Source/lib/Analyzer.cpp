@@ -73,16 +73,16 @@ std::optional<vecReal> Analyzer::calculateOnsetsInSeconds(const vecReal &wave, R
         return onsets;
     }
 
+    Logger::writeToLog("Calculating onsets matrix...");
     const array2dReal onsets2d = calculateOnsetsMatrix(wave, settings, rls, shouldExit);
     if (shouldExit()) {
         return std::nullopt;
     }
-    std::cout << "analyzed onsets\n";
 
 #pragma message("it is a problem that we have not the ability to inject a runLoopCallback here, since onsetsInSeconds uses StandardFactory instead of StreamingFactory")
 
+    Logger::writeToLog("Calculating onsets in seconds...");
     std::vector<float> onsetsInSeconds = analysis::calculateOnsetsInSeconds(onsets2d, settings);	// explicit namespace qualifier for clarity
-    std::cout << "calculated onsets in seconds\n";
 
     return onsetsInSeconds;
 }
@@ -291,7 +291,7 @@ const -> std::optional<std::vector<FeatureContainer<EventwiseStats>>>
         Thread::sleep(10);  // sleep between checks
     }
 
-    std::cout << "calculated all BFCCs\n";
+    std::cout << "Calculated all timbral frames\n";
 
     if (cancelled.load() || shouldExit()) {
         return std::nullopt;
@@ -301,8 +301,7 @@ const -> std::optional<std::vector<FeatureContainer<EventwiseStats>>>
     const auto   endTimeStr   = juce::Time::getCurrentTime().toString (true, true);
     const double elapsed = (endMs - startMs) * 0.001f;  // in seconds
 
-    std::cout << "calculateOnsetwiseTimbreSpace end:   " << endTimeStr << "\n";
-    std::cout << "\t\t\t Elapsed time:   " << juce::String (elapsed, 3) << " seconds\n";
+    std::cout << "\t\t\t Eventwise timbre analysis elapsed time:   " << juce::String (elapsed, 3) << " seconds\n";
 
     return timbre_points;
 }

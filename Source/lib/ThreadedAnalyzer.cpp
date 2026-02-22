@@ -118,7 +118,7 @@ void ThreadedAnalyzer::run() {
 	        return;
 	    }
 
-        // perform onsetwise BFCC analysis
+        // perform onsetwise timbral analysis
 		_rls.set("Calculating Onsetwise TimbreSpace...");
 	    Logger::writeToLog("Calculating Onsetwise Timbre Space...");
 	    {
