@@ -244,7 +244,6 @@ const -> std::optional<std::vector<FeatureContainer<EventwiseStats>>>
 
     const double startMs = juce::Time::getMillisecondCounterHiRes();
     const auto   startTimeStr = juce::Time::getCurrentTime().toString (true, true, true, true);
-    std::cout << "calculateOnsetwiseTimbreSpace start: " << startTimeStr << "\n";
 
     rls.set("Splitting Wave into Events...");
 

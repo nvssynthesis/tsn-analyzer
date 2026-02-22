@@ -17,6 +17,8 @@ void improveOnsetsInSeconds(
     float                       rmsWindowMs     = 30.0f    // RMS analysis window size
 );
 
+void subdivideOnsetsNaive(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave, float sampleRate, unsigned int numSubsections);
+
 void forceMinimumOnsets(std::vector<float> &onsets, int minOnsets, double lengthInSeconds);
 
 void equalizeOnsetDensity(std::vector<float> &onsets, double lengthInSeconds);

@@ -228,4 +228,32 @@ void improveOnsetsInSeconds(
     onsetsInSeconds = improved;
 }
 
+void subdivideOnsetsNaive(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave, float sampleRate, unsigned int numSubsections) {
+    if (numSubsections <= 1) return;
+
+    const std::vector<float> original = onsetsInSeconds;
+    std::vector<float> result;
+    result.reserve(original.size() * numSubsections);
+
+    const int totalSamples = static_cast<int>(wave.size());
+
+    for (int i = 0; i < static_cast<int>(original.size()); ++i) {
+        result.push_back(original[i]);
+
+        const float segmentStart = original[i];
+        const float segmentEnd   = (i + 1 < static_cast<int>(original.size()))
+                                    ? original[i + 1]
+                                    : static_cast<float>(totalSamples) / sampleRate;
+
+        const float segmentDuration = segmentEnd - segmentStart;
+        const float subDuration     = segmentDuration / static_cast<float>(numSubsections);
+
+        for (unsigned int j = 1; j < numSubsections; ++j) {
+            result.push_back(segmentStart + static_cast<float>(j) * subDuration);
+        }
+    }
+
+    onsetsInSeconds = result;
+}
+
 }
