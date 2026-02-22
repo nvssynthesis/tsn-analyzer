@@ -151,7 +151,7 @@ vecReal filterByTopPercentile(
 void Analyzer::calculateEventwisePitchDescription(const vecReal &waveEvent, FeatureContainer<EventwiseStats> &features) const {
     const auto [pitches, confidences] = calculatePitchesAndConfidences(waveEvent, settings);
 
-    vecReal confidentPitches = filterByTopPercentile(pitches, confidences, 0.2f);
+    const vecReal confidentPitches = filterByTopPercentile(pitches, confidences, settings.pitch.minimum_confidence_allowed_for_stats);
 
     const auto p_mean = mean(confidentPitches);
     const auto c_mean = mean(confidences);
