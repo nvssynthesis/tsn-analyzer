@@ -258,7 +258,7 @@ void subdivideOnsetsNaive(std::vector<float>& onsetsInSeconds, const std::vector
 
 void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave,
     const float sampleRate, const unsigned int numSubsections, const float rmsHopProportion,
-    float minimumSubdivisionLengthMs)
+    const float minimumSubdivisionLengthMs)
 {
     if (numSubsections <= 1) return;
 
@@ -309,26 +309,33 @@ void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vecto
         // --- place boundaries at equal cumulative energy percentiles ---
         float lastOnsetSeconds = currentOnsetSeconds;
         for (unsigned int cut = 1; cut < numSubsections; ++cut) {
-            const float targetEnergy = totalEnergy * (static_cast<float>(cut) / static_cast<float>(numSubsections));
 
-            const auto it = std::ranges::lower_bound(cumulative, targetEnergy);
-            const int frameIndex = static_cast<int>(std::distance(cumulative.begin(), it));
+            const int cutSample = [totalEnergy, cut, numSubsections, &cumulative, segStartSample, rmsHopSamples]() {
+                const float targetEnergy = totalEnergy * (static_cast<float>(cut) / static_cast<float>(numSubsections));
 
-            const int cutSample = segStartSample + frameIndex * rmsHopSamples;
+                const auto it = std::ranges::lower_bound(cumulative, targetEnergy);
+                const int frameIndex = static_cast<int>(std::distance(cumulative.begin(), it));
+
+                return segStartSample + frameIndex * rmsHopSamples;
+            }();
             const float cutTimeSeconds = static_cast<float>(cutSample) / sampleRate;
 
-            const float ostensibleCutLengthSeconds = cutTimeSeconds - lastOnsetSeconds;
+            {
+                const float ostensibleCutLengthSeconds = cutTimeSeconds - lastOnsetSeconds;
 
-            if (ostensibleCutLengthSeconds < (minimumSubdivisionLengthMs * 0.001f)) {
-                continue;
+                if (ostensibleCutLengthSeconds < (minimumSubdivisionLengthMs * 0.001f)) {
+                    continue;
+                }
             }
-
-            const auto nextOnsetSeconds = i + 1 < originalOnsets.size() ?
-                                                        originalOnsets[i + 1] :
-                                                            totalSamples / sampleRate;
-            const float nextOstensibleLenthSeconds = nextOnsetSeconds - cutTimeSeconds;
-            if (nextOstensibleLenthSeconds < (minimumSubdivisionLengthMs * 0.001f)) {
-                continue;
+            if constexpr (false) {  // never apparently reach this condition anyway
+                const auto nextOnsetSeconds = i + 1 < originalOnsets.size() ?
+                                                            originalOnsets[i + 1] :
+                                                                totalSamples / sampleRate;
+                if (const float nextOstensibleLenthSeconds = nextOnsetSeconds - cutTimeSeconds;
+                    nextOstensibleLenthSeconds < (minimumSubdivisionLengthMs * 0.001f))
+                {
+                    continue;
+                }
             }
 
 
