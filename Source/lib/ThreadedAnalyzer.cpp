@@ -104,7 +104,8 @@ void ThreadedAnalyzer::run() {
 	        improveOnsetsInSeconds(_onsetAnalysisResult->onsets, _inputWave, sr);
 		    filterOnsets(_onsetAnalysisResult->onsets, lengthInSeconds);
 	        // subdivideOnsetsNaive(_onsetAnalysisResult->onsets, _inputWave, sr, 5);
-	        subdivideOnsetsEnergy(_onsetAnalysisResult->onsets, _inputWave, sr, 5);
+	        subdivideOnsetsEnergy(_onsetAnalysisResult->onsets, _inputWave, sr, 2);
+	        addOnsetsForSilence(_onsetAnalysisResult->onsets, _inputWave, sr);
 	        forceMinimumOnsets(_onsetAnalysisResult->onsets, 4, lengthInSeconds);
 
 		    const auto retval = _onsetAnalysisResult->onsets;

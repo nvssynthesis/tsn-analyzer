@@ -18,12 +18,19 @@ void improveOnsetsInSeconds(
     float                       searchBackMs    = 500.0f,  // how far back to look for pre-onset silence
     float                       rmsWindowMs     = 30.0f    // RMS analysis window size
 );
-void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave,
-    float sampleRate, unsigned int numSubsections,
+
+void subdivideOnsetsNaive(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave, float sampleRate, unsigned int numSubsections);
+
+void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave, float sampleRate,
+    unsigned int numSubsections,
     float rmsHopProportion = 0.005f,
     float minimumSubdivisionLengthMs = 500.f);
 
-void subdivideOnsetsNaive(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave, float sampleRate, unsigned int numSubsections);
+void addOnsetsForSilence(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave, float sampleRate,
+    float silenceThresholdDb = -40.0f,
+    float minSilenceDurationMs = 200.0f,
+    float minEventDurationMs = 200.0f,
+    float rmsHopProportion = 0.005f);
 
 void forceMinimumOnsets(std::vector<float> &onsets, int minOnsets, double lengthInSeconds);
 

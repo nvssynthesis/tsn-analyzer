@@ -351,4 +351,91 @@ void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vecto
     onsetsInSeconds = resultOnsets;
 }
 
+void addOnsetsForSilence(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave, const float sampleRate,
+    const float silenceThresholdDb,
+    const float minSilenceDurationMs,
+    const float minEventDurationMs,
+    const float rmsHopProportion)
+{
+    const float silenceThresholdLinear = std::pow(10.0f, silenceThresholdDb / 20.0f);
+    const float minSilenceDurationSec  = minSilenceDurationMs / 1000.0f;
+    const float minOnsetDeltaSec       = minEventDurationMs / 1000.0f;
+    const int   totalSamples           = static_cast<int>(wave.size());
+
+    std::vector<float> newOnsets;
+
+    for (int i = 0; i < static_cast<int>(onsetsInSeconds.size()); ++i) {
+        const float segStartSeconds = onsetsInSeconds[i] + minOnsetDeltaSec;
+        const float segEndSeconds   = (i + 1 < static_cast<int>(onsetsInSeconds.size()))
+                                 ? onsetsInSeconds[i + 1] - minOnsetDeltaSec
+                                 : static_cast<float>(totalSamples) / sampleRate - minOnsetDeltaSec;
+
+        // Check if the search window is large enough to possibly contain a valid silence
+        if (segEndSeconds - segStartSeconds < minSilenceDurationSec) continue;
+
+        const int segStartSample = static_cast<int>(segStartSeconds * sampleRate);
+        const int segEndSample   = static_cast<int>(segEndSeconds   * sampleRate);
+        const int segLengthSamples = segEndSample - segStartSample;
+
+        const int rmsHopSamples = std::max(1, static_cast<int>(segLengthSamples * rmsHopProportion));
+        const int rmsHalfWin    = rmsHopSamples / 2;
+        const int minSilenceFrames = std::max(1, static_cast<int>((minSilenceDurationSec * sampleRate) / rmsHopSamples));
+
+        // Build RMS envelope over the search window
+        std::vector<float> energy;
+        energy.reserve(segLengthSamples / rmsHopSamples + 1);
+        for (int s = segStartSample; s < segEndSample; s += rmsHopSamples) {
+            const auto e = rmsEnergy(wave, s, rmsHalfWin);
+            std::cout << e << std::endl;
+            energy.push_back(e);
+        }
+        // Scan for silence regions meeting the minimum duration
+        int frameIdx = 0;
+        const int numFrames      = static_cast<int>(energy.size());
+        const int minEventFrames   = std::max(1, static_cast<int>((minOnsetDeltaSec * sampleRate) / rmsHopSamples));
+        const float exitThreshold = silenceThresholdLinear * 2.0f; // ~6dB hysteresis
+
+        int  lastSilenceEndFrame = -minEventFrames; // so first silence is never suppressed by gap check
+
+        while (frameIdx < numFrames) {
+            if (energy[frameIdx] >= silenceThresholdLinear) {
+                ++frameIdx;
+                continue;
+            }
+
+            const int silenceStartFrame = frameIdx;
+            // Exit silence only when energy rises above the hysteresis threshold
+            while (frameIdx < numFrames && energy[frameIdx] < exitThreshold) {
+                ++frameIdx;
+            }
+            const int silenceEndFrame = frameIdx;
+
+            // Must meet minimum duration
+            if (silenceEndFrame - silenceStartFrame < minSilenceFrames) { continue; }
+
+            // Must be separated from the previous silence by at least minOnsetDelta
+            if (silenceStartFrame - lastSilenceEndFrame < minEventFrames) { continue; }
+
+            const float silenceStartTimeSeconds = segStartSeconds + static_cast<float>(silenceStartFrame * rmsHopSamples) / sampleRate;
+            const float silenceEndTimeSeconds   = segStartSeconds + static_cast<float>(silenceEndFrame   * rmsHopSamples) / sampleRate;
+
+            if (segEndSeconds - silenceEndTimeSeconds < minSilenceDurationSec) {
+                continue;
+            }
+
+            newOnsets.push_back(silenceStartTimeSeconds - 0.05);
+            newOnsets.push_back(silenceStartTimeSeconds);
+            newOnsets.push_back(silenceEndTimeSeconds - 0.05);
+            newOnsets.push_back(silenceEndTimeSeconds);
+
+            lastSilenceEndFrame = silenceEndFrame;
+        }
+    }
+
+    for (const float t : newOnsets) {
+        onsetsInSeconds.push_back(t);
+    }
+    std::ranges::sort(onsetsInSeconds);
+}
+
 }
