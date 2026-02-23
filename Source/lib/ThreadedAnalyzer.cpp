@@ -106,6 +106,9 @@ void ThreadedAnalyzer::run() {
 	        // subdivideOnsetsNaive(_onsetAnalysisResult->onsets, _inputWave, sr, 5);
 	        subdivideOnsetsEnergy(_onsetAnalysisResult->onsets, _inputWave, sr, 2);
 	        addOnsetsForSilence(_onsetAnalysisResult->onsets, _inputWave, sr);
+
+	        filterOnsets(_onsetAnalysisResult->onsets, lengthInSeconds);    // after inserting new onsets, its possible again that some are too bunched up
+
 	        forceMinimumOnsets(_onsetAnalysisResult->onsets, 4, lengthInSeconds);
 
 		    const auto retval = _onsetAnalysisResult->onsets;

@@ -172,6 +172,20 @@ float rmsEnergy(const std::vector<float>& wave, const int centerSample, const in
     }
     return std::sqrt(sum / (end - start + 1));
 }
+std::vector<float> smoothRmsEnvelope(const std::vector<float>& energy, const int smoothingFrames) {
+    const int numFrames = static_cast<int>(energy.size());
+    const int halfWindow = smoothingFrames / 2;
+    std::vector<float> smoothed(numFrames, 0.0f);
+    for (int f = 0; f < numFrames; ++f) {
+        const int start = std::max(0, f - halfWindow);
+        const int end   = std::min(numFrames - 1, f + halfWindow);
+        float sum = 0.0f;
+        for (int k = start; k <= end; ++k)
+            sum += energy[k];
+        smoothed[f] = sum / static_cast<float>(end - start + 1);
+    }
+    return smoothed;
+}
 }
 
 
@@ -386,8 +400,11 @@ void addOnsetsForSilence(std::vector<float>& onsetsInSeconds, const std::vector<
         energy.reserve(segLengthSamples / rmsHopSamples + 1);
         for (int s = segStartSample; s < segEndSample; s += rmsHopSamples) {
             const auto e = rmsEnergy(wave, s, rmsHalfWin);
-            std::cout << e << std::endl;
             energy.push_back(e);
+        }
+        energy = smoothRmsEnvelope(energy, 16);
+        for (const auto & e : energy) {
+            std::cout << e << std::endl;
         }
         // Scan for silence regions meeting the minimum duration
         int frameIdx = 0;
@@ -423,9 +440,7 @@ void addOnsetsForSilence(std::vector<float>& onsetsInSeconds, const std::vector<
                 continue;
             }
 
-            newOnsets.push_back(silenceStartTimeSeconds - 0.05);
             newOnsets.push_back(silenceStartTimeSeconds);
-            newOnsets.push_back(silenceEndTimeSeconds - 0.05);
             newOnsets.push_back(silenceEndTimeSeconds);
 
             lastSilenceEndFrame = silenceEndFrame;

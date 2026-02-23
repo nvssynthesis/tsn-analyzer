@@ -27,10 +27,10 @@ void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vecto
     float minimumSubdivisionLengthMs = 500.f);
 
 void addOnsetsForSilence(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave, float sampleRate,
-    float silenceThresholdDb = -40.0f,
-    float minSilenceDurationMs = 200.0f,
-    float minEventDurationMs = 200.0f,
-    float rmsHopProportion = 0.005f);
+    float silenceThresholdDb = -32.0f,
+    float minSilenceDurationMs = 70.0f,
+    float minEventDurationMs = 50.0f,
+    float rmsHopProportion = 0.010f);
 
 void forceMinimumOnsets(std::vector<float> &onsets, int minOnsets, double lengthInSeconds);
 
