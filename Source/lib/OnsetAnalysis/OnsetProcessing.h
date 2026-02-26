@@ -7,7 +7,8 @@
 
 namespace nvs::analysis {
 
-void filterOnsets(std::vector<float> &onsetsInSeconds, double lengthInSeconds, float minimumOnsetDeltaSeconds = 0.02f);
+void filterOnsetsOutsideBounds(std::vector<float> &onsetsInSeconds, double lengthInSeconds, float minimumProximityToEndAllowedSeconds = 0.02f);
+void filterRedundantOnsets(std::vector<float> &onsetsInSeconds, float minimumOnsetDeltaSeconds = 0.02f);
 
 #pragma message("When relevant, take in the precomputed RMS envelope instead of the raw waveform.")
 
@@ -26,12 +27,6 @@ void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vecto
     float rmsHopProportion = 0.005f,
     float minimumSubdivisionLengthMs = 500.f);
 
-void addOnsetsForSilence(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave, float sampleRate,
-    float silenceThresholdDb = -32.0f,
-    float minSilenceDurationMs = 70.0f,
-    float minEventDurationMs = 50.0f,
-    float rmsHopProportion = 0.010f);
-
 void forceMinimumOnsets(std::vector<float> &onsets, int minOnsets, double lengthInSeconds);
 
 void equalizeOnsetDensity(std::vector<float> &onsets, double lengthInSeconds);
@@ -39,6 +34,22 @@ void equalizeOnsetDensity(std::vector<float> &onsets, double lengthInSeconds);
 void normalizeOnsets(std::vector<float> &onsetsInSeconds, double lengthInSeconds);
 
 void denormalizeOnsets(std::vector<float> &normalizedOnsets, double lengthInSeconds);
+
+
+struct SilenceTimings {
+    std::vector<float> silenceOnsets;
+    std::vector<float> silenceOffsets;
+};
+SilenceTimings detectSilences(const std::vector<float>& wave, float sampleRate,
+    float silenceThresholdDb = -50.0f,
+    float minSilenceDurationMs = 300.0f,
+    float minEventDurationMs = 500.0f,
+    float rmsHopMs = 5.f,
+    float rmsAveragingWindowLength = 50.f);
+
+void combineOnsetsAndSilenceTimings(std::vector<float>& onsetsInSeconds, const SilenceTimings &silenceTimings,
+    float minDeltaOnsetToSilenceOnsetSeconds, float minDeltaSilenceOnsetToOnsetSeconds,
+    float minDeltaOnsetToSilenceOffsetSeconds, float minDeltaSilenceOffsetToOnsetSeconds);
 
 }
 

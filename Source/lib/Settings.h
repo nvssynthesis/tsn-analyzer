@@ -102,7 +102,7 @@ struct AnalyzerSettings {
     struct Pitch {
         juce::String pitchDetectionAlgorithm = "yin";   // or pYin
 
-        float minimum_confidence_allowed_for_stats {0.6f};  // frames with confidence below this will not be considered in summarizing pitch statistics
+        float minimum_confidence_considered {0.6f};  // frames with confidence below this will not be considered in summarizing pitch statistics
 
         //----------------only for yin----------------
         struct yin {

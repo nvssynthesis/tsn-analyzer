@@ -102,12 +102,19 @@ void ThreadedAnalyzer::run() {
 	        _rls.set("Processing onsets..");
 	        Logger::writeToLog("Processing onsets...");
 	        improveOnsetsInSeconds(_onsetAnalysisResult->onsets, _inputWave, sr);
-		    filterOnsets(_onsetAnalysisResult->onsets, lengthInSeconds);
+
+		    filterOnsetsOutsideBounds(_onsetAnalysisResult->onsets, lengthInSeconds);
+		    filterRedundantOnsets(_onsetAnalysisResult->onsets);
+
 	        // subdivideOnsetsNaive(_onsetAnalysisResult->onsets, _inputWave, sr, 5);
 	        subdivideOnsetsEnergy(_onsetAnalysisResult->onsets, _inputWave, sr, 2);
-	        addOnsetsForSilence(_onsetAnalysisResult->onsets, _inputWave, sr);
 
-	        filterOnsets(_onsetAnalysisResult->onsets, lengthInSeconds);    // after inserting new onsets, its possible again that some are too bunched up
+	        const auto silenceMarkers = detectSilences(_inputWave, sr);
+	        combineOnsetsAndSilenceTimings(_onsetAnalysisResult->onsets, silenceMarkers,
+	            0.2, 0.2,
+	            0.5, 0.2);
+
+	        filterOnsetsOutsideBounds(_onsetAnalysisResult->onsets, lengthInSeconds);  // after inserting new onsets, its possible again that some are too bunched up
 
 	        forceMinimumOnsets(_onsetAnalysisResult->onsets, 4, lengthInSeconds);
 
