@@ -87,6 +87,12 @@ struct AnalyzerSettings {
             Uniform // use uniformly distributed segments, specified by analysis.hopSize and analysis.frameSize
         } segmentation {Segmentation::Uniform};
 
+        struct Refinement {
+            int numEventSubdivisions = 1;   // at least 1
+            float silenceThresholdDb = -50.0f;
+            float minSilenceDurationMs = 300.0f;
+            float minEventWithinSilenceDurationMs = 500.0f;
+        } _refinement;
 
         double alpha = 0.1;
         int numFrames_shortOnsetFilter = 5;

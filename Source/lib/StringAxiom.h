@@ -75,6 +75,10 @@ STRAXIOMIZE(typeIII);
 
 STRAXIOMIZE(Onset);
 STRAXIOMIZE(segmentation);
+STRAXIOMIZE(refinementNumEventSubdivisions);
+STRAXIOMIZE(refinementSilenceThresholdDb);
+STRAXIOMIZE(refinementMinSilenceDurationMs);
+STRAXIOMIZE(refinementMinEventWithinSilenceDurationMs);
 STRAXIOMIZE(Event);
 STRAXIOMIZE(Uniform);
 STRAXIOMIZE(alpha);

@@ -193,25 +193,66 @@ PitchesAndConfidences calculatePitchesAndConfidences (vecReal waveEvent,
 
 vecReal calculateLoudnesses(const std::span<Real const> waveSpan, AnalyzerSettings const& settings)
 {
-    auto const filteredWave = [&settings](std::span<Real const> _waveSpan) {
+    auto const filteredWave = [&settings](std::span<Real const> _waveSpan) -> vecReal
+    {
         const vecReal wave(_waveSpan.begin(), _waveSpan.end());
         if (!settings.loudness.equalizeLoudness) {
             return wave;
         }
 
-        [[maybe_unused]] const float sampleRate = settings.analysis.sampleRate;
+        [[maybe_unused]] const float originalSampleRate = settings.analysis.sampleRate;
 
-        const auto equalLoudnessFilter = std::unique_ptr<standard::Algorithm>(StandardFactory::create(
-                "EqualLoudness",
-                "sampleRate", sampleRate
-                )); // not using yet
+        try {
+            constexpr int rs_quality = 2;/* quality: SRC_SINC_FASTEST
+                                 from enum {
+                                           SRC_SINC_BEST_QUALITY       = 0,
+                                           SRC_SINC_MEDIUM_QUALITY     = 1,
+                                           SRC_SINC_FASTEST            = 2,
+                                           SRC_ZERO_ORDER_HOLD         = 3,
+                                           SRC_LINEAR                  = 4
+                                       } ;
+                                 */
+            constexpr std::array permittedRates { 8000.f, 16000.f, 32000.f, 44100.f, 48000.f };
+            auto resample = [](const vecReal &wave, const float source_sr, const float target_sr, const int resample_quality) -> vecReal {
+                // resample for essentia's loudness algorithm
+                const auto resampler	= std::unique_ptr<standard::Algorithm>(StandardFactory::create(
+                    "Resample",
+                 "inputSampleRate", source_sr,
+                 "outputSampleRate", target_sr,
+                 "quality",	resample_quality));
+                vecReal resampledWave;
+                resampler->input("signal").set(wave);
+                resampler->output("signal").set(resampledWave);
+                resampler->compute();
+                return resampledWave;
+            };
 
-        // apply equal loudness filter to entire wave first
-        vecReal w;
-        equalLoudnessFilter->input("signal").set(wave);
-        equalLoudnessFilter->output("signal").set(w);
-        equalLoudnessFilter->compute();
-        return w;
+            const bool needsResample = std::ranges::find(permittedRates, originalSampleRate) == permittedRates.end();
+            const float internal_sr = needsResample ? 44100.f : originalSampleRate;
+            const auto internalWave = needsResample ?
+                resample(wave, originalSampleRate, internal_sr, rs_quality) : wave ;
+            const auto equalLoudnessFilter = std::unique_ptr<standard::Algorithm>(StandardFactory::create(
+                    "EqualLoudness",
+                    "sampleRate", internal_sr
+                    ));
+
+            // apply equal loudness filter to entire wave first
+            vecReal w;
+            equalLoudnessFilter->input("signal").set(internalWave);
+            equalLoudnessFilter->output("signal").set(w);
+            equalLoudnessFilter->compute();
+            if (internal_sr == originalSampleRate) {
+                return w;
+            }
+            jassert (internal_sr != originalSampleRate);
+            // because otherwise we have to adjust hopSize & frameSize according to resampled rate
+            if (needsResample) { w = resample(w, internal_sr, originalSampleRate, rs_quality); }
+            return w;
+        } catch (const essentia::EssentiaException &e) {
+            std::cerr << e.what() << std::endl;
+            jassertfalse;
+            return {};
+        }
     }(waveSpan);
 
     const int frameSize = settings.analysis.frameSize;

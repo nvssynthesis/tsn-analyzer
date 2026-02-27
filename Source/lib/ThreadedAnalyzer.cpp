@@ -106,10 +106,13 @@ void ThreadedAnalyzer::run() {
 		    filterOnsetsOutsideBounds(_onsetAnalysisResult->onsets, lengthInSeconds);
 		    filterRedundantOnsets(_onsetAnalysisResult->onsets);
 
-	        // subdivideOnsetsNaive(_onsetAnalysisResult->onsets, _inputWave, sr, 5);
-	        subdivideOnsetsEnergy(_onsetAnalysisResult->onsets, _inputWave, sr, 2);
+	        const auto &onsetRefinementSettings = _analyzer.getSettings().onset._refinement;
+	        subdivideOnsetsEnergy(_onsetAnalysisResult->onsets, _inputWave, sr, onsetRefinementSettings.numEventSubdivisions);
 
-	        const auto silenceMarkers = detectSilences(_inputWave, sr);
+	        const auto silenceMarkers = detectSilences(_inputWave, sr,
+	            onsetRefinementSettings.silenceThresholdDb, onsetRefinementSettings.minSilenceDurationMs,
+	            onsetRefinementSettings.minEventWithinSilenceDurationMs);
+
 	        combineOnsetsAndSilenceTimings(_onsetAnalysisResult->onsets, silenceMarkers,
 	            0.2, 0.2,
 	            0.5, 0.2);

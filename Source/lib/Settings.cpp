@@ -81,24 +81,32 @@ const std::map<juce::String, AnySpec> onsetSpecs
 {
     { axiom::tsn::segmentation, ChoiceSettingsSpec {{axiom::tsn::Event, axiom::tsn::Uniform}, axiom::tsn::Event,
         "whether to segment by detected events or uniform frames"} },
-	{ axiom::tsn::silenceThreshold,         RangedSettingsSpec<double>{ {0.0,1.0,0.01,0.4}, 0.1,
+	{ axiom::tsn::silenceThreshold,             RangedSettingsSpec<double>{ {0.0,1.0,0.01,0.4}, 0.1,
 	    "the threshold for silence"} },
-	{ axiom::tsn::alpha,                    RangedSettingsSpec<double>{ {0.0,1.0,0.01,0.4}, 0.1,
+	{ axiom::tsn::alpha,                        RangedSettingsSpec<double>{ {0.0,1.0,0.01,0.4}, 0.1,
 	    "the proportion of the mean included to reject smaller peaks; filters very short onsets" } },
-	{ axiom::tsn::numFrames_shortOnsetFilter,RangedSettingsSpec<int>  { { 1,  64,  1,   1 },    5,
+	{ axiom::tsn::numFrames_shortOnsetFilter,   RangedSettingsSpec<int>  { { 1,  64,  1,   1 },    5,
 	    "the number of frames used to compute the threshold; size of short-onset filter"} },
-	{ axiom::tsn::weight_hfc,               RangedSettingsSpec<double>{ {0.0,1.0,0.01f,1.0},  0.0,
+	{ axiom::tsn::weight_hfc,                   RangedSettingsSpec<double>{ {0.0,1.0,0.01f,1.0},  0.0,
 	    "the High Frequency Content detection function which accurately detects percussive events" } },
-	{ axiom::tsn::weight_complex,           RangedSettingsSpec<double>{ {0.0,1.0,0.01f,1.0},  0.1,
+	{ axiom::tsn::weight_complex,               RangedSettingsSpec<double>{ {0.0,1.0,0.01f,1.0},  0.1,
 	    "the Complex-Domain spectral difference function taking into account changes in magnitude and phase. It emphasizes note onsets either as a result of significant change in energy in the magnitude spectrum, and/or a deviation from the expected phase values in the phase spectrum, caused by a change in pitch." } },
-	{ axiom::tsn::weight_complexPhase,      RangedSettingsSpec<double>{ {0.0,1.0,0.01f,1.0},  0.0,
+	{ axiom::tsn::weight_complexPhase,          RangedSettingsSpec<double>{ {0.0,1.0,0.01f,1.0},  0.0,
 	    "the simplified Complex-Domain spectral difference function taking into account phase changes, weighted by magnitude. It reacts better on tonal sounds such as bowed string, but tends to over-detect percussive events."} },
-	{ axiom::tsn::weight_flux,              RangedSettingsSpec<double>{ {0.0,1.0,0.01f,1.0},  0.0,
+	{ axiom::tsn::weight_flux,                  RangedSettingsSpec<double>{ {0.0,1.0,0.01f,1.0},  0.0,
 	    "the Spectral Flux detection function which characterizes changes in magnitude spectrum." } },
-	{ axiom::tsn::weight_rms,               RangedSettingsSpec<double>{ {0.0,1.0,0.01f,1.0},  0.0,
+	{ axiom::tsn::weight_rms,                   RangedSettingsSpec<double>{ {0.0,1.0,0.01f,1.0},  0.0,
 	    "the difference function, measuring the half-rectified change of the RMS of the magnitude spectrum (i.e., measuring overall energy flux)" } },
-    { axiom::tsn::weight_novelty,           RangedSettingsSpec<double>{ {0.0,1.0,0.01f,1.0},  0.0,
-    "the novelty curve function reveals the predominant local pulse. works well with soft onsets." } }
+    { axiom::tsn::weight_novelty,               RangedSettingsSpec<double>{ {0.0,1.0,0.01f,1.0},  0.0,
+    "the novelty curve function reveals the predominant local pulse. works well with soft onsets." } },
+    { axiom::tsn::refinementNumEventSubdivisions,           RangedSettingsSpec<int>{ { 1, 16 }, 1,
+        "For each detected sound event, subdivide by this amount. Uses a special cumulative energy algorithm rather than equal subdivisions." } },
+    { axiom::tsn::refinementSilenceThresholdDb,             RangedSettingsSpec<double>{ {-100.0, 0.0, 0.1}, -50.0,
+        "The silence threshold for the post-onset detection silence detection algorithm, which is used only to create events from silences", 1, "dB" } },
+    { axiom::tsn::refinementMinSilenceDurationMs,           RangedSettingsSpec<double>{ { 0.0, 5000.0, 1.0, 0.25 }, 300.0,
+        "The minimum length for a silence to be counted as such", 0, "ms" } },
+    { axiom::tsn::refinementMinEventWithinSilenceDurationMs, RangedSettingsSpec<double>{ { 0.0, 5000.0, 1.0, 0.25 }, 600.0,
+"The minimum length for an event found within a silence to be counted as such", 0, "ms" } }
 };
 
 const std::map<juce::String, AnySpec> sBicSpecs
@@ -317,6 +325,10 @@ juce::ValueTree createParentTreeFromSettings(const AnalyzerSettings& settings) {
     onsetNode.setProperty(axiom::tsn::weight_hfc, settings.onset.weight_hfc, nullptr);
     onsetNode.setProperty(axiom::tsn::weight_rms, settings.onset.weight_rms, nullptr);
     onsetNode.setProperty(axiom::tsn::weight_novelty, settings.onset.weight_novelty, nullptr);
+    onsetNode.setProperty(axiom::tsn::refinementNumEventSubdivisions, settings.onset._refinement.numEventSubdivisions, nullptr);
+    onsetNode.setProperty(axiom::tsn::refinementSilenceThresholdDb, settings.onset._refinement.silenceThresholdDb, nullptr);
+    onsetNode.setProperty(axiom::tsn::refinementMinSilenceDurationMs, settings.onset._refinement.minSilenceDurationMs, nullptr);
+    onsetNode.setProperty(axiom::tsn::refinementMinEventWithinSilenceDurationMs, settings.onset._refinement.minEventWithinSilenceDurationMs, nullptr);
     settingsTree.appendChild(onsetNode, nullptr);
 
     // Pitch node
@@ -453,7 +465,12 @@ bool updateSettingsFromValueTree(AnalyzerSettings& settings, const ValueTree& se
         settings.onset.segmentation = AnalyzerSettings::Onset::Segmentation::Event;
         DBG(juce::String("No property ") + axiom::tsn::segmentation + " found in settingsTree\n");
     }
-	settings.onset.alpha = onsetNode.getProperty(axiom::tsn::alpha);
+    settings.onset._refinement.numEventSubdivisions = static_cast<int>(onsetNode.getProperty(axiom::tsn::refinementNumEventSubdivisions, 1));
+    settings.onset._refinement.silenceThresholdDb = static_cast<float>(onsetNode.getProperty(axiom::tsn::refinementSilenceThresholdDb, -50.f));
+    settings.onset._refinement.minSilenceDurationMs = static_cast<float>(onsetNode.getProperty(nvs::axiom::tsn::refinementMinSilenceDurationMs, 400.f));
+    settings.onset._refinement.minEventWithinSilenceDurationMs = static_cast<float>(onsetNode.getProperty(axiom::tsn::refinementMinEventWithinSilenceDurationMs, 600.f));
+
+    settings.onset.alpha = onsetNode.getProperty(axiom::tsn::alpha);
 	settings.onset.numFrames_shortOnsetFilter = onsetNode.getProperty(axiom::tsn::numFrames_shortOnsetFilter);
 	settings.onset.silenceThreshold = onsetNode.getProperty(axiom::tsn::silenceThreshold);
 	settings.onset.weight_complex = onsetNode.getProperty(axiom::tsn::weight_complex);
