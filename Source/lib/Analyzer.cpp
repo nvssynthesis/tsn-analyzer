@@ -296,6 +296,8 @@ const -> std::optional<std::vector<FeatureContainer<EventwiseStats>>>
         return std::nullopt;
     }
 
+    jassert (timbre_points.size() == numEvents);
+
     const double endMs   = juce::Time::getMillisecondCounterHiRes();
     const auto   endTimeStr   = juce::Time::getCurrentTime().toString (true, true);
     const double elapsed = (endMs - startMs) * 0.001f;  // in seconds
