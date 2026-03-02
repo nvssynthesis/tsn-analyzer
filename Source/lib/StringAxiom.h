@@ -3,7 +3,6 @@
 //
 
 #pragma once
-#include <juce_core/juce_core.h>
 
 namespace nvs::axiom::tsn {
 #ifndef STRAXIOMIZE
@@ -24,8 +23,6 @@ STRAXIOMIZE(AnalysisSettings);
 STRAXIOMIZE(Analysis);
 STRAXIOMIZE(Settings);
 STRAXIOMIZE(analysisFile);
-
-inline const juce::String AudioFilePathAbsolute = "AudioFilePath (absolute)";
 
 STRAXIOMIZE(TimbreAnalysis);
 STRAXIOMIZE(NormalizedOnsets);
@@ -94,6 +91,7 @@ STRAXIOMIZE(Pitch);
 STRAXIOMIZE(equalizeLoudness);
 STRAXIOMIZE(yin);
 STRAXIOMIZE(pYin);
+STRAXIOMIZE(yinFFT);
 STRAXIOMIZE(chroma);
 // pitch confidences
 STRAXIOMIZE(replace_dismal_confidences_with_constant);

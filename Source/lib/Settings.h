@@ -106,7 +106,7 @@ struct AnalyzerSettings {
     } onset;
 
     struct Pitch {
-        juce::String pitchDetectionAlgorithm = "yin";   // or pYin
+        juce::String pitchDetectionAlgorithm = "yin";   // {yin, pYin, yinFFT} later, think about chroma
 
         float minimum_confidence_considered {0.6f};  // frames with confidence below this will not be considered in summarizing pitch statistics
 

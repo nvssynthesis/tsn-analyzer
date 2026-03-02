@@ -2,8 +2,6 @@
 // Created by Nicholas Solem on 1/31/26.
 //
 
-#pragma once
-
 #include "TSNValueTreeUtilities.h"
 #include "version.h"
 #include "juce_utils.h"

@@ -200,7 +200,7 @@ static vecReal getWeights(const AnalyzerSettings &settings) {
         *spectrogramVecInput                        >>   noveltyCurve->input("frequencyBands");
         noveltyCurve->output("novelty")    >> *noveltyAccumOutput;
 
-        Network n(spectrogramVecInput);
+        n = Network(spectrogramVecInput);
     	n.runPrepare();
         n.run();
 

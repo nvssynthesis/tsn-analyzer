@@ -121,7 +121,7 @@ const std::map<juce::String, AnySpec> sBicSpecs
 
 const std::map<juce::String, AnySpec> pitchSpecs
 {
-	{ axiom::tsn::pitchDetectionAlgorithm,  ChoiceSettingsSpec{ {axiom::tsn::yin,axiom::tsn::pYin,axiom::tsn::chroma}, axiom::tsn::yin } },
+	{ axiom::tsn::pitchDetectionAlgorithm,  ChoiceSettingsSpec{ {axiom::tsn::yin, axiom::tsn::yinFFT, axiom::tsn::pYin,axiom::tsn::chroma}, axiom::tsn::yin } },
 
     { axiom::tsn::interpolate,              BoolSettingsSpec{ true } },
 	{ axiom::tsn::maxFrequency,             RangedSettingsSpec<double>{ {20.0,22050.0, 1.0, 1.0}, 4000.0 } },
