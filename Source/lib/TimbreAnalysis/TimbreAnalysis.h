@@ -12,25 +12,15 @@
 
 #include "AnalysisUsing.h"
 #include "../Settings.h"
-#include <span>
 #include "../Features.h"
+#include <span>
 
 namespace nvs::analysis {
-
-struct PitchesAndConfidences {
-    std::vector<Real> pitches, confidences;
-};
-
-PitchesAndConfidences calculatePitchesAndConfidences(vecReal waveEvent, AnalyzerSettings const& settings);
 
 vecReal calculateLoudnesses(std::span<Real const> waveSpan, AnalyzerSettings const& settings);
 
 FeatureContainer<vecReal> calculateTimbres(std::span<Real const> waveSpan, AnalyzerSettings const& settings);
 
 vecVecReal PCA(vecVecReal const &V, int num_features_out);
-
-std::pair<Real, Real> calculateRangeOfDimension(vecReal const &V);  // single-dimensional input
-std::pair<Real, Real> calculateRangeOfDimension(vecVecReal const &V, size_t dim);   // eventwise input
-Real calculateNormalizationMultiplier(const std::pair<Real, Real> &range);
 
 } // namespace nvs::analysis

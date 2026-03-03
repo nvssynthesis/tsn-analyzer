@@ -15,7 +15,7 @@
 #include <juce_data_structures/juce_data_structures.h>
 
 #include "RunLoopStatus.h"
-#include "TimbreAnalysis/TimbreAnalysis.h"
+#include "AnalysisUsing.h"
 #include "Features.h"
 #include "Statistics.h"
 #include "Settings.h"

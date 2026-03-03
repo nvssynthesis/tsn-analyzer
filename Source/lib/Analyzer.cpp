@@ -15,6 +15,8 @@
 #include "Analyzer.h"
 #include <juce_utils.h>
 #include "OnsetAnalysis/OnsetAnalysis.h"
+#include "PitchAnalysis/PitchAnalysis.h"
+#include "TimbreAnalysis/TimbreAnalysis.h"
 
 namespace nvs::analysis {
 
