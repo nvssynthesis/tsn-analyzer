@@ -123,6 +123,9 @@ const std::map<juce::String, AnySpec> pitchSpecs
 {
 	{ axiom::tsn::pitchDetectionAlgorithm,  ChoiceSettingsSpec{ {axiom::tsn::yin, axiom::tsn::yinFFT, axiom::tsn::pYin,axiom::tsn::chroma}, axiom::tsn::yin } },
 
+    { axiom::tsn::frameSize, RangedSettingsSpec<int>{ {64, 16384, 1, 1}, 4096, "Recommended: at least 4096 for reliable pitch detection" } },
+    { axiom::tsn::hopSize,   RangedSettingsSpec<int>{ {32, 8192, 1, 1}, 2048, "" } },
+
     { axiom::tsn::interpolate,              BoolSettingsSpec{ true } },
 	{ axiom::tsn::maxFrequency,             RangedSettingsSpec<double>{ {20.0,22050.0, 1.0, 1.0}, 4000.0 } },
 	{ axiom::tsn::minFrequency,             RangedSettingsSpec<double>{ {20.0,22050.0, 1.0, 1.0},  140.0 } },
@@ -335,6 +338,8 @@ juce::ValueTree createParentTreeFromSettings(const AnalyzerSettings& settings) {
     {
         juce::ValueTree pitchNode(axiom::tsn::Pitch);
         pitchNode.setProperty(axiom::tsn::pitchDetectionAlgorithm, settings.pitch.pitchDetectionAlgorithm, nullptr);
+        pitchNode.setProperty(axiom::tsn::frameSize, settings.pitch.frameSize, nullptr);
+        pitchNode.setProperty(axiom::tsn::hopSize, settings.pitch.hopSize, nullptr);
 
         pitchNode.setProperty(axiom::tsn::replace_dismal_confidences_with_constant, settings.pitch.replace_dismal_confidences_with_constant, nullptr);
         pitchNode.setProperty(axiom::tsn::dismal_confidence_threshold, settings.pitch.dismal_confidence_threshold, nullptr);
@@ -495,6 +500,21 @@ bool updateSettingsFromValueTree(AnalyzerSettings& settings, const ValueTree& se
         }
 
         settings.pitch.pitchDetectionAlgorithm = pitchNode.getProperty(axiom::tsn::pitchDetectionAlgorithm).toString();
+        const auto pFrameSize = pitchNode.getProperty(axiom::tsn::frameSize);
+        const auto pHopSize = pitchNode.getProperty(axiom::tsn::hopSize);
+
+        if (const auto isNumeric = [](const var& v) { return v.isDouble() || v.isInt() || v.isInt64(); };
+            isNumeric(pFrameSize) && isNumeric(pHopSize))
+        {
+            settings.pitch.frameSize = juce::nextPowerOfTwo(std::max(16, static_cast<int>(pFrameSize)));
+            settings.pitch.hopSize = juce::nextPowerOfTwo(std::max(16, static_cast<int>(pHopSize)));
+        }
+        else {
+            std::cerr << "Pitch node missing required properties\n";
+            jassertfalse;
+            return false;
+        }
+
         {
             if (!pitchNode.hasProperty(axiom::tsn::interpolate) || !pitchNode.hasProperty(axiom::tsn::maxFrequency) ||
                 !pitchNode.hasProperty(axiom::tsn::minFrequency) || !pitchNode.hasProperty(axiom::tsn::tolerance))
