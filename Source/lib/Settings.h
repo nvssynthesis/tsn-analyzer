@@ -108,6 +108,9 @@ struct AnalyzerSettings {
     struct Pitch {
         juce::String pitchDetectionAlgorithm = "yin";   // {yin, pYin, yinFFT} later, think about chroma
 
+        int frameSize = 4096;
+        int hopSize = 2048;
+
         float minimum_confidence_considered {0.6f};  // frames with confidence below this will not be considered in summarizing pitch statistics
 
         //----------------only for yin----------------

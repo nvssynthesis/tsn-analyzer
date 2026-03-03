@@ -39,13 +39,12 @@ PitchesAndConfidences processFrequenciesAndConfidences(vecReal &&frequencies, co
 PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, AnalyzerSettings const& settings){
     const vecReal wave(waveSpan.begin(), waveSpan.end());
 
-    constexpr int frameSize = 4096;
     constexpr int zeroPadding = 2048;
 
     const auto frameCutter = std::unique_ptr<standard::Algorithm>(
         StandardFactory::create ("FrameCutter",
-                "frameSize",            frameSize,
-                "hopSize",              settings.analysis.hopSize,
+                "frameSize",            settings.pitch.frameSize,
+                "hopSize",              settings.pitch.hopSize,
                 "lastFrameToEndOfFile", true,
                 "startFromZero",        true,
                 "validFrameThresholdRatio", 0.f
@@ -55,7 +54,7 @@ PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, Anal
     const auto windowing = std::unique_ptr<standard::Algorithm>(
         StandardFactory::create ("Windowing",
                 "normalized", false,
-                "size",        frameSize,
+                "size",        settings.pitch.frameSize,
                 "zeroPadding", zeroPadding,
                 "type",        settings.analysis.windowingType.toStdString(),
                 "zeroPhase",   false
@@ -65,7 +64,7 @@ PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, Anal
     const auto pitchDet = std::unique_ptr<standard::Algorithm>(
         StandardFactory::create ("PitchYin",
                 "sampleRate",   settings.analysis.sampleRate,
-                "frameSize",   frameSize,
+                "frameSize",    settings.pitch.frameSize,
                 "interpolate",  settings.pitch._yin.interpolate,
                 "maxFrequency", settings.pitch._yin.maxFrequency,
                 "minFrequency", settings.pitch._yin.minFrequency,
@@ -107,13 +106,10 @@ PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, Anal
 PitchesAndConfidences calculatePitchesEssentiaYinFFT(std::span<Real> waveSpan, AnalyzerSettings const& settings){
     const vecReal wave(waveSpan.begin(), waveSpan.end());
 
-    constexpr int frameSize = 4096;
-    constexpr int zeroPadding = 2048;
-
     const auto frameCutter = std::unique_ptr<standard::Algorithm>(
         StandardFactory::create ("FrameCutter",
-                "frameSize",            frameSize,
-                "hopSize",              settings.analysis.hopSize,
+                "frameSize",            settings.pitch.frameSize,
+                "hopSize",              settings.pitch.hopSize,
                 "lastFrameToEndOfFile", true,
                 "startFromZero",        true,
                 "validFrameThresholdRatio", 0.f
@@ -123,7 +119,7 @@ PitchesAndConfidences calculatePitchesEssentiaYinFFT(std::span<Real> waveSpan, A
     const auto windowing = std::unique_ptr<standard::Algorithm>(
         StandardFactory::create ("Windowing",
                 "normalized", false,
-                "size",        frameSize,
+                "size",        settings.pitch.frameSize,
                 "zeroPadding", 0, //zeroPadding,
                 "type",        "hann",
                 "zeroPhase",   false
@@ -131,13 +127,13 @@ PitchesAndConfidences calculatePitchesEssentiaYinFFT(std::span<Real> waveSpan, A
 
     const auto spectrum = std::unique_ptr<standard::Algorithm>(
         StandardFactory::create ("Spectrum",
-                "size",  frameSize
+                "size",  settings.pitch.frameSize
                 ));
 
     const auto pitchDet = std::unique_ptr<standard::Algorithm>(
         StandardFactory::create ("PitchYinFFT",
                 "sampleRate",   settings.analysis.sampleRate,
-                "frameSize",   frameSize,
+                "frameSize",    settings.pitch.frameSize,
                 "interpolate",  settings.pitch._yin.interpolate,
                 "maxFrequency", settings.pitch._yin.maxFrequency,
                 "minFrequency", settings.pitch._yin.minFrequency,
