@@ -7,9 +7,9 @@
 
 namespace nvs::util {
 
-template < typename C, C beginVal, C endVal>
+template < typename C, C beginVal, C endVal >
 class Iterator {
-    typedef typename std::underlying_type<C>::type val_t;
+    typedef std::underlying_type_t<C> val_t;
     int val;
 public:
     explicit Iterator(const C & f) : val(static_cast<val_t>(f)) {}
@@ -19,7 +19,7 @@ public:
         return *this;
     }
     C operator*() { return static_cast<C>(val); }
-    Iterator begin() { return *this; } //default ctor is good
+    Iterator begin() { return *this; } // default ctor is good
     Iterator end() {
         static const Iterator endIter=++Iterator(endVal); // cache it
         return endIter;
