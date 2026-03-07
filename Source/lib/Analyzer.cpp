@@ -14,6 +14,9 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 #include "Analyzer.h"
 #include <juce_utils.h>
+
+#include "FeatureOperations.h"
+#include "DimensionalityReduction/pacmap.h"
 #include "OnsetAnalysis/OnsetAnalysis.h"
 #include "PitchAnalysis/PitchAnalysis.h"
 #include "TimbreAnalysis/TimbreAnalysis.h"
@@ -309,6 +312,34 @@ const -> std::optional<std::vector<FeatureContainer<EventwiseStats>>>
     return timbre_points;
 }
 
+std::optional<vecVecReal>
+Analyzer::calculatePaCMAP(const std::vector<FeatureContainer<EventwiseStats>> &timbreMeasurements) {
+    const auto numFrames = timbreMeasurements.size();
+
+    if (constexpr int minPacmapSize {55};
+        numFrames < minPacmapSize) {
+        return std::nullopt;
+    }
+    constexpr auto numFeatures = static_cast<size_t>(Feature_e::NumFeatures);
+
+    vecVecReal X; X.reserve(numFrames);
+    constexpr auto statToUse = Statistic::Mean;
+    for (size_t i = 0; i < numFrames; ++i) {
+        const auto &frame = timbreMeasurements[i];
+        vecReal features; features.reserve(numFeatures);
+        for (const auto f : analysis::featuresIterator()) {
+            const auto &featureStats = frame[f];
+            features.push_back(getStatVal(featureStats, statToUse));
+        }
+        jassert(features.size() == numFeatures);
+        X.push_back(features);
+    }
+    jassert(X.size() == numFrames);
+
+    dim::PaCMAP pacmap;
+    return pacmap.fit_transform(X);
+}
+
 std::optional<vecVecReal> Analyzer::calculatePCA(const std::vector<FeatureContainer<EventwiseStats>> &allFeatures,
                                                  const std::vector<Feature_e> &featuresToUse,
                                                  const Statistic statToUse) {
@@ -328,6 +359,7 @@ std::optional<vecVecReal> Analyzer::calculatePCA(const std::vector<FeatureContai
     return pca;
 }
 
+[[nodiscard]]
 vecVecReal truncate(const vecVecReal &V, const size_t trunc){
     if (V.size() < trunc){
         return V;
@@ -339,6 +371,7 @@ vecVecReal truncate(const vecVecReal &V, const size_t trunc){
     return Vtrunc;
 };
 
+[[nodiscard]]
 vecVecReal transpose(const std::span<const vecReal> V){
     size_t const D0 = V.size();
     size_t const D1 = V[0].size();
@@ -356,6 +389,7 @@ vecVecReal transpose(const std::span<const vecReal> V){
     return Vtranspose;
 }
 
+[[nodiscard]]
 vecVecReal transpose(const vecVecReal &V){
     return transpose(std::span(V));
 }

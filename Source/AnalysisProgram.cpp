@@ -81,9 +81,11 @@ AnalyzerResult runAnalyzer(const std::span<const float> &channel, const String &
 
     auto timbreSpaceRepr = analyzer.stealTimbreSpaceRepresentation();
     auto onsets = analyzer.shareOnsetAnalysis();
+    auto pacmap = analyzer.stealPacmap();
     return AnalyzerResult{
         .timbres = std::move(timbreSpaceRepr),
         .onsets = std::move(onsets),
+        .pacmap = std::move(pacmap),
         .settingsHash = analyzer.getSettingsHash()
     };
 }
@@ -134,9 +136,10 @@ void mainAnalysisProgram(const ArgumentList &args)
     Logger::writeToLog("Analysis complete!");
     const auto timbreSpaceRepr = analysisResult.timbres->timbreMeasurements;
     const auto onsets = analysisResult.onsets->onsets;
+    const auto pacmap = analysisResult.pacmap.value_or(nvs::analysis::PacmapResult{{},{},{},{}});
     const auto waveformHash = analysisResult.timbres->waveformHash;
 
-    const auto timbreSpaceVT = nvs::analysis::timbreSpaceReprToVT(timbreSpaceRepr, onsets);
+    const auto timbreSpaceVT = nvs::analysis::timbreSpaceReprToVT(timbreSpaceRepr, onsets, pacmap.pacmapMatrix_);
 
     jassert((analysisResult.onsets->audioFileAbsPath == analysisResult.timbres->audioFileAbsPath) &&
             (analysisResult.onsets->audioFileAbsPath == audioFileFullAbsPath));

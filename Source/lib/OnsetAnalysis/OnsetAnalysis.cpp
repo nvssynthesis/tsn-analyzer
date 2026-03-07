@@ -184,29 +184,35 @@ static vecReal getWeights(const AnalyzerSettings &settings) {
 	n.clear();
 
     VectorOutput<Real> *noveltyAccumOutput = new VectorOutput(&onsetDetVecNovelty);
-    if (0.f < settings.onset.weight_novelty) {
-        jassert(spectrogramHolder.size() == 1);
-        const vecVecReal &spectrogram = spectrogramHolder[0];
+    try {
+        if (0.f < settings.onset.weight_novelty) {
+            jassert(spectrogramHolder.size() == 1);
+            const vecVecReal &spectrogram = spectrogramHolder[0];
 
-        constexpr Real frameRate = internal_sr / hopSize;
+            constexpr Real frameRate = internal_sr / hopSize;
 
-        Algorithm* noveltyCurve = StreamingFactory::create("NoveltyCurve",
-            "frameRate", frameRate,
-            "normalize", false);
+            Algorithm* noveltyCurve = StreamingFactory::create("NoveltyCurve",
+                "frameRate", frameRate,
+                "normalize", false);
 
-        auto *spectrogramVecInput = new vectorInputCumulative(&spectrogram);       // NOLINT – network takes ownership
+            auto *spectrogramVecInput = new vectorInputCumulative(&spectrogram);       // NOLINT – network takes ownership
 
 
-        *spectrogramVecInput                        >>   noveltyCurve->input("frequencyBands");
-        noveltyCurve->output("novelty")    >> *noveltyAccumOutput;
+            *spectrogramVecInput                        >>   noveltyCurve->input("frequencyBands");
+            noveltyCurve->output("novelty")    >> *noveltyAccumOutput;
 
-        n = Network(spectrogramVecInput);
-    	n.runPrepare();
-        n.run();
+            Network n2(spectrogramVecInput);
+            n2.runPrepare();
+            n2.run();
 
-        n.clear();
+            n2.clear();
 
-        jassert(onsetDetVecNovelty.size() > 0);
+            jassert(onsetDetVecNovelty.size() > 0);
+        }
+    }
+    catch (const EssentiaException &e) {
+        std::cerr << e.what() << '\n';
+        jassertfalse;
     }
     // this bit just takes all the detection outputs and makes them constant-size (which should only not happen if some of them had a weight of 0)
     const auto correctSizedVec = std::ranges::max_element(detectionRefs,

@@ -38,6 +38,9 @@ auto ThreadedAnalyzer::shareOnsetAnalysis() const -> std::shared_ptr<OnsetAnalys
 auto ThreadedAnalyzer::stealTimbreSpaceRepresentation() -> std::optional<TimbreAnalysisResult> {
     return std::exchange(_timbreAnalysisResult, std::nullopt);
 }
+auto ThreadedAnalyzer::stealPacmap() -> std::optional<PacmapResult> {
+    return std::exchange(_pacmapResult, std::nullopt);
+}
 
 void ThreadedAnalyzer::updateSettings(juce::ValueTree &settingsTree, const bool attemptFix){
     jassert(!isThreadRunning());
@@ -61,6 +64,7 @@ void ThreadedAnalyzer::run() {
 
     _onsetAnalysisResult.reset();
     _timbreAnalysisResult.reset();
+    _pacmapResult.reset();
 	if (!(_inputWave.data() && !_inputWave.empty())){
 		return;
 	}
@@ -147,6 +151,19 @@ void ThreadedAnalyzer::run() {
 		    }
 
 		    jassert (sr == _analyzer.getAnalyzedFileSampleRate());  // sr should not have possibly changed... sanity check
+
+            if (const auto pacmapMatrix = _analyzer.calculatePaCMAP(timbreMeasurementsOpt.value());
+                pacmapMatrix.has_value())
+            {
+                _rls.set("Calculating PaCMAP Timbre Space...");
+                Logger::writeToLog("Calculating PaCMAP Timbre Space...");
+                _pacmapResult.emplace(PacmapResult(pacmapMatrix.value(), audioHash, _audioFileAbsPath, sr));
+            } else {
+                _rls.set("Not enough points for PaCMAP, skipping...\n");
+                Logger::writeToLog("Not enough points for PaCMAP, skipping...\n");
+                jassert(!_pacmapResult.has_value());
+            }
+
 		    _timbreAnalysisResult.emplace(timbreMeasurementsOpt.value(), audioHash, _audioFileAbsPath, sr);
 		    _state = State::Complete;
 		    sendChangeMessage();    // signal that timbre analyses are ready

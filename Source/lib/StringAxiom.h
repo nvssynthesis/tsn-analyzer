@@ -147,6 +147,8 @@ STRAXIOMIZE(Periodicity);
 STRAXIOMIZE(Loudness);
 STRAXIOMIZE(f0);
 
+STRAXIOMIZE(PaCMAP);
+
 STRAXIOMIZE(saveAnalysis);
 STRAXIOMIZE(onsetsAvailable);
 STRAXIOMIZE(shapedPointsAvailable);

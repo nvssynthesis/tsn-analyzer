@@ -25,4 +25,23 @@ struct TimbreAnalysisResult {
     double sampleRate {};
 };
 
+
+struct PacmapResult {
+    PacmapResult(vecVecReal pacmapMatrix,
+        juce::String hash_,
+        juce::String path_,
+        const double sampleRate_)
+    :   pacmapMatrix_(std::move(pacmapMatrix))
+    , waveformHash(std::move(hash_))
+    , audioFileAbsPath(std::move(path_))
+    , sampleRate(sampleRate_)
+    {}
+
+    vecVecReal pacmapMatrix_;
+
+    juce::String waveformHash {};
+    juce::String audioFileAbsPath {};
+    double sampleRate {};
+};
+
 } // namespace nvs::analysis

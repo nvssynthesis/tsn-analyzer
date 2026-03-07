@@ -50,6 +50,7 @@ public:
     //===============================================================================
     std::shared_ptr<OnsetAnalysisResult> shareOnsetAnalysis() const;
     std::optional<TimbreAnalysisResult> stealTimbreSpaceRepresentation();
+    std::optional<PacmapResult> stealPacmap();
     //===============================================================================
     [[deprecated("any reason we would want to get the raw analyzer, there should just be an intermediate method")]]
     Analyzer &getAnalyzer() { return _analyzer; }
@@ -63,6 +64,7 @@ private:
     vecReal _inputWave;
     std::shared_ptr<OnsetAnalysisResult> _onsetAnalysisResult;
     std::optional<TimbreAnalysisResult> _timbreAnalysisResult;
+    std::optional<PacmapResult> _pacmapResult;
 
     String _audioFileAbsPath {};
 

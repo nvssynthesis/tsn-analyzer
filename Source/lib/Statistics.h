@@ -34,4 +34,30 @@ struct EventwiseStatistics {
 
 using EventwiseStatisticsF = EventwiseStatistics<float>;
 
+template <typename T>
+T getStatVal(const EventwiseStatistics<T> &stats, const Statistic stat) {
+    switch (stat) {
+        case Statistic::Mean: {
+            return stats.mean;
+        }
+        case Statistic::Median: {
+            return stats.median;
+        }
+        case Statistic::Variance: {
+            return stats.variance;
+        }
+        case Statistic::Skewness: {
+            return stats.skewness;
+        }
+        case Statistic::Kurtosis: {
+            return stats.kurtosis;
+        }
+        [[unlikely]]
+        default: {
+            assert(false);
+            return T{};
+        }
+    }
+}
+
 }

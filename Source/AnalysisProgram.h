@@ -17,6 +17,7 @@ struct AudioFileInfo {
 struct AnalyzerResult {
     std::optional<nvs::analysis::TimbreAnalysisResult> timbres {};
     std::shared_ptr<nvs::analysis::OnsetAnalysisResult> onsets {};
+    std::optional<nvs::analysis::PacmapResult> pacmap {};
     String settingsHash;
 };
 

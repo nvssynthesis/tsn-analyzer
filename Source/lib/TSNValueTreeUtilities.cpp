@@ -3,6 +3,8 @@
 //
 
 #include "TSNValueTreeUtilities.h"
+
+#include "Analyzer.h"
 #include "version.h"
 #include "juce_utils.h"
 
@@ -75,8 +77,11 @@ EventwiseStatisticsF toEventwiseStatistics(ValueTree const &vt){
     };
 }
 
-ValueTree timbreSpaceReprToVT(std::vector<FeatureContainer<EventwiseStatisticsF>> const &fullTimbreSpace,
-                                           vecReal const &normalizedOnsets){
+ValueTree timbreSpaceReprToVT(
+    std::vector<FeatureContainer<EventwiseStatisticsF>> const &fullTimbreSpace,
+    vecReal const &normalizedOnsets,
+    vecVecReal const &pacmapMatrix)
+{
     ValueTree vt(axiom::tsn::TimbreAnalysis);
     {
         var onsetArray;
@@ -86,7 +91,7 @@ ValueTree timbreSpaceReprToVT(std::vector<FeatureContainer<EventwiseStatisticsF>
         vt.setProperty(axiom::tsn::NormalizedOnsets, onsetArray, nullptr);
     }
     {
-        ValueTree timbreMeasurements("TimbreMeasurements");
+        ValueTree timbreMeasurements(axiom::tsn::TimbreMeasurements);
 
         for (int frameIdx = 0; frameIdx < static_cast<int>(fullTimbreSpace.size()); ++frameIdx){
             const auto &timbreFrame = fullTimbreSpace[frameIdx];
@@ -97,7 +102,7 @@ ValueTree timbreSpaceReprToVT(std::vector<FeatureContainer<EventwiseStatisticsF>
             {
                 const auto &bfccs = timbreFrame.bfccs();
                 for (int bfccIdx = 0; bfccIdx < static_cast<int>(bfccs.size()); ++bfccIdx){
-                    ValueTree bfccTree("BFCC" + String(bfccIdx));
+                    ValueTree bfccTree(axiom::tsn::BFCC + String(bfccIdx));
                     addEventwiseStatistics(bfccTree, bfccs[bfccIdx]);
                     bfccsTree.addChild(bfccTree, bfccIdx, nullptr);
                 }
@@ -114,6 +119,32 @@ ValueTree timbreSpaceReprToVT(std::vector<FeatureContainer<EventwiseStatisticsF>
             timbreMeasurements.addChild(frameTree, frameIdx, nullptr);
 
             vt.addChild(timbreMeasurements, 1, nullptr);
+        }
+    }
+    {
+
+        ValueTree pacmap(axiom::tsn::PaCMAP);
+        if (pacmapMatrix.empty()) {
+            // just write a blank subtree
+            vt.addChild(pacmap, -1, nullptr);
+        }
+        else {
+            const auto getPacmapDimName = [](const int d) -> juce::String{
+                return axiom::tsn::PaCMAP + juce::String(d);
+            };
+
+            const auto pacmapMatrixDimensionwise = transpose(pacmapMatrix);
+            const auto numDim = pacmapMatrixDimensionwise.size();
+            for (int dim = 0; dim < numDim; ++dim) {
+                var pacmapDimVar;
+                const auto &pacmapDimVec = pacmapMatrixDimensionwise[dim];
+                for (int i = 0; i < pacmapDimVec.size(); ++i) {
+                    pacmapDimVar.append(pacmapDimVec[i]);
+                }
+                jassert(pacmapDimVar.size() == pacmapDimVec.size());
+                pacmap.setProperty(getPacmapDimName(dim), pacmapDimVar, nullptr);
+            }
+            vt.addChild(pacmap, -1, nullptr);
         }
     }
 

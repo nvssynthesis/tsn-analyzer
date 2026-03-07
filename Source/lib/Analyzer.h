@@ -125,6 +125,9 @@ public:
         RunLoopStatus& rls,
         const ShouldExitFn &shouldExit) const;
 
+    static std::optional<vecVecReal>
+    calculatePaCMAP(const std::vector<FeatureContainer<EventwiseStats>> &timbreMeasurements);
+
     static std::optional<vecVecReal> calculatePCA(
 	    const std::vector<FeatureContainer<EventwiseStats>> &allFeatures,
 	    const std::vector<Feature_e> &featuresToUse,

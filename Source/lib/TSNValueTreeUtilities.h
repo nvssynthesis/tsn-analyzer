@@ -18,7 +18,8 @@ namespace nvs::analysis {
 bool validateAnalysisVT(const ValueTree &analysisSuperVT);
 
 [[nodiscard]]
-ValueTree makeSuperTree(const ValueTree &timbreSpaceTree,
+ValueTree makeSuperTree(
+    const ValueTree &timbreSpaceTree,
     const String &sampleFilePath,
     double sampleRate,
     const String &waveformHash,
@@ -31,8 +32,10 @@ void addEventwiseStatistics(ValueTree& tree, const EventwiseStatisticsF& stats);
 EventwiseStatisticsF toEventwiseStatistics(ValueTree const &vt);
 
 [[nodiscard]]
-ValueTree timbreSpaceReprToVT(std::vector<FeatureContainer<EventwiseStatisticsF>> const &fullTimbreSpace,
-                                           vecReal const &normalizedOnsets);
+ValueTree timbreSpaceReprToVT(
+    std::vector<FeatureContainer<EventwiseStatisticsF>> const &fullTimbreSpace,
+    vecReal const &normalizedOnsets,
+    vecVecReal const &pacmapMatrix);
 
 [[nodiscard]]
 std::vector<FeatureContainer<EventwiseStatisticsF>> valueTreeToTimbreSpace(ValueTree const &vt);
