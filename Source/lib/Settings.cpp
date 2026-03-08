@@ -510,9 +510,9 @@ bool updateSettingsFromValueTree(AnalyzerSettings& settings, const ValueTree& se
             settings.pitch.hopSize = juce::nextPowerOfTwo(std::max(16, static_cast<int>(pHopSize)));
         }
         else {
-            std::cerr << "Pitch node missing required properties\n";
-            jassertfalse;
-            return false;
+            std::cerr << "Pitch node missing frameSize and/or hopSize; using defaults\n";
+            pitchNode.setProperty(axiom::tsn::frameSize, settings.pitch.frameSize, nullptr);
+            pitchNode.setProperty(axiom::tsn::hopSize, settings.pitch.hopSize, nullptr);
         }
 
         {
