@@ -84,7 +84,7 @@ void ThreadedAnalyzer::run() {
 
 		// perform onset analysis
 		_rls.set("Calculating Onsets...");
-	        Logger::writeToLog("Calculating onsets...");
+	    Logger::writeToLog("Calculating onsets...");
 	    const String audioHash = util::hashAudioData(_inputWave);
 
 	    const auto sr = _analyzer.getAnalyzedFileSampleRate();

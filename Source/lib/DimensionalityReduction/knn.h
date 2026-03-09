@@ -92,14 +92,24 @@ inline KNNComputeResult compute_nearest_neighbors(
     result.knn_distances.resize(n, vecReal(n_neighbors));
 
     for (idx_t i = 0; i < n; ++i) {
-        // with exact search, closest point to i should always be i itself
-        assert(indices[i][0] == i);
-
-        // skip self (idx 0)
-        for (idx_t j = 0; j < n_neighbors; ++j) {
-            result.neighbors[i][j] = indices[i][j + 1];
-            result.knn_distances[i][j] = distances[i][j + 1];
+        // find position of self (i) in the results (usually index 0, but not necessarily if multiple have a distance of 0)
+        idx_t self_pos = -1;
+        for (idx_t j = 0; j < k; ++j) {
+            if (indices[i][j] == i) {
+                self_pos = j;
+                break;
+            }
         }
+        assert(self_pos != -1); // self must appear SOMEWHERE
+
+        idx_t out = 0;
+        for (idx_t j = 0; j < k && out < n_neighbors; ++j) {
+            if (j == self_pos) continue; // skip self
+            result.neighbors[i][out] = indices[i][j];
+            result.knn_distances[i][out] = distances[i][j];
+            ++out;
+        }
+        assert(out == n_neighbors); // ensure we filled all slots
     }
 
     return result;
