@@ -22,12 +22,15 @@ struct KNNResult {
 inline KNNResult knn_search(
     const Eigen::MatrixXf& basis,  // (n_basis, dim)
     const Eigen::MatrixXf& query,  // (n_query, dim)
-    const idx_t k)
+    const idx_t k,
+    const bool exclude_self = true)
 {
     const auto n_basis = static_cast<idx_t>(basis.rows());
     const auto n_query = static_cast<idx_t>(query.rows());
     assert(basis.cols() == query.cols());
-    assert(k > 0 && k < n_basis);
+    assert(k > 0);
+    const idx_t k_fetch = exclude_self? k + 1 : k;
+    assert(k_fetch < n_basis);
 
     KNNResult result;
     result.indices.resize(n_query, vecIdx(k));
@@ -51,32 +54,32 @@ inline KNNResult knn_search(
         // find k nearest via partial sort
         vecIdx idx(n_basis);
         std::iota(idx.begin(), idx.end(), 0);
-        std::ranges::partial_sort(idx, idx.begin() + k,
-                                  [&](const idx_t a, const idx_t b) { return sq_dists(a) < sq_dists(b); });
+        std::ranges::partial_sort(idx, idx.begin() + k_fetch,
+                                  [&](const idx_t a, const idx_t b) {
+                                      return sq_dists(a) < sq_dists(b);
+                                  });
 
-        for (idx_t j = 0; j < k; ++j) {
-            result.indices[i][j] = idx[j];
-            result.distances[i][j] = std::sqrt(sq_dists(idx[j]));
+        idx_t out = 0;
+        for (idx_t j = 0; j < k_fetch && out < k; ++j) {
+            if (exclude_self && idx[j] == j) { continue; }
+            result.indices[i][out] = idx[j];
+            result.distances[i][out] = std::sqrt(sq_dists(idx[j]));
+            ++out;
         }
     }
     return result;
 }
 
-struct KNNComputeResult {
-    std::vector<vecIdx> neighbors; // (n, n_neighbors)
-    vecVecReal knn_distances;      // (n, n_neighbors)
-};
-
-inline KNNComputeResult compute_nearest_neighbors(
+inline KNNResult compute_nearest_neighbors(
     const vecVecReal& X,
     const idx_t n_neighbors)
 {
-    /*
-         note: tree is not returned here; knn_search is stateless, so nothing to cache.
-         if generate_extra_pair_basis is called later with the same basis, it will just
-         rerun knn_search.
-         if this is bottleneck, try wrapping precomputed Eigen matrix in a shared struct.
-     */
+/*
+     note: tree is not returned here; knn_search is stateless, so nothing to cache.
+     if generate_extra_pair_basis is called later with the same basis, it will just
+     rerun knn_search.
+     if this is bottleneck, try wrapping precomputed Eigen matrix in a shared struct.
+*/
     const auto n = static_cast<idx_t>(X.size());
     assert(n > 0);
     assert(n_neighbors > 0);
@@ -85,34 +88,8 @@ inline KNNComputeResult compute_nearest_neighbors(
     // search for n_neighbors + 1 to account for index of self being part of results
     const idx_t k = n_neighbors + 1;
     const Eigen::MatrixXf M = to_eigen(X);
-    auto [indices, distances] = knn_search(M, M, k);
 
-    KNNComputeResult result;
-    result.neighbors.resize(n, vecIdx(n_neighbors));
-    result.knn_distances.resize(n, vecReal(n_neighbors));
-
-    for (idx_t i = 0; i < n; ++i) {
-        // find position of self (i) in the results (usually index 0, but not necessarily if multiple have a distance of 0)
-        idx_t self_pos = -1;
-        for (idx_t j = 0; j < k; ++j) {
-            if (indices[i][j] == i) {
-                self_pos = j;
-                break;
-            }
-        }
-        assert(self_pos != -1); // self must appear SOMEWHERE
-
-        idx_t out = 0;
-        for (idx_t j = 0; j < k && out < n_neighbors; ++j) {
-            if (j == self_pos) continue; // skip self
-            result.neighbors[i][out] = indices[i][j];
-            result.knn_distances[i][out] = distances[i][j];
-            ++out;
-        }
-        assert(out == n_neighbors); // ensure we filled all slots
-    }
-
-    return result;
+    return knn_search(M, M, k);
 }
 
 }   // namespace nvs::dim
