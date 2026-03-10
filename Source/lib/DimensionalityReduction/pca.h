@@ -7,11 +7,15 @@
 
 #include <Eigen/Dense>
 #include <Eigen/SVD>
-#include <stdexcept>
+#include <unordered_set>
 #include "dim_using.h"
 
 namespace nvs::dim {
 
+inline Eigen::VectorXf to_eigen(const vecReal& v)
+{
+    return Eigen::Map<const Eigen::VectorXf>(v.data(), static_cast<Eigen::Index>(v.size()));
+}
 /** to_eigen: (row-major)*/
 inline Eigen::MatrixXf to_eigen(const vecVecReal& X)
 {
@@ -19,6 +23,16 @@ inline Eigen::MatrixXf to_eigen(const vecVecReal& X)
     const idx_t d = static_cast<idx_t>(X[0].size());
     Eigen::MatrixXf M(n, d);
     for (idx_t i = 0; i < n; ++i)
+        for (idx_t j = 0; j < d; ++j)
+            M(i, j) = X[i][j];
+    return M;
+}
+template <std::size_t N>
+inline Eigen::MatrixXf to_eigen(const std::array<vecReal, N>& X)
+{
+    const idx_t d = static_cast<idx_t>(X[0].size());
+    Eigen::MatrixXf M(static_cast<idx_t>(N), d);
+    for (idx_t i = 0; i < static_cast<idx_t>(N); ++i)
         for (idx_t j = 0; j < d; ++j)
             M(i, j) = X[i][j];
     return M;
@@ -33,6 +47,56 @@ inline vecVecReal from_eigen(const Eigen::MatrixXf& M)
     for (idx_t i = 0; i < n; ++i)
         for (idx_t j = 0; j < d; ++j)
             result[i][j] = M(i, j);
+    return result;
+}
+
+template <std::size_t N>
+inline void from_eigen(const Eigen::MatrixXf& M, std::array<vecReal, N>& out)
+{
+    const idx_t d = static_cast<idx_t>(M.cols());
+    for (idx_t i = 0; i < static_cast<idx_t>(N); ++i)
+        for (idx_t j = 0; j < d; ++j)
+            out[i][j] = M(i, j);
+}
+
+inline void decorrelateFromCovariates(Eigen::MatrixXf& features,
+                                      const Eigen::VectorXf& pitch,
+                                      const Eigen::VectorXf& loudness)
+{
+    const Eigen::Index N = pitch.size();
+
+    // center pitch and loudness
+    const Eigen::VectorXf p = pitch.array() - pitch.mean();
+    const Eigen::VectorXf l = loudness.array() - loudness.mean();
+
+    // regressor matrix
+    Eigen::MatrixXf X(N, 2);
+    X.col(0) = p;
+    X.col(1) = l;
+
+    // solver needs only one-time computation
+    const auto solver = (X.transpose() * X).colPivHouseholderQr();
+
+    for (Eigen::Index i = 0; i < features.cols(); ++i)
+    {
+        Eigen::VectorXf f = features.col(i);
+        f.array() -= f.mean();
+        Eigen::VectorXf beta = solver.solve(X.transpose() * f);
+        features.col(i) = f - X * beta;
+    }
+}
+
+inline Eigen::MatrixXf removeColumns(const Eigen::MatrixXf& M, const std::vector<int>& colsToRemove)
+{
+    const auto removeSet = std::unordered_set<int>(colsToRemove.begin(), colsToRemove.end());
+
+    Eigen::MatrixXf result(M.rows(), M.cols() - static_cast<int>(colsToRemove.size()));
+    int outCol = 0;
+    for (int i = 0; i < M.cols(); ++i) {
+        if (!removeSet.contains(i)) {
+            result.col(outCol++) = M.col(i);
+        }
+    }
     return result;
 }
 

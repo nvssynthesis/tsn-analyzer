@@ -322,19 +322,39 @@ Analyzer::calculatePaCMAP(const std::vector<FeatureContainer<EventwiseStats>> &t
     }
     constexpr auto numFeatures = static_cast<size_t>(Feature_e::NumFeatures);
 
+
+    vecReal pitch; pitch.reserve(numFrames);
+    vecReal loudness; loudness.reserve(numFrames);
     vecVecReal X; X.reserve(numFrames);
+
     constexpr auto statToUse = Statistic::Mean;
     for (size_t i = 0; i < numFrames; ++i) {
         const auto &frame = timbreMeasurements[i];
         vecReal features; features.reserve(numFeatures);
-        for (const auto f : analysis::featuresIterator()) {
+        for (const auto f : featuresIterator()) {
             const auto &featureStats = frame[f];
             features.push_back(getStatVal(featureStats, statToUse));
+            if (f == Feature_e::f0) {
+                pitch.push_back(getStatVal(featureStats, Statistic::Median));   // pitch is more stable with use of median
+            }
+            if (f == Feature_e::Loudness) {
+                loudness.push_back(getStatVal(featureStats, statToUse));
+            }
         }
         jassert(features.size() == numFeatures);
         X.push_back(features);
     }
     jassert(X.size() == numFrames);
+    jassert(pitch.size() == numFrames);
+    jassert(loudness.size() == numFrames);
+    // decorrelate every feature from pitch and loudness
+    auto Xe = dim::to_eigen(X); // X is vector<vector<float>>; X.size is num events; X[0].size is numFeatures
+    dim::decorrelateFromCovariates(Xe, dim::to_eigen(pitch), dim::to_eigen(loudness));
+
+    // remove pitch and loudness from matrix
+    dim::removeColumns(Xe, {static_cast<int>(Feature_e::f0), static_cast<int>(Feature_e::Loudness)});
+
+    X = dim::from_eigen(Xe);
 
     dim::PaCMAP pacmap;
     return pacmap.fit_transform(X);
