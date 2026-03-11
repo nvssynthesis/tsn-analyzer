@@ -150,6 +150,11 @@ struct AnalyzerSettings {
         int sizeSecondPass = 200;
     } sBic;
 
+    struct PaCMAP {
+        int phase_1_iters;
+        int phase_2_iters;
+    } pacmap;
+
     struct Info {
         juce::String sampleFilePath;
         juce::String author;

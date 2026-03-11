@@ -356,7 +356,19 @@ Analyzer::calculatePaCMAP(const std::vector<FeatureContainer<EventwiseStats>> &t
 
     X = dim::from_eigen(Xe);
 
-    dim::PaCMAP pacmap;
+    dim::PaCMAP pacmap(2,// n_components
+        std::nullopt, // n_neighbors
+        0.5, // MN_ratio
+        2.0, // FP_ratio
+        1, // lr
+        {settings.pacmap.phase_1_iters, settings.pacmap.phase_2_iters, 250}, // num_iters
+        false, // verbose
+        true, // apply_pca
+        false, // intermediate
+        false, // save_tree
+        {0}, // intermediate_snapshots
+        std::nullopt // random_state
+        );
     return pacmap.fit_transform(X);
 }
 

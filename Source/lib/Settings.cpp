@@ -150,6 +150,11 @@ const std::map<juce::String, AnySpec> splitSpecs
 	{ axiom::tsn::fadeOutSamps, RangedSettingsSpec<int>{ {0,10000,1,1}, 5 } }
 };
 
+const std::map<juce::String, AnySpec> pacmapSpecs
+{
+    { axiom::tsn::phase_1_iters, RangedSettingsSpec<int>{ {1, 200, 1, 1}, 100 } },
+    { axiom::tsn::phase_2_iters, RangedSettingsSpec<int>{ {1, 200, 1, 1}, 100 } }
+};
 
 const std::map<juce::String, const std::map<juce::String,AnySpec>*>
 	specsByBranch
@@ -160,6 +165,7 @@ const std::map<juce::String, const std::map<juce::String,AnySpec>*>
 	{ axiom::tsn::sBic,     &sBicSpecs     },
 	{ axiom::tsn::Pitch,    &pitchSpecs    },
 	{ axiom::tsn::Loudness, &loudnessSpecs },
+	{ axiom::tsn::PaCMAP,   &pacmapSpecs   },
 	{ axiom::tsn::Split,    &splitSpecs    },
 };
 
@@ -369,6 +375,11 @@ juce::ValueTree createParentTreeFromSettings(const AnalyzerSettings& settings) {
     splitNode.setProperty(axiom::tsn::fadeOutSamps, settings.split.fadeOutSamps, nullptr);
     settingsTree.appendChild(splitNode, nullptr);
 
+    juce::ValueTree pacmapNode{axiom::tsn::PaCMAP};
+    pacmapNode.setProperty(axiom::tsn::phase_1_iters, settings.pacmap.phase_1_iters, nullptr);
+    pacmapNode.setProperty(axiom::tsn::phase_2_iters, settings.pacmap.phase_2_iters, nullptr);
+    settingsTree.appendChild(pacmapNode, nullptr);
+
     // sBic node
     juce::ValueTree sBicNode(axiom::tsn::sBic);
     sBicNode.setProperty(axiom::tsn::complexityPenaltyWeight, settings.sBic.complexityPenaltyWeight, nullptr);
@@ -561,7 +572,16 @@ bool updateSettingsFromValueTree(AnalyzerSettings& settings, const ValueTree& se
 	}
 	settings.split.fadeInSamps = splitNode.getProperty(axiom::tsn::fadeInSamps);
 	settings.split.fadeOutSamps = splitNode.getProperty(axiom::tsn::fadeOutSamps);
-	
+
+    auto pacmapNode = settingsTree.getChildWithName(axiom::tsn::PaCMAP);
+    if (!pacmapNode.isValid()) {
+        std::cerr << "Pacmap node missing\n";
+        jassertfalse;
+        return false;
+    }
+    settings.pacmap.phase_1_iters = pacmapNode.getProperty(axiom::tsn::phase_1_iters);
+    settings.pacmap.phase_2_iters = pacmapNode.getProperty(axiom::tsn::phase_2_iters);
+
 	// TimbreSpace settings
     if constexpr (TIMBRE_SPACE_SETTINGS_EXIST) {
         ValueTree timbreSpaceNode = settingsTree.getChildWithName("TimbreSpace");
