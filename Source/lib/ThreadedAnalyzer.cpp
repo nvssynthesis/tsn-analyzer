@@ -31,15 +31,16 @@ void ThreadedAnalyzer::updateStoredAudio(std::span<float const> wave, const juce
 	_audioFileAbsPath = audioFileAbsPath;
     _onsetAnalysisResult.reset();
     _timbreAnalysisResult.reset();
+    _pacmapResult.reset();
 }
 auto ThreadedAnalyzer::shareOnsetAnalysis() const -> std::shared_ptr<OnsetAnalysisResult> {
     return _onsetAnalysisResult;
 }
-auto ThreadedAnalyzer::stealTimbreSpaceRepresentation() -> std::optional<TimbreAnalysisResult> {
-    return std::exchange(_timbreAnalysisResult, std::nullopt);
+auto ThreadedAnalyzer::shareTimbreSpaceRepresentation() -> std::shared_ptr<TimbreAnalysisResult> {
+    return _timbreAnalysisResult;
 }
-auto ThreadedAnalyzer::stealPacmap() -> std::optional<PacmapResult> {
-    return std::exchange(_pacmapResult, std::nullopt);
+auto ThreadedAnalyzer::sharePacmapResult() -> std::shared_ptr<PacmapResult> {
+    return _pacmapResult;
 }
 
 void ThreadedAnalyzer::updateSettings(juce::ValueTree &settingsTree, const bool attemptFix){
@@ -65,6 +66,7 @@ void ThreadedAnalyzer::run() {
     _onsetAnalysisResult.reset();
     _timbreAnalysisResult.reset();
     _pacmapResult.reset();
+
 	if (!(_inputWave.data() && !_inputWave.empty())){
 		return;
 	}
@@ -156,15 +158,15 @@ void ThreadedAnalyzer::run() {
                 pacmapMatrix.has_value())
             {
                 _rls.set("Calculating PaCMAP Timbre Space...");
+                _rls.set(0.5);
                 Logger::writeToLog("Calculating PaCMAP Timbre Space...");
-                _pacmapResult.emplace(PacmapResult(pacmapMatrix.value(), audioHash, _audioFileAbsPath, sr));
+                _pacmapResult = std::make_shared<PacmapResult>(*pacmapMatrix, audioHash, _audioFileAbsPath, sr);
             } else {
                 _rls.set("Not enough points for PaCMAP, skipping...\n");
                 Logger::writeToLog("Not enough points for PaCMAP, skipping...\n");
-                jassert(!_pacmapResult.has_value());
             }
 
-		    _timbreAnalysisResult.emplace(timbreMeasurementsOpt.value(), audioHash, _audioFileAbsPath, sr);
+		    _timbreAnalysisResult = std::make_shared<TimbreAnalysisResult>(timbreMeasurementsOpt.value(), audioHash, _audioFileAbsPath, sr);
 		    _state = State::Complete;
 		    sendChangeMessage();    // signal that timbre analyses are ready
 	    }

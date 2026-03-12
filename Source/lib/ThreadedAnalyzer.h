@@ -37,7 +37,10 @@ public:
         return _onsetAnalysisResult != nullptr;
     }
     bool timbreAnalysisReady() const {
-        return _timbreAnalysisResult.has_value();
+        return _timbreAnalysisResult != nullptr;
+    }
+    bool pacmapReady() const {
+        return _pacmapResult != nullptr;
     }
     enum class State {
         Idle,
@@ -49,8 +52,8 @@ public:
     State getState() const { return _state.load(); }
     //===============================================================================
     std::shared_ptr<OnsetAnalysisResult> shareOnsetAnalysis() const;
-    std::optional<TimbreAnalysisResult> stealTimbreSpaceRepresentation();
-    std::optional<PacmapResult> stealPacmap();
+    std::shared_ptr<TimbreAnalysisResult> shareTimbreSpaceRepresentation();
+    std::shared_ptr<PacmapResult> sharePacmapResult();
     //===============================================================================
     [[deprecated("any reason we would want to get the raw analyzer, there should just be an intermediate method")]]
     Analyzer &getAnalyzer() { return _analyzer; }
@@ -63,8 +66,8 @@ private:
     Analyzer _analyzer;
     vecReal _inputWave;
     std::shared_ptr<OnsetAnalysisResult> _onsetAnalysisResult;
-    std::optional<TimbreAnalysisResult> _timbreAnalysisResult;
-    std::optional<PacmapResult> _pacmapResult;
+    std::shared_ptr<TimbreAnalysisResult> _timbreAnalysisResult;
+    std::shared_ptr<PacmapResult> _pacmapResult;
 
     String _audioFileAbsPath {};
 

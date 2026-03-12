@@ -312,8 +312,9 @@ const -> std::optional<std::vector<FeatureContainer<EventwiseStats>>>
     return timbre_points;
 }
 
-std::optional<vecVecReal>
-Analyzer::calculatePaCMAP(const std::vector<FeatureContainer<EventwiseStats>> &timbreMeasurements) {
+auto Analyzer::calculatePaCMAP(const std::vector<FeatureContainer<EventwiseStats>> &timbreMeasurements)
+const -> std::optional<vecVecReal>
+{
     const auto numFrames = timbreMeasurements.size();
 
     if (constexpr int minPacmapSize {55};
