@@ -15,6 +15,33 @@
 
 namespace nvs::analysis {
 
+namespace {
+juce::int64 hashBranch(const juce::ValueTree& parent, const String &branch) {
+    if (const auto child = parent.getChildWithName(branch); child.isValid()) {
+        return child.toXmlString().hashCode64();
+    }
+    jassertfalse;
+    return {};
+}
+
+juce::int64 computeOverallTimbreSettingsHash(const ValueTree &settingsTree) {
+    const auto hash = [settingsTree](const String &s) {
+        return hashBranch(settingsTree, s);
+    };
+    using namespace axiom::tsn;
+
+    const auto analysisHash = hash(Analysis);
+    const auto bfccHash = hash(BFCC);
+    const auto pitchHash = hash(Pitch);
+    const auto loudnessHash = hash(Loudness);
+    const auto splitHash = hash(Split);
+
+    const auto retval = analysisHash ^ bfccHash ^ pitchHash ^ loudnessHash ^ splitHash;
+    return retval;
+}
+}
+
+
 ThreadedAnalyzer::ThreadedAnalyzer()
 	:	juce::Thread("Analyzer")
 {}
@@ -22,50 +49,109 @@ ThreadedAnalyzer::~ThreadedAnalyzer(){
 	stopThread(10000);
 }
 
-void ThreadedAnalyzer::updateStoredAudio(std::span<float const> wave, const juce::String &audioFileAbsPath) {
+void ThreadedAnalyzer::updateStoredAudioAndSettings(std::span<float const> wave, const juce::String &audioFileAbsPath,
+    juce::ValueTree &settingsTree, const bool attemptFix)
+{
     jassert(!isThreadRunning());
+    jassert( settingsTree.hasType(nvs::axiom::tsn::Settings) );
+
     _state = State::Idle;
     sendChangeMessage();
 
-	_inputWave.assign(wave.begin(), wave.end());
-	_audioFileAbsPath = audioFileAbsPath;
-    _onsetAnalysisResult.reset();
-    _timbreAnalysisResult.reset();
-    _pacmapResult.reset();
+	_audioFileAbsPath = audioFileAbsPath;   // always update; it's possible that the audio file moved even tho it's the same content
+    if (const auto audioHash = util::hashAudioData(_inputWave);
+        audioHash == _lastAudioHash)
+    {
+        _onsetAnalysisResult.reset();
+        _shouldComputeOnsets = true;
+        _timbreAnalysisResult.reset();
+        _shouldComputeTimbre = true;
+        _pacmapResult.reset();
+        _shouldComputePacmap = true;
+    } else {
+        _inputWave.assign(wave.begin(), wave.end());
+    }
+
+    if (!_analyzer.updateSettings(settingsTree, attemptFix))    // 'blindly' update all settings of analyzer
+    {
+        DBG("updateSettings failed");
+        jassertfalse;
+    }
+
+    // recompute the per‑branch hashes, to see if we can skip parts of analysis in the next run
+    if (const auto parent = _analyzer.getSettingsParentTree();
+        parent.isValid())
+    {
+
+        if (const auto onsetSettingsHash = hashBranch(settingsTree, axiom::tsn::Onset);
+            onsetSettingsHash == _lastOnsetSettingsHash && _onsetAnalysisResult != nullptr)
+        {
+            _shouldComputeOnsets = false;
+        } else {
+            _shouldComputeOnsets = true;
+            _lastOnsetSettingsHash = onsetSettingsHash;
+            _onsetAnalysisResult.reset();
+
+            _shouldComputeTimbre = true;
+            _lastTimbreSettingsHash = computeOverallTimbreSettingsHash(settingsTree);
+            _timbreAnalysisResult.reset();
+
+            _shouldComputePacmap = true;
+            _lastPacmapSettingsHash = hashBranch(settingsTree, axiom::tsn::PaCMAP);
+            _pacmapResult.reset();
+        }
+
+        if (const auto timbreSettingsHash = computeOverallTimbreSettingsHash(settingsTree);
+            timbreSettingsHash == _lastTimbreSettingsHash && _timbreAnalysisResult != nullptr)
+        {
+            _shouldComputeTimbre = false;
+        } else {
+            _shouldComputeTimbre = true;
+            _lastTimbreSettingsHash = timbreSettingsHash;
+            _timbreAnalysisResult.reset();
+
+            _shouldComputePacmap = true;
+            _lastPacmapSettingsHash = hashBranch(settingsTree, axiom::tsn::PaCMAP);
+            _pacmapResult.reset();
+        }
+
+        if (const auto pacmapSettingsHash = hashBranch(settingsTree, axiom::tsn::PaCMAP);
+            pacmapSettingsHash == _lastPacmapSettingsHash && _pacmapResult != nullptr)
+        {
+            _shouldComputePacmap = false;
+        } else {
+            _shouldComputePacmap = true;
+            _lastPacmapSettingsHash = pacmapSettingsHash;
+            _pacmapResult.reset();
+        }
+    }
 }
+
 auto ThreadedAnalyzer::shareOnsetAnalysis() const -> std::shared_ptr<OnsetAnalysisResult> {
     return _onsetAnalysisResult;
 }
-auto ThreadedAnalyzer::shareTimbreSpaceRepresentation() -> std::shared_ptr<TimbreAnalysisResult> {
+auto ThreadedAnalyzer::shareTimbreSpaceRepresentation() const -> std::shared_ptr<TimbreAnalysisResult> {
     return _timbreAnalysisResult;
 }
-auto ThreadedAnalyzer::sharePacmapResult() -> std::shared_ptr<PacmapResult> {
+auto ThreadedAnalyzer::sharePacmapResult() const -> std::shared_ptr<PacmapResult> {
     return _pacmapResult;
 }
 
-void ThreadedAnalyzer::updateSettings(juce::ValueTree &settingsTree, const bool attemptFix){
-    jassert(!isThreadRunning());
-
-    jassert( settingsTree.hasType(nvs::axiom::tsn::Settings) );
-    _state = State::Idle;
-    sendChangeMessage();
-
-	if (!_analyzer.updateSettings(settingsTree, attemptFix))
-	{
-	    DBG("updateSettings failed");
-	    jassertfalse;
-	}
-}
-
-
 void ThreadedAnalyzer::run() {
-	// first, clear everything so that if any analysis is terminated early, we don't have garbage leftover
+    auto report = [this](const String &s) {
+        _rls.set(s);
+        Logger::writeToLog(s);
+    };
+
+    if (!_shouldComputePacmap) {    // nothing to compute
+        jassert (!_shouldComputeTimbre);
+        jassert (!_shouldComputeOnsets);
+        _state = State::Complete;
+        sendChangeMessage();
+        return;
+    }
     _state = State::Idle;
     sendChangeMessage();
-
-    _onsetAnalysisResult.reset();
-    _timbreAnalysisResult.reset();
-    _pacmapResult.reset();
 
 	if (!(_inputWave.data() && !_inputWave.empty())){
 		return;
@@ -84,14 +170,25 @@ void ThreadedAnalyzer::run() {
 			return retval;;
 		};
 
-		// perform onset analysis
-		_rls.set("Calculating Onsets...");
-	    Logger::writeToLog("Calculating onsets...");
 	    const String audioHash = util::hashAudioData(_inputWave);
 
 	    const auto sr = _analyzer.getAnalyzedFileSampleRate();
 
-	    const auto unnormalizedOnsets = [this, shouldExit, audioHash, sr]()-> vecReal {
+	    const auto unnormalizedOnsets = [this, shouldExit, audioHash, sr, &report]()-> vecReal {
+	        // perform onset analysis
+	        report("Calculating Onsets...");
+	        const auto lengthInSeconds = getLengthInSeconds(_inputWave.size(), sr);
+
+	        if (!_shouldComputeOnsets) {
+	            // return existing onsets but unnormalized
+	            jassert(_onsetAnalysisResult != nullptr);
+	            sendChangeMessage();    // signal that onsets are ready
+	            auto onsetsCpy = _onsetAnalysisResult->onsets;
+	            denormalizeOnsets(onsetsCpy, lengthInSeconds);
+
+	            return onsetsCpy;
+	        }
+
 	        const auto onsetOpt = _analyzer.calculateOnsetsInSeconds(_inputWave, _rls, shouldExit);
 	        if (threadShouldExit() || onsetOpt.value().empty()) {
 	            DBG("Threaded Analyzer: exit requested");
@@ -103,35 +200,40 @@ void ThreadedAnalyzer::run() {
 
 		    _onsetAnalysisResult = std::make_shared<OnsetAnalysisResult>(onsetOpt.value(), audioHash, _audioFileAbsPath, sr);
 
-		    const auto lengthInSeconds = getLengthInSeconds(_inputWave.size(), sr);
+	        const auto unnormCpy = [this, sr, lengthInSeconds, &report](){
+	            report("Processing onsets..");
 
-	        _rls.set("Processing onsets..");
-	        Logger::writeToLog("Processing onsets...");
-	        improveOnsetsInSeconds(_onsetAnalysisResult->onsets, _inputWave, sr);
+	            improveOnsetsInSeconds(_onsetAnalysisResult->onsets, _inputWave, sr);
 
-		    filterOnsetsOutsideBounds(_onsetAnalysisResult->onsets, lengthInSeconds);
-		    filterRedundantOnsets(_onsetAnalysisResult->onsets);
+	            filterOnsetsOutsideBounds(_onsetAnalysisResult->onsets, lengthInSeconds);
+	            filterRedundantOnsets(_onsetAnalysisResult->onsets);
 
-	        const auto &onsetRefinementSettings = _analyzer.getSettings().onset._refinement;
-	        subdivideOnsetsEnergy(_onsetAnalysisResult->onsets, _inputWave, sr, onsetRefinementSettings.numEventSubdivisions);
+	            const auto &[numEventSubdivisions,
+                    silenceThresholdDb,
+                    minSilenceDurationMs,
+                    minEventWithinSilenceDurationMs]
+                    = _analyzer.getSettings().onset._refinement;
+	            subdivideOnsetsEnergy(_onsetAnalysisResult->onsets, _inputWave, sr, numEventSubdivisions);
 
-	        const auto silenceMarkers = detectSilences(_inputWave, sr,
-	            onsetRefinementSettings.silenceThresholdDb, onsetRefinementSettings.minSilenceDurationMs,
-	            onsetRefinementSettings.minEventWithinSilenceDurationMs);
+	            const auto silenceMarkers = detectSilences(_inputWave, sr,
+                    silenceThresholdDb, minSilenceDurationMs,
+                    minEventWithinSilenceDurationMs);
 
-	        combineOnsetsAndSilenceTimings(_onsetAnalysisResult->onsets, silenceMarkers,
-	            0.2, 0.2,
-	            0.5, 0.2);
+	            combineOnsetsAndSilenceTimings(_onsetAnalysisResult->onsets, silenceMarkers,
+                    0.2, 0.2,
+                    0.5, 0.2);
 
-	        filterOnsetsOutsideBounds(_onsetAnalysisResult->onsets, lengthInSeconds);  // after inserting new onsets, its possible again that some are too bunched up
+	            filterOnsetsOutsideBounds(_onsetAnalysisResult->onsets, lengthInSeconds);  // after inserting new onsets, its possible again that some are too bunched up
 
-	        forceMinimumOnsets(_onsetAnalysisResult->onsets, 4, lengthInSeconds);
+	            forceMinimumOnsets(_onsetAnalysisResult->onsets, 4, lengthInSeconds);
 
-		    const auto retval = _onsetAnalysisResult->onsets;
-		    normalizeOnsets(_onsetAnalysisResult->onsets, lengthInSeconds);
+	            const auto retval = _onsetAnalysisResult->onsets;   // get copy of (still UNNORMALIZED) onsets
+	            normalizeOnsets(_onsetAnalysisResult->onsets, lengthInSeconds); // normalize member
+    		    sendChangeMessage();    // signal that onsets are ready
+	            return retval;
+	        }();
 	        jassert(_state == State::Analyzing);
-		    sendChangeMessage();    // signal that onsets are ready
-	        return retval;
+	        return unnormCpy;
 	    }();
 	    if (unnormalizedOnsets.empty() || threadShouldExit()) {
 	        DBG("Threaded Analyzer: exit requested");
@@ -139,12 +241,15 @@ void ThreadedAnalyzer::run() {
 	        sendChangeMessage();
 	        return;
 	    }
-
-        // perform onsetwise timbral analysis
-		_rls.set("Calculating Onsetwise TimbreSpace...");
-	    Logger::writeToLog("Calculating Onsetwise Timbre Space...");
-	    {
-	        const auto timbreMeasurementsOpt = _analyzer.calculateOnsetwiseTimbreSpace(_inputWave, unnormalizedOnsets, _rls, shouldExit);
+	    [this, &report, &shouldExit, sr, audioHash](const std::vector<float> &unnormOnsets){
+	        // perform onsetwise timbral analysis
+		    if (!_shouldComputeTimbre) {
+		        jassert(_timbreAnalysisResult != nullptr);
+		        sendChangeMessage();    // signal that timbres are ready
+		        return;
+		    }
+		    report("Calculating Onsetwise TimbreSpace...");
+		    const auto timbreMeasurementsOpt = _analyzer.calculateOnsetwiseTimbreSpace(_inputWave, unnormOnsets, _rls, shouldExit);
 		    if (!timbreMeasurementsOpt.has_value() || threadShouldExit()) {
 		        DBG("Threaded Analyzer: exit requested");
 		        _state = State::Failed;
@@ -153,24 +258,32 @@ void ThreadedAnalyzer::run() {
 		    }
 
 		    jassert (sr == _analyzer.getAnalyzedFileSampleRate());  // sr should not have possibly changed... sanity check
+	        _timbreAnalysisResult = std::make_shared<TimbreAnalysisResult>(timbreMeasurementsOpt.value(), audioHash, _audioFileAbsPath, sr);
+	    }(unnormalizedOnsets);
 
-            if (const auto pacmapMatrix = _analyzer.calculatePaCMAP(timbreMeasurementsOpt.value());
-                pacmapMatrix.has_value())
-            {
-                _rls.set("Calculating PaCMAP Timbre Space...");
-                _rls.set(0.5);
-                Logger::writeToLog("Calculating PaCMAP Timbre Space...");
-                _pacmapResult = std::make_shared<PacmapResult>(*pacmapMatrix, audioHash, _audioFileAbsPath, sr);
-            } else {
-                _rls.set("Not enough points for PaCMAP, skipping...\n");
-                Logger::writeToLog("Not enough points for PaCMAP, skipping...\n");
-            }
-
-		    _timbreAnalysisResult = std::make_shared<TimbreAnalysisResult>(timbreMeasurementsOpt.value(), audioHash, _audioFileAbsPath, sr);
-		    _state = State::Complete;
-		    sendChangeMessage();    // signal that timbre analyses are ready
+	    if (threadShouldExit()) {
+	        DBG("Threaded Analyzer: exit requested");
+	        _state = State::Failed;
+	        sendChangeMessage();
+	        return;
 	    }
-	} catch (const essentia::EssentiaException& e) {
+
+	    jassert(_shouldComputePacmap);  // otherwise we should have returned at the very start
+        report("Calculating PaCMAP Timbre Space...");
+        _rls.set(0.5);
+        if (const auto pacmapMatrix = _analyzer.calculatePaCMAP(_timbreAnalysisResult->timbreMeasurements);
+            pacmapMatrix.has_value())
+        {
+            _pacmapResult = std::make_shared<PacmapResult>(*pacmapMatrix, audioHash, _audioFileAbsPath, sr);
+        } else {
+            report("Not enough points for PaCMAP, skipping...");
+            jassert(_pacmapResult == nullptr);
+        }
+
+		_state = State::Complete;
+		sendChangeMessage();    // signal that timbre analyses are ready
+
+	} catch (const EssentiaException& e) {
 		DBG("Essentia exception: " << e.what());
 	    _state = State::Failed;
 		sendChangeMessage(); // Let GUI know something changed
