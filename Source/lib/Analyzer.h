@@ -43,6 +43,7 @@ constexpr auto makeScalarLookup() {
 
 	constexpr int ScalarCount = 9;
 	static constexpr std::array<FeatureContainerMemberPtr<T>, ScalarCount> table {
+#pragma message("From the future: is the first element really supposed to be created this way?")
 	    &FeatureContainer<T>::features[Feature_e::SpectralCentroid],
 	    &FeatureContainer<T>::spectralDecrease,
 	    &FeatureContainer<T>::spectralFlatness,

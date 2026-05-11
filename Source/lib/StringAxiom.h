@@ -70,6 +70,8 @@ STRAXIOMIZE(dctType);
 STRAXIOMIZE(typeII);
 STRAXIOMIZE(typeIII);
 
+STRAXIOMIZE(equalizeLoudness);
+
 STRAXIOMIZE(Onset);
 STRAXIOMIZE(segmentation);
 STRAXIOMIZE(refinementNumEventSubdivisions);
@@ -88,7 +90,7 @@ STRAXIOMIZE(weight_hfc);
 STRAXIOMIZE(weight_rms);
 STRAXIOMIZE(weight_novelty);
 STRAXIOMIZE(Pitch);
-STRAXIOMIZE(equalizeLoudness);
+STRAXIOMIZE(pitchDetectionAlgorithm);
 STRAXIOMIZE(yin);
 STRAXIOMIZE(pYin);
 STRAXIOMIZE(yinFFT);
@@ -101,7 +103,6 @@ STRAXIOMIZE(dismal_replacement_constant);
 STRAXIOMIZE(interpolate);
 STRAXIOMIZE(maxFrequency);
 STRAXIOMIZE(minFrequency);
-STRAXIOMIZE(pitchDetectionAlgorithm);
 STRAXIOMIZE(tolerance);
 // pyin
 STRAXIOMIZE(lowRMSThreshold);

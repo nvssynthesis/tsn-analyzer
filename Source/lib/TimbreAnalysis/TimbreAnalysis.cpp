@@ -176,26 +176,27 @@ FeatureContainer<vecReal> calculateTimbres(std::span<Real const> waveSpan, Analy
             {"Spectrum", "dbamp"}
     };
     const auto sampleRate  = static_cast<float>(settings.analysis.sampleRate);
+    const auto numBarks = settings.bfcc.numBands;
     const auto bfcc = std::unique_ptr<standard::Algorithm>(StandardFactory::create (
-    "BFCC",
-    "dctType",             dctTypeStringToInt.at(settings.bfcc.dctType.toStdString()),
-    "highFrequencyBound",  settings.bfcc.highFrequencyBound,
-    "inputSize",           frameSize + 1,
-    "liftering",           settings.bfcc.liftering,
-    "logType",             logTypeMap.at(specAlgoStr),
+        "BFCC",
+        "dctType",             dctTypeStringToInt.at(settings.bfcc.dctType.toStdString()),
+        "highFrequencyBound",  settings.bfcc.highFrequencyBound,
+        "inputSize",           frameSize + 1,
+        "liftering",           settings.bfcc.liftering,
+        "logType",             logTypeMap.at(specAlgoStr),
 
-    "lowFrequencyBound",   settings.bfcc.lowFrequencyBound,
-    "normalize",           settings.bfcc.normalize.toStdString(),
-    "numberBands",         settings.bfcc.numBands,
-    "numberCoefficients",  settings.bfcc.numCoefficients,
-    "sampleRate",          sampleRate,
-    "type",                spectrumTypeStr,
-    "weighting",           settings.bfcc.weightingType.toStdString()
+        "lowFrequencyBound",   settings.bfcc.lowFrequencyBound,
+        "normalize",           settings.bfcc.normalize.toStdString(),
+        "numberBands",         numBarks,
+        "numberCoefficients",  settings.bfcc.numCoefficients,
+        "sampleRate",          sampleRate,
+        "type",                spectrumTypeStr,
+        "weighting",           settings.bfcc.weightingType.toStdString()
     ));
     const auto centroid_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("Centroid",
-        "range", sampleRate * 0.5));
+        "range", 1.0));
     const auto decrease_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("Decrease",
-        "range", sampleRate * 0.5));
+        "range", 1.0 /*sampleRate * 0.5*/));
     const auto flatnessDB_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("FlatnessDB"));
     const auto crest_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("Crest"));
     const auto spectralComplexity_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("SpectralComplexity",
@@ -235,45 +236,45 @@ FeatureContainer<vecReal> calculateTimbres(std::span<Real const> waveSpan, Analy
         spectrum->compute();
 
         // compute BFCC
-        vecReal _, bfccVec;
+        vecReal barkSpec, bfccVec;
         bfcc->input("spectrum").set(spectrumVec);
-        bfcc->output("bands").set(_);
+        bfcc->output("bands").set(barkSpec);
         bfcc->output("bfcc").set(bfccVec);
         bfcc->compute();
         pushBFCCFrame(timbres, bfccVec);
 
         Real centroid;
-        centroid_a->input("array").set(spectrumVec);
+        centroid_a->input("array").set(barkSpec); // use BARK spectrum!
         centroid_a->output("centroid").set(centroid);
         centroid_a->compute();
         timbres[Feature_e::SpectralCentroid].push_back(centroid);
 
         Real decrease;
-        decrease_a->input("array").set(spectrumVec);
+        decrease_a->input("array").set(barkSpec);
         decrease_a->output("decrease").set(decrease);
         decrease_a->compute();
         timbres[Feature_e::SpectralDecrease].push_back(decrease);
 
         Real flatness;
-        flatnessDB_a->input("array").set(spectrumVec);
+        flatnessDB_a->input("array").set(spectrumVec); // use linear to be able to indicate very spiky spectra
         flatnessDB_a->output("flatnessDB").set(flatness);
         flatnessDB_a->compute();
         timbres[Feature_e::SpectralFlatness].push_back(flatness);
 
         Real crest;
-        crest_a->input("array").set(spectrumVec);
+        crest_a->input("array").set(spectrumVec);   // as a measure of peakiness, we keep linear spectrum
         crest_a->output("crest").set(crest);
         crest_a->compute();
         timbres[Feature_e::SpectralCrest].push_back(crest);
 
         Real spectralComplexity;
-        spectralComplexity_a->input("spectrum").set(spectrumVec);
+        spectralComplexity_a->input("spectrum").set(spectrumVec);   // keep using linear, designed for this (based on number of peaks in spectrum)
         spectralComplexity_a->output("spectralComplexity").set(spectralComplexity);
         spectralComplexity_a->compute();
         timbres[Feature_e::SpectralComplexity].push_back(spectralComplexity);
 
         Real strongPeak;
-        strongPeakinesses_a->input("spectrum").set(spectrumVec);
+        strongPeakinesses_a->input("spectrum").set(spectrumVec);    // designed based on linear spectrum
         strongPeakinesses_a->output("strongPeak").set(strongPeak);
         strongPeakinesses_a->compute();
         timbres[Feature_e::StrongPeak].push_back(strongPeak);

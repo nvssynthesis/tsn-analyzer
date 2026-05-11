@@ -194,7 +194,8 @@ void improveOnsetsInSeconds(
     const std::vector<float>& wave,
     const float          sampleRate,
     const float          searchBackMs,  // how far back to look for pre-onset silence
-    const float          rmsWindowMs   // RMS analysis window size
+    const float          rmsWindowMs,   // RMS analysis window size
+    const bool           giveChanceBeforeStart
 )
 {
     if (wave.empty() || onsetsInSeconds.empty()) return;
@@ -227,12 +228,22 @@ void improveOnsetsInSeconds(
 
         // --- FORWARD SCAN from searchStart to find where signal crosses threshold ---
         int correctedSample = onsetSample; // fallback: keep original
+        [[maybe_unused]] const float originalEnergy = rmsEnergy(wave, onsetSample, rmsHalfWin);
         float minEnergy = std::numeric_limits<float>::max();
 
         for (int s = searchStart; s < onsetSample; s += rmsHalfWin) {
-            if (const float e = rmsEnergy(wave, s, rmsHalfWin); e < minEnergy) {
+            if (const float e = rmsEnergy(wave, s, rmsHalfWin);
+                e < minEnergy && e < originalEnergy)
+            {
                 minEnergy = e;
                 correctedSample = s;
+            }
+        }
+        if (i == 0 && giveChanceBeforeStart) {
+            if (correctedSample == onsetSample) { // then no improvement has been made to first onset
+                if (0.0 < minEnergy) { // 0.0 would be the idealized energy level before start of file
+                    correctedSample = 0;    // move first onset to start of file
+                }
             }
         }
 

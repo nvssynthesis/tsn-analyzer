@@ -55,16 +55,18 @@ inline void conversionProgram(const ArgumentList &args) {
     }
 
     std::cout << "Converting " << inFile.getFullPathName() << " to \n" << outFile.getFullPathName() << std::endl;
+    const bool invalidOK = args.containsOption("--invalid");
     if (inFileExt == ".tsb") {
         if (const ValueTree analysisVT = nvs::util::loadValueTreeFromBinary(inFile);
-            nvs::analysis::validateAnalysisVT(analysisVT))
+            nvs::analysis::validateAnalysisVT(analysisVT) || invalidOK)
         {
+            std::cout << nvs::util::valueTreeToXmlStringSafe(analysisVT);
             nvs::util::saveValueTreeToJSON(analysisVT, outFile);
         }
     }
     else {
         if (const ValueTree analysisVT = nvs::util::loadValueTreeFromJSON(inFile);
-            nvs::analysis::validateAnalysisVT(analysisVT))
+            nvs::analysis::validateAnalysisVT(analysisVT) || invalidOK)
         {
             nvs::util::saveValueTreeToBinary(analysisVT, outFile);
         }
