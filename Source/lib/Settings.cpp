@@ -109,16 +109,6 @@ const std::map<juce::String, AnySpec> onsetSpecs
 "The minimum length for an event found within a silence to be counted as such", 0, "ms" } }
 };
 
-const std::map<juce::String, AnySpec> sBicSpecs
-{
-	{ axiom::tsn::complexityPenaltyWeight, RangedSettingsSpec<double>{ {0.0,10.0,0.1,1.0}, 1.5 } },
-	{ axiom::tsn::incrementFirstPass,      RangedSettingsSpec<int>{   {1,500,1,1},      60  } },
-	{ axiom::tsn::incrementSecondPass,     RangedSettingsSpec<int>{   {1,500,1,1},      20  } },
-	{ axiom::tsn::minSegmentLengthFrames,  RangedSettingsSpec<int>{   {1,100,1,1},      10  } },
-	{ axiom::tsn::sizeFirstPass,           RangedSettingsSpec<int>{   {1,1000,1,1},     300 } },
-	{ axiom::tsn::sizeSecondPass,          RangedSettingsSpec<int>{   {1,1000,1,1},     200 } }
-};
-
 const std::map<juce::String, AnySpec> pitchSpecs
 {
 	{ axiom::tsn::pitchDetectionAlgorithm,  ChoiceSettingsSpec{ {axiom::tsn::yin, axiom::tsn::yinFFT, axiom::tsn::pYin,axiom::tsn::chroma}, axiom::tsn::yin } },
@@ -162,7 +152,6 @@ const std::map<juce::String, const std::map<juce::String,AnySpec>*>
 	{ axiom::tsn::Analysis, &analysisSpecs },
 	{ axiom::tsn::BFCC,     &bfccSpecs     },
 	{ axiom::tsn::Onset,    &onsetSpecs    },
-	{ axiom::tsn::sBic,     &sBicSpecs     },
 	{ axiom::tsn::Pitch,    &pitchSpecs    },
 	{ axiom::tsn::Loudness, &loudnessSpecs },
 	{ axiom::tsn::PaCMAP,   &pacmapSpecs   },
@@ -296,7 +285,7 @@ juce::ValueTree createParentTreeFromSettings(const AnalyzerSettings& settings) {
     parent.appendChild(fileInfoTree, nullptr);
 
     // Create Settings tree
-    juce::ValueTree settingsTree("Settings");
+    juce::ValueTree settingsTree(axiom::tsn::Settings);
 
     // Analysis node
     juce::ValueTree analysisNode(axiom::tsn::Analysis);
@@ -324,7 +313,7 @@ juce::ValueTree createParentTreeFromSettings(const AnalyzerSettings& settings) {
     // Onset node
     juce::ValueTree onsetNode(axiom::tsn::Onset);
     onsetNode.setProperty(axiom::tsn::segmentation,
-        settings.onset.segmentation == AnalyzerSettings::Onset::Segmentation::Uniform ? axiom::tsn::Uniform : "Event", nullptr);
+        settings.onset.segmentation == AnalyzerSettings::Onset::Segmentation::Uniform ? axiom::tsn::Uniform : axiom::tsn::Event, nullptr);
     onsetNode.setProperty(axiom::tsn::alpha, settings.onset.alpha, nullptr);
     onsetNode.setProperty(axiom::tsn::numFrames_shortOnsetFilter, settings.onset.numFrames_shortOnsetFilter, nullptr);
     onsetNode.setProperty(axiom::tsn::silenceThreshold, settings.onset.silenceThreshold, nullptr);
@@ -379,16 +368,6 @@ juce::ValueTree createParentTreeFromSettings(const AnalyzerSettings& settings) {
     pacmapNode.setProperty(axiom::tsn::phase_1_iters, settings.pacmap.phase_1_iters, nullptr);
     pacmapNode.setProperty(axiom::tsn::phase_2_iters, settings.pacmap.phase_2_iters, nullptr);
     settingsTree.appendChild(pacmapNode, nullptr);
-
-    // sBic node
-    juce::ValueTree sBicNode(axiom::tsn::sBic);
-    sBicNode.setProperty(axiom::tsn::complexityPenaltyWeight, settings.sBic.complexityPenaltyWeight, nullptr);
-    sBicNode.setProperty(axiom::tsn::incrementFirstPass, settings.sBic.incrementFirstPass, nullptr);
-    sBicNode.setProperty(axiom::tsn::incrementSecondPass, settings.sBic.incrementSecondPass, nullptr);
-    sBicNode.setProperty(axiom::tsn::minSegmentLengthFrames, settings.sBic.minSegmentLengthFrames, nullptr);
-    sBicNode.setProperty(axiom::tsn::sizeFirstPass, settings.sBic.sizeFirstPass, nullptr);
-    sBicNode.setProperty(axiom::tsn::sizeSecondPass, settings.sBic.sizeSecondPass, nullptr);
-    settingsTree.appendChild(sBicNode, nullptr);
 
     // Add settings tree to parent
     parent.appendChild(settingsTree, nullptr);
@@ -598,27 +577,6 @@ bool updateSettingsFromValueTree(AnalyzerSettings& settings, const ValueTree& se
             }
     }
 
-	// sBic settings
-	auto sBicNode = settingsTree.getChildWithName(axiom::tsn::sBic);
-	if (!sBicNode.isValid()) {
-		std::cerr << "sBic node missing\n";
-		jassertfalse;
-		return false;
-	}
-	if (!sBicNode.hasProperty(axiom::tsn::complexityPenaltyWeight) || !sBicNode.hasProperty(axiom::tsn::incrementFirstPass) ||
-		!sBicNode.hasProperty(axiom::tsn::incrementSecondPass) || !sBicNode.hasProperty(axiom::tsn::minSegmentLengthFrames) ||
-		!sBicNode.hasProperty(axiom::tsn::sizeFirstPass) || !sBicNode.hasProperty(axiom::tsn::sizeSecondPass)) {
-		std::cerr << "sBic node missing required properties\n";
-		jassertfalse;
-		return false;
-	}
-	settings.sBic.complexityPenaltyWeight = sBicNode.getProperty(axiom::tsn::complexityPenaltyWeight);
-	settings.sBic.incrementFirstPass = sBicNode.getProperty(axiom::tsn::incrementFirstPass);
-	settings.sBic.incrementSecondPass = sBicNode.getProperty(axiom::tsn::incrementSecondPass);
-	settings.sBic.minSegmentLengthFrames = sBicNode.getProperty(axiom::tsn::minSegmentLengthFrames);
-	settings.sBic.sizeFirstPass = sBicNode.getProperty(axiom::tsn::sizeFirstPass);
-	settings.sBic.sizeSecondPass = sBicNode.getProperty(axiom::tsn::sizeSecondPass);
-	
 	return true;
 }
 

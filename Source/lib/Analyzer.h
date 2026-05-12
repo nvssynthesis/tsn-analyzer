@@ -126,7 +126,7 @@ public:
         const ShouldExitFn &shouldExit) const;
 
     std::optional<vecVecReal>
-    calculatePaCMAP(const std::vector<FeatureContainer<EventwiseStats>> &timbreMeasurements);
+    calculatePaCMAP(const std::vector<FeatureContainer<EventwiseStats>> &timbreMeasurements) const;
 
     static std::optional<vecVecReal> calculatePCA(
 	    const std::vector<FeatureContainer<EventwiseStats>> &allFeatures,

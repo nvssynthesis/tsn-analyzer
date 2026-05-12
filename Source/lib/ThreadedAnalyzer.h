@@ -28,8 +28,8 @@ public:
     ThreadedAnalyzer();
     ~ThreadedAnalyzer() override;
     //===============================================================================
-    void updateStoredAudio(std::span<float const> wave, const juce::String &audioFileAbsPath);
-    void updateSettings(juce::ValueTree &settingsTree, bool attemptFix);
+    void updateStoredAudioAndSettings(std::span<float const> wave, const juce::String &audioFileAbsPath,
+        juce::ValueTree &settingsTree, bool attemptFix);
     //===============================================================================
     void stopAnalysis() { DBG("Stopping analysis thread..."); signalThreadShouldExit(); }
     //===============================================================================
@@ -37,7 +37,10 @@ public:
         return _onsetAnalysisResult != nullptr;
     }
     bool timbreAnalysisReady() const {
-        return _timbreAnalysisResult.has_value();
+        return _timbreAnalysisResult != nullptr;
+    }
+    bool pacmapReady() const {
+        return _pacmapResult != nullptr;
     }
     enum class State {
         Idle,
@@ -48,9 +51,14 @@ public:
 
     State getState() const { return _state.load(); }
     //===============================================================================
+    void setAnalysis(vecReal normOnsets,
+        std::vector<FeatureContainer<EventwiseStatisticsF>> timbreSpaceRepr,
+        vecVecReal pacmapMatrix,
+        String waveformHash, String absPath, double sr);
+    //===============================================================================
     std::shared_ptr<OnsetAnalysisResult> shareOnsetAnalysis() const;
-    std::optional<TimbreAnalysisResult> stealTimbreSpaceRepresentation();
-    std::optional<PacmapResult> stealPacmap();
+    std::shared_ptr<TimbreAnalysisResult> shareTimbreSpaceRepresentation() const;
+    std::shared_ptr<PacmapResult> sharePacmapResult() const;
     //===============================================================================
     [[deprecated("any reason we would want to get the raw analyzer, there should just be an intermediate method")]]
     Analyzer &getAnalyzer() { return _analyzer; }
@@ -63,14 +71,24 @@ private:
     Analyzer _analyzer;
     vecReal _inputWave;
     std::shared_ptr<OnsetAnalysisResult> _onsetAnalysisResult;
-    std::optional<TimbreAnalysisResult> _timbreAnalysisResult;
-    std::optional<PacmapResult> _pacmapResult;
+    std::shared_ptr<TimbreAnalysisResult> _timbreAnalysisResult;
+    std::shared_ptr<PacmapResult> _pacmapResult;
 
     String _audioFileAbsPath {};
 
     RunLoopStatus _rls;
 
     std::atomic<State> _state {State::Idle};
+
+    //===============================================================================
+    juce::String _lastAudioHash;
+    juce::int64 _lastOnsetSettingsHash;
+    juce::int64 _lastTimbreSettingsHash;
+    juce::int64 _lastPacmapSettingsHash;
+
+    bool _shouldComputeOnsets { true };
+    bool _shouldComputeTimbre { true };
+    bool _shouldComputePacmap { true };
 
     void run() override;
 };
