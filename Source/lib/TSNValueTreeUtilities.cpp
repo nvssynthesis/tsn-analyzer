@@ -77,6 +77,76 @@ EventwiseStatisticsF toEventwiseStatistics(ValueTree const &vt){
     };
 }
 
+juce::String getPacmapDimName (const int d) {
+    return axiom::tsn::PaCMAP + juce::String(d);
+};
+
+vecReal timbreAnalysisValueTreeToOnsets(const ValueTree &vt) {
+    jassert(vt.hasType(axiom::tsn::TimbreAnalysis));
+    const auto normOnsetsVar = vt.getProperty(axiom::tsn::NormalizedOnsets);
+    jassert(normOnsetsVar.isArray());
+    const auto normOnsetsArr = normOnsetsVar.getArray();
+
+    const std::vector<float> retval(normOnsetsArr->begin(), normOnsetsArr->end());
+    jassert(retval.size() == normOnsetsArr->size());
+
+    return retval;
+}
+vecVecReal timbreAnalysisValueTreeToPacmapMatrix(const ValueTree &vt) {
+    jassert(vt.hasType(axiom::tsn::TimbreAnalysis));
+    const auto timbreMeasurementsVT = vt.getChildWithName(axiom::tsn::TimbreMeasurements);
+    const auto pacmapVT = timbreMeasurementsVT.getChildWithName(axiom::tsn::PaCMAP);
+    const auto numDim = pacmapVT.getNumProperties();
+
+    vecVecReal retval;
+    retval.reserve(numDim);
+    for (int i = 0; i < numDim; ++i) {
+        const auto pacmapDimVar = pacmapVT.getProperty(getPacmapDimName(i));
+        jassert(pacmapDimVar.isArray());
+        const auto pacmapArr = pacmapDimVar.getArray();
+        retval.emplace_back(pacmapArr->begin(), pacmapArr->end());
+    }
+    jassert(retval.size() == numDim);
+    return retval;
+}
+std::vector<FeatureContainer<EventwiseStatisticsF>> timbreAnalysisValueTreeToTimbreSpaceRepr(const ValueTree &vt) {
+    jassert(vt.hasType(axiom::tsn::TimbreAnalysis));
+    const auto timbreMeasurementsVT = vt.getChildWithName(axiom::tsn::TimbreMeasurements);
+    const auto numFrames = timbreMeasurementsVT.getNumChildren();
+    std::vector<FeatureContainer<EventwiseStatisticsF>> retval;
+    retval.reserve(numFrames);
+
+    for (const auto frame : timbreMeasurementsVT) {
+        jassert (frame.hasType(axiom::tsn::Frame));
+        FeatureContainer<EventwiseStatisticsF> features;
+
+        // fill features with proper stats
+        for (const auto feature : util::Iterator<Feature_e, static_cast<Feature_e>(NumBFCC), Feature_e::f0>()) {
+            const auto frameFeat = frame.getChildWithName(toString(feature));
+            // get stats and fill them into features
+            features[feature].mean = frameFeat.getProperty(axiom::tsn::mean);
+            features[feature].median = frameFeat.getProperty(axiom::tsn::median);
+            features[feature].variance = frameFeat.getProperty(axiom::tsn::variance);
+            features[feature].skewness = frameFeat.getProperty(axiom::tsn::skewness);
+            features[feature].kurtosis = frameFeat.getProperty(axiom::tsn::kurtosis);
+        }
+        const auto bfccTree = frame.getChildWithName(axiom::tsn::BFCCs);
+        for (const auto cc : util::Iterator<Feature_e, Feature_e::bfcc0, Feature_e::bfcc12>()) {
+            const auto s = toString(cc).toUpperCase();
+            const auto frameFeat = bfccTree.getChildWithName(s);
+            features[cc].mean = frameFeat.getProperty(axiom::tsn::mean);
+            features[cc].median = frameFeat.getProperty(axiom::tsn::median);
+            features[cc].variance = frameFeat.getProperty(axiom::tsn::variance);
+            features[cc].skewness = frameFeat.getProperty(axiom::tsn::skewness);
+            features[cc].kurtosis = frameFeat.getProperty(axiom::tsn::kurtosis);
+        }
+
+        retval.push_back(features);
+    }
+    jassert(retval.size() == numFrames);
+    return retval;
+}
+
 ValueTree timbreSpaceReprToVT(
     std::vector<FeatureContainer<EventwiseStatisticsF>> const &fullTimbreSpace,
     vecReal const &normalizedOnsets,
@@ -109,8 +179,8 @@ ValueTree timbreSpaceReprToVT(
             }
             frameTree.addChild(bfccsTree, -1, nullptr);
 
-            // Add single-value features
-            for (auto feature : util::Iterator<Feature_e, static_cast<Feature_e>(NumBFCC), Feature_e::f0>()) {
+            // add single-value features
+            for (const auto feature : util::Iterator<Feature_e, static_cast<Feature_e>(NumBFCC), Feature_e::f0>()) {
                 ValueTree featureTree(toString(feature));
                 addEventwiseStatistics(featureTree, timbreFrame[feature]);
                 frameTree.addChild(featureTree, -1, nullptr);
@@ -122,17 +192,12 @@ ValueTree timbreSpaceReprToVT(
         }
     }
     {
-
         ValueTree pacmap(axiom::tsn::PaCMAP);
         if (pacmapMatrix.empty()) {
             // just write a blank subtree
             vt.addChild(pacmap, -1, nullptr);
         }
         else {
-            const auto getPacmapDimName = [](const int d) -> juce::String{
-                return axiom::tsn::PaCMAP + juce::String(d);
-            };
-
             const auto pacmapMatrixDimensionwise = transpose(pacmapMatrix);
             const auto numDim = pacmapMatrixDimensionwise.size();
             for (int dim = 0; dim < numDim; ++dim) {
@@ -147,7 +212,6 @@ ValueTree timbreSpaceReprToVT(
             vt.addChild(pacmap, -1, nullptr);
         }
     }
-
     return vt;
 }
 

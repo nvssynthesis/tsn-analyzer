@@ -32,6 +32,15 @@ void addEventwiseStatistics(ValueTree& tree, const EventwiseStatisticsF& stats);
 EventwiseStatisticsF toEventwiseStatistics(ValueTree const &vt);
 
 [[nodiscard]]
+std::vector<float> timbreAnalysisValueTreeToOnsets(const ValueTree &vt);
+
+[[nodiscard]]
+std::vector<FeatureContainer<EventwiseStatisticsF>> timbreAnalysisValueTreeToTimbreSpaceRepr(const ValueTree &vt);
+
+[[nodiscard]]
+vecVecReal timbreAnalysisValueTreeToPacmapMatrix(const ValueTree &vt);
+
+[[nodiscard]]
 ValueTree timbreSpaceReprToVT(
     std::vector<FeatureContainer<EventwiseStatisticsF>> const &fullTimbreSpace,
     vecReal const &normalizedOnsets,

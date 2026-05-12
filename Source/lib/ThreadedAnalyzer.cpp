@@ -127,6 +127,19 @@ void ThreadedAnalyzer::updateStoredAudioAndSettings(std::span<float const> wave,
     }
 }
 
+void ThreadedAnalyzer::setAnalysis(vecReal normOnsets,
+    std::vector<FeatureContainer<EventwiseStatisticsF>> timbreSpaceRepr,
+    vecVecReal pacmapMatrix,
+    String waveformHash, String absPath, double sr) {
+    _onsetAnalysisResult = std::make_shared<OnsetAnalysisResult>(normOnsets, waveformHash, absPath, sr);
+    _timbreAnalysisResult = std::make_shared<TimbreAnalysisResult>(timbreSpaceRepr, waveformHash, absPath, sr);
+    _pacmapResult = std::make_shared<PacmapResult>(pacmapMatrix, waveformHash, absPath, sr);
+    _shouldComputeOnsets = false;
+    _shouldComputeTimbre = false;
+    _shouldComputePacmap = false;
+}
+
+
 auto ThreadedAnalyzer::shareOnsetAnalysis() const -> std::shared_ptr<OnsetAnalysisResult> {
     return _onsetAnalysisResult;
 }

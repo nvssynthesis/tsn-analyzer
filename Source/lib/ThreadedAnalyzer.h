@@ -51,6 +51,11 @@ public:
 
     State getState() const { return _state.load(); }
     //===============================================================================
+    void setAnalysis(vecReal normOnsets,
+        std::vector<FeatureContainer<EventwiseStatisticsF>> timbreSpaceRepr,
+        vecVecReal pacmapMatrix,
+        String waveformHash, String absPath, double sr);
+    //===============================================================================
     std::shared_ptr<OnsetAnalysisResult> shareOnsetAnalysis() const;
     std::shared_ptr<TimbreAnalysisResult> shareTimbreSpaceRepresentation() const;
     std::shared_ptr<PacmapResult> sharePacmapResult() const;

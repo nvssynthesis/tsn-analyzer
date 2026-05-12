@@ -51,7 +51,7 @@ inline vecVecReal from_eigen(const Eigen::MatrixXf& M)
 }
 
 template <std::size_t N>
-inline void from_eigen(const Eigen::MatrixXf& M, std::array<vecReal, N>& out)
+void from_eigen(const Eigen::MatrixXf& M, std::array<vecReal, N>& out)
 {
     const idx_t d = static_cast<idx_t>(M.cols());
     for (idx_t i = 0; i < static_cast<idx_t>(N); ++i)
