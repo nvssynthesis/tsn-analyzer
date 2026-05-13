@@ -44,7 +44,7 @@ vecVecReal timbreAnalysisValueTreeToPacmapMatrix(const ValueTree &vt);
 ValueTree timbreSpaceReprToVT(
     std::vector<FeatureContainer<EventwiseStatisticsF>> const &fullTimbreSpace,
     vecReal const &normalizedOnsets,
-    vecVecReal const &pacmapMatrix);
+    vecVecReal const *pacmapMatrix);
 
 [[nodiscard]]
 std::vector<FeatureContainer<EventwiseStatisticsF>> valueTreeToTimbreSpace(ValueTree const &vt);

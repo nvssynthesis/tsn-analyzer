@@ -150,7 +150,7 @@ std::vector<FeatureContainer<EventwiseStatisticsF>> timbreAnalysisValueTreeToTim
 ValueTree timbreSpaceReprToVT(
     std::vector<FeatureContainer<EventwiseStatisticsF>> const &fullTimbreSpace,
     vecReal const &normalizedOnsets,
-    vecVecReal const &pacmapMatrix)
+    vecVecReal const *pacmapMatrix)
 {
     ValueTree vt(axiom::tsn::TimbreAnalysis);
     {
@@ -193,12 +193,13 @@ ValueTree timbreSpaceReprToVT(
     }
     {
         ValueTree pacmap(axiom::tsn::PaCMAP);
-        if (pacmapMatrix.empty()) {
+        if (pacmapMatrix == nullptr || pacmapMatrix->empty()) {
             // just write a blank subtree
             vt.addChild(pacmap, -1, nullptr);
         }
         else {
-            const auto pacmapMatrixDimensionwise = transpose(pacmapMatrix);
+            jassert(pacmapMatrix != nullptr);
+            const auto pacmapMatrixDimensionwise = transpose(*pacmapMatrix);
             const auto numDim = pacmapMatrixDimensionwise.size();
             for (int dim = 0; dim < numDim; ++dim) {
                 var pacmapDimVar;

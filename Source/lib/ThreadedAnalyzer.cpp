@@ -74,7 +74,7 @@ void ThreadedAnalyzer::updateStoredAudioAndSettings(std::span<float const> wave,
 
     if (!_analyzer.updateSettings(settingsTree, attemptFix))    // 'blindly' update all settings of analyzer
     {
-        DBG("updateSettings failed");
+        Logger::writeToLog("Failed to update settings\n");
         jassertfalse;
     }
 

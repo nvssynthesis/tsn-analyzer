@@ -60,14 +60,8 @@ ValueTree makeSettingsParentTree(const ValueTree settingsTree, double sampleRate
 }
 AnalyzerResult runAnalyzer(const std::span<const float> &channel, const String &audioFileFullAbsolutePath, auto &settingsTree)
 {
-    if (!nvs::analysis::verifySettingsStructure(settingsTree)) {
-        Logger::writeToLog("Settings structure verification failed");
-        return {};
-    }
-
     nvs::analysis::ThreadedAnalyzer analyzer;
-    analyzer.updateStoredAudio(channel, audioFileFullAbsolutePath);
-    analyzer.updateSettings(settingsTree, true);
+    analyzer.updateStoredAudioAndSettings(channel, audioFileFullAbsolutePath, settingsTree, true);
     if (!analyzer.startThread(Thread::Priority::normal)) {
         Logger::writeToLog("Failed to start analysis thread\n");
         return {};
@@ -79,9 +73,9 @@ AnalyzerResult runAnalyzer(const std::span<const float> &channel, const String &
     }
     jassert(analyzer.onsetsReady() && analyzer.timbreAnalysisReady());
 
-    auto timbreSpaceRepr = analyzer.stealTimbreSpaceRepresentation();
+    auto timbreSpaceRepr = analyzer.shareTimbreSpaceRepresentation();
     auto onsets = analyzer.shareOnsetAnalysis();
-    auto pacmap = analyzer.stealPacmap();
+    auto pacmap = analyzer.sharePacmapResult();
     return AnalyzerResult{
         .timbres = std::move(timbreSpaceRepr),
         .onsets = std::move(onsets),
@@ -113,33 +107,56 @@ void mainAnalysisProgram(const ArgumentList &args)
 
     const auto& audioFileFullAbsPath = inputAudioFile.getFullPathName();
 
-    const auto settingsParentTree = [&args, &audioFileInfo, &audioFileFullAbsPath]() {
+    struct SettingsStuff {
+        ValueTree settingsParentTree {};
+        File settingsFile {};
+    };
+    const auto settingsStuff = [&args, &audioFileInfo, &audioFileFullAbsPath]() -> SettingsStuff
+    {
+        SettingsStuff settingsStuff;
         if (const auto settingsStr = args.getValueForOption("--settings|-s");
         !settingsStr.isEmpty())
         {
-            const File settingsFile = asAbsPathOrWithinDirectory(settingsStr, nvs::analysis::settingsPresetLocation);
-            const auto settingsVT = nvs::analysis::loadValueTreeFromFile(settingsFile);
-            return makeSettingsParentTree(settingsVT, audioFileInfo.sampleRate, audioFileFullAbsPath);
+            settingsStuff.settingsFile = asAbsPathOrWithinDirectory(settingsStr, nvs::analysis::settingsPresetLocation);
+            const auto settingsVT = nvs::analysis::loadValueTreeFromFile(settingsStuff.settingsFile);
+            settingsStuff.settingsParentTree = makeSettingsParentTree(settingsVT, audioFileInfo.sampleRate, audioFileFullAbsPath);
+            return settingsStuff;
         }
-        return makeSettingsParentTree(audioFileInfo.sampleRate, audioFileFullAbsPath);
-    }();
-    const auto treeStr = nvs::util::valueTreeToXmlStringSafe(settingsParentTree);
 
-    auto /*can't be const*/ settingsTree = settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings);
+        settingsStuff.settingsParentTree = makeSettingsParentTree(audioFileInfo.sampleRate, audioFileFullAbsPath);
+        return settingsStuff;
+    }();
+    const auto treeStr = nvs::util::valueTreeToXmlStringSafe(settingsStuff.settingsParentTree);
+
+    auto /*can't be const*/ settingsTree = settingsStuff.settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings);
+    const auto settingsTreeOriginal = settingsTree.createCopy();
     const auto analysisResult = runAnalyzer(channel0, audioFileFullAbsPath, settingsTree);
-    if (analysisResult.onsets == nullptr || analysisResult.timbres == std::nullopt) {
+    if (analysisResult.onsets == nullptr || analysisResult.timbres == nullptr) {
         Logger::writeToLog("Analysis failed; returning");
         jassertfalse;
         return;
+    }
+    if (!settingsTree.isEquivalentTo( settingsTreeOriginal)) {
+        // tree changed; give opportunity to overwrite original file
+        Logger::writeToLog("Settings tree updated. Overwrite original? (y/N)");
+        if (const auto response = checkForYesNoResponse()) {
+            Logger::writeToLog("Updating settings file");
+
+            nvs::util::saveValueTreeToJSON(settingsStuff.settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings), settingsStuff.settingsFile);
+
+        } else {
+            Logger::writeToLog("Settings file not updated");
+        }
     }
 
     Logger::writeToLog("Analysis complete!");
     const auto timbreSpaceRepr = analysisResult.timbres->timbreMeasurements;
     const auto onsets = analysisResult.onsets->onsets;
-    const auto pacmap = analysisResult.pacmap.value_or(nvs::analysis::PacmapResult{{},{},{},{}});
+    const std::shared_ptr<nvs::analysis::PacmapResult> pacmap = analysisResult.pacmap;
     const auto waveformHash = analysisResult.timbres->waveformHash;
 
-    const auto timbreSpaceVT = nvs::analysis::timbreSpaceReprToVT(timbreSpaceRepr, onsets, pacmap.pacmapMatrix_);
+    const auto timbreSpaceVT = nvs::analysis::timbreSpaceReprToVT(timbreSpaceRepr, onsets,
+        pacmap == nullptr ? nullptr : &pacmap->pacmapMatrix_);
 
     jassert((analysisResult.onsets->audioFileAbsPath == analysisResult.timbres->audioFileAbsPath) &&
             (analysisResult.onsets->audioFileAbsPath == audioFileFullAbsPath));
