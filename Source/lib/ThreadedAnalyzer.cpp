@@ -68,6 +68,7 @@ void ThreadedAnalyzer::updateStoredAudioAndSettings(std::span<float const> wave,
         _shouldComputeTimbre = true;
         _pacmapResult.reset();
         _shouldComputePacmap = true;
+        _analysisFile = File{};
     } else {
         _inputWave.assign(wave.begin(), wave.end());
     }
@@ -130,15 +131,19 @@ void ThreadedAnalyzer::updateStoredAudioAndSettings(std::span<float const> wave,
 void ThreadedAnalyzer::setAnalysis(vecReal normOnsets,
     std::vector<FeatureContainer<EventwiseStatisticsF>> timbreSpaceRepr,
     vecVecReal pacmapMatrix,
-    String waveformHash, String absPath, double sr) {
-    _onsetAnalysisResult = std::make_shared<OnsetAnalysisResult>(normOnsets, waveformHash, absPath, sr);
-    _timbreAnalysisResult = std::make_shared<TimbreAnalysisResult>(timbreSpaceRepr, waveformHash, absPath, sr);
-    _pacmapResult = std::make_shared<PacmapResult>(pacmapMatrix, waveformHash, absPath, sr);
+    String waveformHash,
+    String audioAbsPath,
+    const File &analysisFile,
+    double sr)
+{
+    _onsetAnalysisResult = std::make_shared<OnsetAnalysisResult>(normOnsets, waveformHash, audioAbsPath, sr);
+    _timbreAnalysisResult = std::make_shared<TimbreAnalysisResult>(timbreSpaceRepr, waveformHash, audioAbsPath, sr);
+    _pacmapResult = std::make_shared<PacmapResult>(pacmapMatrix, waveformHash, audioAbsPath, sr);
     _shouldComputeOnsets = false;
     _shouldComputeTimbre = false;
     _shouldComputePacmap = false;
+    _analysisFile = analysisFile;
 }
-
 
 auto ThreadedAnalyzer::shareOnsetAnalysis() const -> std::shared_ptr<OnsetAnalysisResult> {
     return _onsetAnalysisResult;
@@ -164,6 +169,7 @@ void ThreadedAnalyzer::run() {
         return;
     }
     _state = State::Idle;
+    _analysisFile = File();
     sendChangeMessage();
 
 	if (!(_inputWave.data() && !_inputWave.empty())){

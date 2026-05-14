@@ -54,7 +54,10 @@ public:
     void setAnalysis(vecReal normOnsets,
         std::vector<FeatureContainer<EventwiseStatisticsF>> timbreSpaceRepr,
         vecVecReal pacmapMatrix,
-        String waveformHash, String absPath, double sr);
+        String waveformHash,
+        String audioAbsPath,
+        const File &analysisFile,
+        double sr);
     //===============================================================================
     std::shared_ptr<OnsetAnalysisResult> shareOnsetAnalysis() const;
     std::shared_ptr<TimbreAnalysisResult> shareTimbreSpaceRepresentation() const;
@@ -62,6 +65,7 @@ public:
     //===============================================================================
     [[deprecated("any reason we would want to get the raw analyzer, there should just be an intermediate method")]]
     Analyzer &getAnalyzer() { return _analyzer; }
+    File getAnalysisFile() const { return _analysisFile; }
 
     RunLoopStatus &getStatus() noexcept { return _rls; }
     String getSettingsHash() const noexcept { return _analyzer.getSettingsHash(); }
@@ -85,6 +89,7 @@ private:
     juce::int64 _lastOnsetSettingsHash;
     juce::int64 _lastTimbreSettingsHash;
     juce::int64 _lastPacmapSettingsHash;
+    juce::File _analysisFile {};   // to tell whether current analysis is FROM file
 
     bool _shouldComputeOnsets { true };
     bool _shouldComputeTimbre { true };
