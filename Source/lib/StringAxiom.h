@@ -121,6 +121,7 @@ STRAXIOMIZE(sizeSecondPass);
 
 STRAXIOMIZE(TimbreSpace);
 
+STRAXIOMIZE(DRMode);
 STRAXIOMIZE(x_axis);
 STRAXIOMIZE(y_axis);
 STRAXIOMIZE(z_axis);
