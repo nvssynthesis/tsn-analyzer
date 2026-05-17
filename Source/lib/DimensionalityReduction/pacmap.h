@@ -40,7 +40,7 @@ public:
         Real lr = 1.0f,
         WeightPhases num_iters = {100, 100, 250},
         bool verbose = false,
-        bool apply_pca = true,
+        PreprocessMode_e preprocess_mode = PreprocessMode_e::Normalize,
         bool intermediate = false,
         bool save_tree = false,
         const vecIdx &intermediate_snapshots = {0,10,30,60,100,120,140,170,200,250,300,350,450},
@@ -112,7 +112,6 @@ private:
     Real lr_;
     WeightPhases num_iters_;
     bool verbose_;
-    bool apply_pca_;
     bool intermediate_;
     bool save_tree_;
     vecIdx intermediate_snapshots_;
@@ -132,12 +131,8 @@ private:
     std::vector<vecIdx> pair_XP_;
     bool is_fitted_ = false;
 
-    // --- Preprocessing state ---
-    Real xmin_;
-    Real xmax_;
-    vecReal xmean_;
-    bool pca_solution_;
-    FittedSVD tsvd_transformer_;
+    PreprocessMode_e preprocess_mode_;
+    PreprocessResult preprocess_result_;
     idx_t num_instances_;
     idx_t num_dimensions_;
 };

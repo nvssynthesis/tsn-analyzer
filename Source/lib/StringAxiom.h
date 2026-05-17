@@ -154,6 +154,14 @@ STRAXIOMIZE(PaCMAP0);
 STRAXIOMIZE(PaCMAP1);
 STRAXIOMIZE(phase_1_iters);
 STRAXIOMIZE(phase_2_iters);
+STRAXIOMIZE(num_neighbours);
+STRAXIOMIZE(learning_rate);
+STRAXIOMIZE(MN_ratio);
+STRAXIOMIZE(FP_ratio);
+// preprocessing options
+STRAXIOMIZE(preprocess_mode);
+STRAXIOMIZE(Normalize);
+STRAXIOMIZE(Standardize);
 
 STRAXIOMIZE(saveAnalysis);
 STRAXIOMIZE(onsetsAvailable);

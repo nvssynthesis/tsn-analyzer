@@ -12,6 +12,8 @@
 #include "essentia/types.h"
 #include <juce_data_structures/juce_data_structures.h>
 
+#include "DimensionalityReduction/pca.h"
+
 namespace nvs::analysis {
 
 void ensureBranchAndInitializeDefaults (juce::ValueTree& settingsVT, const juce::String& branchName);
@@ -151,8 +153,13 @@ struct AnalyzerSettings {
     } sBic;
 
     struct PaCMAP {
-        int phase_1_iters;
-        int phase_2_iters;
+        float MN_ratio = 0.5f;
+        float FP_ratio = 2.0f;
+        float learning_rate = 1.0f;
+        int num_neighbours = 15;
+        dim::PreprocessMode_e preprocess_mode {dim::PreprocessMode_e::Normalize};
+        int phase_1_iters {100};
+        int phase_2_iters {100};
     } pacmap;
 
     struct Info {

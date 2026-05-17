@@ -40,6 +40,8 @@ static NormalisableRangeDouble makePowerOfTwoRange (double minValue, double maxV
 
 /// TODO: add metadata subtree within settings, including author, creation date, and description
 
+const int maxThreads = juce::SystemStats::getNumCpus();
+const int defaultThreads = std::min(maxThreads - 2, 1);
 const std::map<juce::String, AnySpec> analysisSpecs
 {
 	{ axiom::tsn::frameSize,     RangedSettingsSpec<int>{   makePowerOfTwoRange(64, 8192), 1024 } }, // NOLINT(readability-redundant-template-arguments)
@@ -47,7 +49,7 @@ const std::map<juce::String, AnySpec> analysisSpecs
 	{ axiom::tsn::windowingType,  ChoiceSettingsSpec{ 	{axiom::tsn::hann, axiom::tsn::hamming, axiom::tsn::hannnsgcq,
 		axiom::tsn::triangular, axiom::tsn::square, axiom::tsn::blackmanharris62, axiom::tsn::blackmanharris70,
 		axiom::tsn::blackmanharris74, 	axiom::tsn::blackmanharris92}, /* default: */		axiom::tsn::hann 		} },
-    { axiom::tsn::numThreads, RangedSettingsSpec<int>{NormalisableRangeDouble(1, juce::SystemStats::getNumPhysicalCpus()), juce::SystemStats::getNumPhysicalCpus(),
+    { axiom::tsn::numThreads, RangedSettingsSpec<int>{NormalisableRangeDouble(1, maxThreads), defaultThreads,
         "The number of threads used for timbral analysis. Higher # of threads => faster analysis, but limited testing has been done for greater than 1 thread."}}
 };
 
@@ -142,8 +144,14 @@ const std::map<juce::String, AnySpec> splitSpecs
 
 const std::map<juce::String, AnySpec> pacmapSpecs
 {
+    { axiom::tsn::num_neighbours,RangedSettingsSpec<int>{ {5, 35, 1, 1},  15, "Number of nearest neighbors." } },
+    { axiom::tsn::MN_ratio,      RangedSettingsSpec<double>{ {0.1, 10.0}, 0.5, "Mid-near pairs (ratio to num nearest neighbors)." } },
+    { axiom::tsn::FP_ratio,      RangedSettingsSpec<double>{ {0.1, 10.0}, 2.0, "Further points edges (ratio to num nearest neighbors). Increasing FP_ratio pulls global structure apart, which can break string-like collapse" } },
+    { axiom::tsn::learning_rate, RangedSettingsSpec<double>{ {0.1, 10.0},  1, "Learning rate." } },
     { axiom::tsn::phase_1_iters, RangedSettingsSpec<int>{ {1, 200, 1, 1}, 100 } },
-    { axiom::tsn::phase_2_iters, RangedSettingsSpec<int>{ {1, 200, 1, 1}, 100 } }
+    { axiom::tsn::phase_2_iters, RangedSettingsSpec<int>{ {1, 200, 1, 1}, 100 } },
+    { axiom::tsn::preprocess_mode, ChoiceSettingsSpec {{axiom::tsn::Normalize, axiom::tsn::Standardize}, axiom::tsn::Normalize,
+        "Whether to use range-based normalization or z-score based standardization for initialization."}}
 };
 
 const std::map<juce::String, const std::map<juce::String,AnySpec>*>
@@ -365,8 +373,13 @@ juce::ValueTree createParentTreeFromSettings(const AnalyzerSettings& settings) {
     settingsTree.appendChild(splitNode, nullptr);
 
     juce::ValueTree pacmapNode{axiom::tsn::PaCMAP};
+    pacmapNode.setProperty(axiom::tsn::num_neighbours, settings.pacmap.num_neighbours, nullptr);
+    pacmapNode.setProperty(axiom::tsn::MN_ratio, settings.pacmap.MN_ratio, nullptr);
+    pacmapNode.setProperty(axiom::tsn::FP_ratio, settings.pacmap.FP_ratio, nullptr);
+    pacmapNode.setProperty(axiom::tsn::learning_rate, settings.pacmap.learning_rate, nullptr);
     pacmapNode.setProperty(axiom::tsn::phase_1_iters, settings.pacmap.phase_1_iters, nullptr);
     pacmapNode.setProperty(axiom::tsn::phase_2_iters, settings.pacmap.phase_2_iters, nullptr);
+    pacmapNode.setProperty(axiom::tsn::preprocess_mode, settings.pacmap.preprocess_mode, nullptr);
     settingsTree.appendChild(pacmapNode, nullptr);
 
     // Add settings tree to parent
@@ -558,8 +571,23 @@ bool updateSettingsFromValueTree(AnalyzerSettings& settings, const ValueTree& se
         jassertfalse;
         return false;
     }
+    settings.pacmap.num_neighbours = pacmapNode.getProperty(axiom::tsn::num_neighbours);
+    settings.pacmap.MN_ratio = pacmapNode.getProperty(axiom::tsn::MN_ratio);
+    settings.pacmap.FP_ratio = pacmapNode.getProperty(axiom::tsn::FP_ratio);
+    settings.pacmap.learning_rate = pacmapNode.getProperty(axiom::tsn::learning_rate);
     settings.pacmap.phase_1_iters = pacmapNode.getProperty(axiom::tsn::phase_1_iters);
     settings.pacmap.phase_2_iters = pacmapNode.getProperty(axiom::tsn::phase_2_iters);
+    settings.pacmap.preprocess_mode =
+        [&pacmapNode]() {
+            const auto s = pacmapNode.getProperty(axiom::tsn::preprocess_mode).toString();
+            if (s == axiom::tsn::Normalize) {
+                return dim::PreprocessMode_e::Normalize;
+            } if (s == axiom::tsn::Standardize) {
+                return dim::PreprocessMode_e::Standardize;
+            }
+            jassertfalse;
+            return dim::PreprocessMode_e::Normalize;
+        }();
 
 	// TimbreSpace settings
     if constexpr (TIMBRE_SPACE_SETTINGS_EXIST) {

@@ -87,6 +87,8 @@ inline void decorrelateFromCovariates(Eigen::MatrixXf& features,
 }
 
 inline Eigen::MatrixXf removeColumns(const Eigen::MatrixXf& M, const std::vector<int>& colsToRemove)
+/* assumes that M has all features present, and the ints of colsToRemove represent corresponding features
+ */
 {
     const auto removeSet = std::unordered_set<int>(colsToRemove.begin(), colsToRemove.end());
 
@@ -118,22 +120,68 @@ struct FittedSVD {
 
 
 struct PreprocessResult {
-    vecVecReal X;
-    bool pca_solution;
-    FittedSVD tsvd;
-    Real xmin;
-    Real xmax;
-    vecReal xmean;
+    vecVecReal       X;
+    vecReal          col_shift;  // per-column: col_min (Normalize) or col_mu (Standardize)
+    vecReal          col_scale;  // per-column: col_range (Normalize) or col_sigma (Standardize)
+    vecReal          xmean;      // post-scaling column means, for centering new data
+    FittedSVD        tsvd;       // PCA components for embedding init only — not used in preprocess_X_new
 };
 
+namespace {
+inline void fit_and_apply_column_transform(
+    Eigen::MatrixXf&   M,
+    const idx_t        d,
+    const PreprocessMode_e mode,
+    vecReal&           col_shift_out,
+    vecReal&           col_scale_out)
+{
+    col_shift_out.assign(d, 0.0f);
+    col_scale_out.assign(d, 1.0f);  // default: identity (constant features stay as-is)
+
+    for (idx_t j = 0; j < d; ++j) {
+        float shift = 0.0f, scale = 1.0f;
+
+        if (mode == PreprocessMode_e::Normalize) {
+            const float cmin  = M.col(j).minCoeff();
+            const float cmax  = M.col(j).maxCoeff();
+            if (const float range = cmax - cmin; range > 1e-8f)
+            { shift = cmin; scale = range; }
+        } else if (mode == PreprocessMode_e::Standardize) {
+            const float mu = M.col(j).mean();
+            if (const float sigma = std::sqrt((M.col(j).array() - mu).square().mean()); sigma > 1e-8f)
+            { shift = mu; scale = sigma; }
+        }
+
+        col_shift_out[j] = shift;
+        col_scale_out[j] = scale;
+        M.col(j) = (M.col(j).array() - shift) / scale;
+        // constant features: scale==1, shift==0 → left as-is;
+        // the subsequent mean subtraction will zero them out
+    }
+}
+
+// Apply stored per-column transform + centering to M in-place
+inline void apply_column_transform(
+    Eigen::MatrixXf& M,
+    const idx_t      d,
+    const vecReal&   col_shift,
+    const vecReal&   col_scale,
+    const vecReal&   xmean)
+{
+    for (idx_t j = 0; j < d; ++j)
+        M.col(j) = (M.col(j).array() - col_shift[j]) / col_scale[j] - xmean[j];
+}
+}
+
+
 inline PreprocessResult preprocess_X(
-    const vecVecReal& X_in,
-    const Distance_e distance,
-    const bool apply_pca,
-    const bool verbose,
-    const idx_t seed_unused,           // noted but unused: Eigen SVD is deterministic, seed has no effect
-    const idx_t high_dim,
-    const idx_t low_dim)
+    const vecVecReal&      X_in,
+    const Distance_e       distance,
+    const PreprocessMode_e preprocess_mode,
+    const bool             verbose,
+    const idx_t            seed_unused,   // SVD is deterministic; seed has no effect
+    const idx_t            high_dim,
+    const idx_t            low_dim)
 {
 #pragma message("at the moment, seed is unused, and this algorithm already has deterministic behavior")
     assert(!X_in.empty());
@@ -142,111 +190,50 @@ inline PreprocessResult preprocess_X(
     assert(d == high_dim);
 
     Eigen::MatrixXf M = to_eigen(X_in);
+    vecReal col_shift, col_scale;
+
+    fit_and_apply_column_transform(M, d, preprocess_mode, col_shift, col_scale);
+
+    const Eigen::VectorXf mean = M.colwise().mean();
+    M.rowwise() -= mean.transpose();
+
+    vecReal xmean(d);
+    for (idx_t j = 0; j < d; ++j)
+        xmean[j] = mean(j);
+
+    assert(d >= low_dim);
+    const Eigen::BDCSVD<Eigen::MatrixXf> svd(M, Eigen::ComputeThinU | Eigen::ComputeThinV);
     FittedSVD tsvd;
-    bool pca_solution = false;
-    Real xmin = 0.0f, xmax = 0.0f;
-    vecReal xmean(d, 0.0f);
+    tsvd.components = svd.matrixV().leftCols(low_dim).transpose();  // (low_dim, d)
+    tsvd.is_fitted  = true;
 
-    if (distance == Distance_e::Euclidean && high_dim > 100 && apply_pca) {
-        // --- PCA branch: center then reduce to 100 dims via TruncatedSVD ---
-        Eigen::VectorXf mean = M.colwise().mean();
-        M.rowwise() -= mean.transpose();
-
-        // Store xmean for return
-        xmean.resize(d);
-        for (idx_t j = 0; j < d; ++j)
-            xmean[j] = mean(j);
-
-        // TruncatedSVD: full SVD, take top 100 right singular vectors
-        constexpr idx_t n_components = 100;
-        assert(d >= n_components);
-        const Eigen::BDCSVD<Eigen::MatrixXf> svd(M, Eigen::ComputeThinU | Eigen::ComputeThinV);
-
-        // components = top n_components rows of V^T, i.e. first n_components cols of V
-        tsvd.components = svd.matrixV().leftCols(n_components).transpose(); // (100, d)
-        tsvd.is_fitted = true;
-
-        M = tsvd.transform(M); // (n, 100)
-        pca_solution = true;
-
-        if (verbose)
-            std::cout << "Applied PCA, the dimensionality becomes 100\n";
-
-    } else {
-        // --- Normalization branch: min/max scale then center ---
-        xmin = M.minCoeff();
-        M.array() -= xmin;
-        xmax = M.maxCoeff();
-        assert(xmax != 0.0f); // would produce NaN/Inf on division
-        M.array() /= xmax;
-
-        Eigen::VectorXf mean = M.colwise().mean();
-        M.rowwise() -= mean.transpose();
-
-        xmean.resize(d);
-        for (idx_t j = 0; j < d; ++j) {
-            xmean[j] = mean(j);
-        }
-
-        // Fit PCA(n_components=low_dim) for init only — X is NOT transformed
-        assert(d >= low_dim);
-        const Eigen::BDCSVD<Eigen::MatrixXf> svd(M, Eigen::ComputeThinU | Eigen::ComputeThinV);
-        tsvd.components = svd.matrixV().leftCols(low_dim).transpose(); // (low_dim, d)
-        tsvd.is_fitted = true;
-
-        if (verbose)
-            std::cout << "X is normalized\n";
+    if (verbose) {
+        std::cout << (preprocess_mode == PreprocessMode_e::Normalize
+                      ? "X is normalized\n" : "X is standardized\n");
     }
-
-    return PreprocessResult{
-        from_eigen(M),
-        pca_solution,
-        tsvd,
-        xmin,
-        xmax,
-        xmean
-    };
+    return PreprocessResult{ from_eigen(M), col_shift, col_scale, xmean, tsvd };
 }
 
+// Takes the full PreprocessResult from the original fit — no need to pass params individually
 inline vecVecReal preprocess_X_new(
-    const vecVecReal& X_in,
-    const Distance_e distance,
-    const Real xmin,
-    const Real xmax,
-    const vecReal& xmean,
-    const FittedSVD& tsvd,
-    const bool apply_pca,
-    const bool verbose)
+    const vecVecReal&      X_in,
+    const PreprocessMode_e preprocess_mode,
+    const PreprocessResult& fit,
+    const bool             verbose)
 {
     assert(!X_in.empty());
-    const idx_t n = static_cast<idx_t>(X_in.size());
-    const idx_t high_dim = static_cast<idx_t>(X_in[0].size());
-    assert(static_cast<idx_t>(xmean.size()) == high_dim);
-    assert(tsvd.is_fitted);
+    const idx_t d = static_cast<idx_t>(X_in[0].size());
+    assert(static_cast<idx_t>(fit.xmean.size())     == d);
+    assert(static_cast<idx_t>(fit.col_shift.size()) == d);
+    assert(static_cast<idx_t>(fit.col_scale.size()) == d);
 
     Eigen::MatrixXf M = to_eigen(X_in);
+    apply_column_transform(M, d, fit.col_shift, fit.col_scale, fit.xmean);
 
-    if (distance == Distance_e::Euclidean && high_dim > 100 && apply_pca) {
-        // Subtract original xmean (pre-reduction, full dim)
-        for (idx_t j = 0; j < high_dim; ++j)
-            M.col(j).array() -= xmean[j];
-
-        M = tsvd.transform(M);
-
-        if (verbose)
-            std::cout << "Applied PCA, the dimensionality becomes 100 for new dataset.\n";
-    } else {
-        assert(xmax != 0.0f);
-        M.array() -= xmin;
-        M.array() /= xmax;
-
-        for (idx_t j = 0; j < high_dim; ++j)
-            M.col(j).array() -= xmean[j];
-
-        if (verbose)
-            std::cout << "X is normalized.\n";
+    if (verbose) {
+        std::cout << (preprocess_mode == PreprocessMode_e::Normalize
+                      ? "X is normalized\n" : "X is standardized\n");
     }
-
     return from_eigen(M);
 }
 

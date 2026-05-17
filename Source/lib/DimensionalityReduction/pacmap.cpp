@@ -752,7 +752,6 @@ PacmapResult pacmap(
     const Real lr,
     const WeightPhases& num_iters,
     const YinitParam& Yinit,
-    const bool pca_solution,
     const FittedSVD& tsvd,
     const std::optional<idx_t> random_state,
     const bool verbose,
@@ -787,30 +786,25 @@ PacmapResult pacmap(
                 Y[i][d] = scaled[i][d] * 0.0001f;
 
     } else if (Yinit.mode == YinitMode::PCA) {
-        if (pca_solution) {
-            // take first n_dims columns of (already PCA-reduced) X
-            assert(static_cast<idx_t>(X[0].size()) >= n_dims);
-            for (idx_t i = 0; i < n; ++i)
-                for (idx_t d = 0; d < n_dims; ++d)
-                    Y[i][d] = 0.01f * X[i][d];
-        } else {
-            assert(tsvd.is_fitted);
-            const Eigen::MatrixXf Xm = to_eigen(X);
-            const Eigen::MatrixXf Yt = tsvd.transform(Xm);
-            assert(Yt.cols() >= n_dims);
-            for (idx_t i = 0; i < n; ++i)
-                for (idx_t d = 0; d < n_dims; ++d)
-                    Y[i][d] = 0.01f * Yt(i, d);
+        assert(tsvd.is_fitted);
+        const Eigen::MatrixXf Xm = to_eigen(X);
+        const Eigen::MatrixXf Yt = tsvd.transform(Xm);
+        assert(Yt.cols() >= n_dims);
+        for (idx_t i = 0; i < n; ++i) {
+            for (idx_t d = 0; d < n_dims; ++d) {
+                Y[i][d] = 0.01f * Yt(i, d);
+            }
         }
-
     } else { // YinitMode::Random
         std::mt19937 rng_init(random_state.has_value()
             ? static_cast<uint32_t>(random_state.value())
             : std::random_device{}());
         std::normal_distribution<float> normal(0.0f, 1.0f);
-        for (idx_t i = 0; i < n; ++i)
-            for (idx_t d = 0; d < n_dims; ++d)
+        for (idx_t i = 0; i < n; ++i) {
+            for (idx_t d = 0; d < n_dims; ++d) {
                 Y[i][d] = normal(rng_init) * 0.0001f;
+            }
+        }
     }
 
     constexpr Real w_MN_init = 1000.0f;
@@ -889,7 +883,6 @@ PacmapFitResult pacmap_fit(
     const Real lr,
     const WeightPhases& num_iters,
     const YinitParam& Yinit,
-    const bool pca_solution,
     const FittedSVD& tsvd,
     const std::optional<idx_t> random_state,
     const bool verbose,
@@ -918,25 +911,15 @@ PacmapFitResult pacmap_fit(
             }
         }
     } else if (Yinit.mode == YinitMode::PCA) {
-        if (pca_solution) {
-            assert(static_cast<idx_t>(X[0].size()) >= n_dims);
-            for (idx_t i = 0; i < n; ++i) {
-                for (idx_t d = 0; d < n_dims; ++d) {
-                    Y_new[i][d] = 0.01f * X[i][d];
-                }
-            }
-        } else {
-            assert(tsvd.is_fitted);
-            Eigen::MatrixXf Xm = to_eigen(X);
-            Eigen::MatrixXf Yt = tsvd.transform(Xm);
-            assert(Yt.cols() >= n_dims);
-            for (idx_t i = 0; i < n; ++i) {
-                for (idx_t d = 0; d < n_dims; ++d) {
-                    Y_new[i][d] = 0.01f * Yt(i, d);
-                }
+        assert(tsvd.is_fitted);
+        Eigen::MatrixXf Xm = to_eigen(X);
+        Eigen::MatrixXf Yt = tsvd.transform(Xm);
+        assert(Yt.cols() >= n_dims);
+        for (idx_t i = 0; i < n; ++i) {
+            for (idx_t d = 0; d < n_dims; ++d) {
+                Y_new[i][d] = 0.01f * Yt(i, d);
             }
         }
-
     } else { // YinitMode::Random
         std::mt19937 rng_init(random_state.has_value()
             ? static_cast<uint32_t>(random_state.value())
@@ -1046,7 +1029,7 @@ PaCMAP::PaCMAP(
     const Real lr,
     const WeightPhases num_iters,
     const bool verbose,
-    const bool apply_pca,
+    const PreprocessMode_e preprocess_mode,
     const bool intermediate,
     const bool save_tree,
     const vecIdx &intermediate_snapshots,
@@ -1058,13 +1041,11 @@ PaCMAP::PaCMAP(
 ,   lr_(lr)
 ,   num_iters_(num_iters)
 ,   verbose_(verbose)
-,   apply_pca_(apply_pca)
 ,   intermediate_(intermediate)
 ,   save_tree_(save_tree)
 ,   intermediate_snapshots_(intermediate_snapshots)
 ,   random_state_(random_state)
-,   xmin_(0.0f), xmax_(0.0f)
-,   pca_solution_(false)
+,   preprocess_mode_(preprocess_mode)
 ,   num_instances_(0), num_dimensions_(0)
 {
     if (n_components < 1)
@@ -1073,8 +1054,6 @@ PaCMAP::PaCMAP(
         throw std::invalid_argument("Learning rate must be > 0.");
     if (n_components != 2 && verbose)
         std::cerr << "Warning: n_components != 2 has not been thoroughly tested.\n";
-    if (!apply_pca && verbose)
-        std::cerr << "Warning: Running NN search on high-dimensional data. May be slow.\n";
 }
 void PaCMAP::setVerbose(const bool verbose) {
     verbose_ = verbose;
@@ -1175,14 +1154,12 @@ void PaCMAP::fit(const vecVecReal& X_in, const YinitParam &init, const bool save
         throw std::invalid_argument("Sample size must be larger than 1.");
     }
 
-    auto [X, pca_solution, tsvd, xmin, xmax, xmean] = preprocess_X(X_in, Distance_e::Euclidean, apply_pca_, verbose_,
-                                                                   random_state_.value_or(0), dim, n_components_);
-
-    xmin_              = xmin;
-    xmax_              = xmax;
-    xmean_             = xmean;
-    pca_solution_      = pca_solution;
-    tsvd_transformer_  = tsvd;
+    preprocess_result_ = preprocess_X(X_in, Distance_e::Euclidean,
+        preprocess_mode_,
+        verbose_,
+        random_state_.value_or(0),
+        dim,
+        n_components_);
 
     decide_num_pairs(n);
 
@@ -1191,21 +1168,23 @@ void PaCMAP::fit(const vecVecReal& X_in, const YinitParam &init, const bool save
                   << ", n_MN=" << n_MN_
                   << ", n_FP=" << n_FP_
                   << ", lr=" << lr_
-                  << ", apply_pca=" << apply_pca_
+                  << ", preprocess_mode=" << ((preprocess_mode_ == Normalize) ? "normalize" : "standardize")
                   << ", intermediate=" << intermediate_ << ")\n";
 
-    sample_pairs(X);
+    sample_pairs(preprocess_result_.X);
 
     num_instances_  = n;
-    num_dimensions_ = static_cast<idx_t>(X[0].size());
+    num_dimensions_ = static_cast<idx_t>(preprocess_result_.X[0].size());
 
-    auto [Y, intermediate_states, pair_neighbors, pair_MN, pair_FP] = pacmap(
-        X, n_components_,
-        pair_neighbors_, pair_MN_, pair_FP_,
-        lr_, num_iters_, init,
-        pca_solution_, tsvd_transformer_,
-        random_state_, verbose_,
-        intermediate_, intermediate_snapshots_);
+    auto [Y, intermediate_states, pair_neighbors, pair_MN, pair_FP] =
+        pacmap(
+            preprocess_result_.X, n_components_,
+            pair_neighbors_, pair_MN_, pair_FP_,
+            lr_, num_iters_, init,
+            preprocess_result_.tsvd,
+            random_state_, verbose_,
+            intermediate_,
+            intermediate_snapshots_);
 
     embedding_           = Y;
     intermediate_states_ = intermediate_states;
@@ -1248,21 +1227,17 @@ std::vector<vecVecReal> PaCMAP::transform(
     }
 
     const vecVecReal X = preprocess_X_new(
-        X_in, Distance_e::Euclidean,
-        xmin_, xmax_, xmean_,
-        tsvd_transformer_, apply_pca_, verbose_);
+        X_in, preprocess_mode_, preprocess_result_, verbose_);
 
     const vecVecReal basis_proc = preprocess_X_new(
-        basis, Distance_e::Euclidean,
-        xmin_, xmax_, xmean_,
-        tsvd_transformer_, apply_pca_, verbose_);
+        basis, preprocess_mode_, preprocess_result_, verbose_);
 
     pair_XP_ = generate_extra_pair_basis(basis_proc, X, n_neighbors_, verbose_);
 
     auto [Y, intermediate_states] = pacmap_fit(
         X, embedding_, n_components_,
         pair_XP_, lr_, num_iters_, init,
-        pca_solution_, tsvd_transformer_,
+        preprocess_result_.tsvd,
         random_state_, verbose_,
         intermediate_, intermediate_snapshots_);
 

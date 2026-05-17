@@ -352,24 +352,34 @@ const -> std::optional<vecVecReal>
     auto Xe = dim::to_eigen(X); // X is vector<vector<float>>; X.size is num events; X[0].size is numFeatures
     dim::decorrelateFromCovariates(Xe, dim::to_eigen(pitch), dim::to_eigen(loudness));
 
-    // remove pitch and loudness from matrix
-    dim::removeColumns(Xe, {static_cast<int>(Feature_e::f0), static_cast<int>(Feature_e::Loudness)});
+    // MUST remove pitch and loudness from matrix
+    // also remove features that tend to confuse the representation (found by informal experimentation)
+    auto feat2i = [](Feature_e f) { return static_cast<int>(f); };
+    dim::removeColumns(Xe,
+        {
+            feat2i(Feature_e::bfcc0),
+            feat2i(Feature_e::SpectralDecrease),
+            feat2i(Feature_e::SpectralComplexity),
+            feat2i(Feature_e::StrongPeak),
+            feat2i(Feature_e::f0),
+            feat2i(Feature_e::Loudness)
+        });
 
     X = dim::from_eigen(Xe);
 
     dim::PaCMAP pacmap(2,// n_components
-        std::nullopt, // n_neighbors
-        0.5, // MN_ratio
-        2.0, // FP_ratio
-        1, // lr
+        settings.pacmap.num_neighbours, //std::nullopt, // n_neighbors
+        settings.pacmap.MN_ratio,
+        settings.pacmap.FP_ratio,
+        settings.pacmap.learning_rate, // lr
         {settings.pacmap.phase_1_iters, settings.pacmap.phase_2_iters, 250}, // num_iters
         false, // verbose
-        true, // apply_pca
+        settings.pacmap.preprocess_mode,
         false, // intermediate
         false, // save_tree
         {0}, // intermediate_snapshots
         std::nullopt // random_state
-        );
+    );
     return pacmap.fit_transform(X);
 }
 

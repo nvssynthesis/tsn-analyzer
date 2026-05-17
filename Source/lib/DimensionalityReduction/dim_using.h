@@ -23,6 +23,10 @@ enum class Distance_e {
     manhattan, angular, and hamming available in original
     */
 };
+enum PreprocessMode_e {
+    Normalize,
+    Standardize
+};
 
 }   // namespace nvs::dim
 #endif //DR_USING_H
