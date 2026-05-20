@@ -90,6 +90,7 @@ struct AnalyzerSettings {
         } segmentation {Segmentation::Uniform};
 
         struct Refinement {
+            bool doRefinements = false;
             int numEventSubdivisions = 1;   // at least 1
             float silenceThresholdDb = -50.0f;
             float minSilenceDurationMs = 300.0f;
@@ -105,6 +106,8 @@ struct AnalyzerSettings {
         double weight_hfc = 0.5;
         double weight_rms = 0.5;
         double weight_novelty = 0.0;
+
+        double uniform_event_length = 0.150f;    // in seconds
     } onset;
 
     struct Pitch {

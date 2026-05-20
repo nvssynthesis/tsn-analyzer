@@ -222,27 +222,31 @@ void ThreadedAnalyzer::run() {
 	        const auto unnormCpy = [this, sr, lengthInSeconds, &report](){
 	            report("Processing onsets..");
 
-	            improveOnsetsInSeconds(_onsetAnalysisResult->onsets, _inputWave, sr);
-
-	            filterOnsetsOutsideBounds(_onsetAnalysisResult->onsets, lengthInSeconds);
-	            filterRedundantOnsets(_onsetAnalysisResult->onsets);
-
-	            const auto &[numEventSubdivisions,
+	            const auto &[doRefinements,
+                    numEventSubdivisions,
                     silenceThresholdDb,
                     minSilenceDurationMs,
-                    minEventWithinSilenceDurationMs]
-                    = _analyzer.getSettings().onset._refinement;
-	            subdivideOnsetsEnergy(_onsetAnalysisResult->onsets, _inputWave, sr, numEventSubdivisions);
+                    minEventWithinSilenceDurationMs] = _analyzer.getSettings().onset._refinement;
 
-	            const auto silenceMarkers = detectSilences(_inputWave, sr,
-                    silenceThresholdDb, minSilenceDurationMs,
-                    minEventWithinSilenceDurationMs);
+	            if (doRefinements) {
+	                improveOnsetsInSeconds(_onsetAnalysisResult->onsets, _inputWave, sr);
 
-	            combineOnsetsAndSilenceTimings(_onsetAnalysisResult->onsets, silenceMarkers,
-                    0.2, 0.2,
-                    0.5, 0.2);
+	                filterOnsetsOutsideBounds(_onsetAnalysisResult->onsets, lengthInSeconds);
+	                filterRedundantOnsets(_onsetAnalysisResult->onsets);
 
-	            filterOnsetsOutsideBounds(_onsetAnalysisResult->onsets, lengthInSeconds);  // after inserting new onsets, its possible again that some are too bunched up
+
+	                subdivideOnsetsEnergy(_onsetAnalysisResult->onsets, _inputWave, sr, numEventSubdivisions);
+
+	                const auto silenceMarkers = detectSilences(_inputWave, sr,
+                        silenceThresholdDb, minSilenceDurationMs,
+                        minEventWithinSilenceDurationMs);
+
+	                combineOnsetsAndSilenceTimings(_onsetAnalysisResult->onsets, silenceMarkers,
+                        0.2, 0.2,
+                        0.5, 0.2);
+
+	                filterOnsetsOutsideBounds(_onsetAnalysisResult->onsets, lengthInSeconds);  // after inserting new onsets, its possible again that some are too bunched up
+	            }
 
 	            forceMinimumOnsets(_onsetAnalysisResult->onsets, 4, lengthInSeconds);
 

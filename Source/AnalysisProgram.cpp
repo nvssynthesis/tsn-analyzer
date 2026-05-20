@@ -111,24 +111,26 @@ void mainAnalysisProgram(const ArgumentList &args)
         ValueTree settingsParentTree {};
         File settingsFile {};
     };
-    const auto settingsStuff = [&args, &audioFileInfo, &audioFileFullAbsPath]() -> SettingsStuff
+    const auto [settingsParentTree, settingsFile] = [&args, &audioFileInfo, &audioFileFullAbsPath]() -> SettingsStuff
     {
-        SettingsStuff settingsStuff;
+        SettingsStuff _settingsStuff;
         if (const auto settingsStr = args.getValueForOption("--settings|-s");
-        !settingsStr.isEmpty())
+            !settingsStr.isEmpty())
         {
-            settingsStuff.settingsFile = asAbsPathOrWithinDirectory(settingsStr, nvs::analysis::settingsPresetLocation);
-            const auto settingsVT = nvs::analysis::loadValueTreeFromFile(settingsStuff.settingsFile);
-            settingsStuff.settingsParentTree = makeSettingsParentTree(settingsVT, audioFileInfo.sampleRate, audioFileFullAbsPath);
-            return settingsStuff;
+            _settingsStuff.settingsFile = asAbsPathOrWithinDirectory(settingsStr, nvs::analysis::settingsPresetLocation);
+            const auto settingsVT = nvs::analysis::loadValueTreeFromFile(_settingsStuff.settingsFile);
+            _settingsStuff.settingsParentTree = makeSettingsParentTree(settingsVT, audioFileInfo.sampleRate, audioFileFullAbsPath);
+            return _settingsStuff;
         }
-
-        settingsStuff.settingsParentTree = makeSettingsParentTree(audioFileInfo.sampleRate, audioFileFullAbsPath);
-        return settingsStuff;
+        // ~/Library/tsn_analyzer/default_settings.json
+        _settingsStuff.settingsFile = nvs::analysis::systemDefaultSettingsPreset;
+        const auto settingsVT = nvs::analysis::loadValueTreeFromFile(_settingsStuff.settingsFile);
+        _settingsStuff.settingsParentTree = makeSettingsParentTree(settingsVT, audioFileInfo.sampleRate, audioFileFullAbsPath);
+        return _settingsStuff;
     }();
-    const auto treeStr = nvs::util::valueTreeToXmlStringSafe(settingsStuff.settingsParentTree);
+    const auto treeStr = nvs::util::valueTreeToXmlStringSafe(settingsParentTree);
 
-    auto /*can't be const*/ settingsTree = settingsStuff.settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings);
+    auto /*can't be const*/ settingsTree = settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings);
     const auto settingsTreeOriginal = settingsTree.createCopy();
     const auto analysisResult = runAnalyzer(channel0, audioFileFullAbsPath, settingsTree);
     if (analysisResult.onsets == nullptr || analysisResult.timbres == nullptr) {
@@ -142,7 +144,7 @@ void mainAnalysisProgram(const ArgumentList &args)
         if (const auto response = checkForYesNoResponse()) {
             Logger::writeToLog("Updating settings file");
 
-            nvs::util::saveValueTreeToJSON(settingsStuff.settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings), settingsStuff.settingsFile);
+            nvs::util::saveValueTreeToJSON(settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings), settingsFile);
 
         } else {
             Logger::writeToLog("Settings file not updated");
