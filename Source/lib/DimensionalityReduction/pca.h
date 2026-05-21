@@ -202,7 +202,7 @@ inline PreprocessResult preprocess_X(
         xmean[j] = mean(j);
 
     assert(d >= low_dim);
-    const Eigen::BDCSVD<Eigen::MatrixXf> svd(M, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    const Eigen::BDCSVD<Eigen::MatrixXf, Eigen::ComputeThinU | Eigen::ComputeThinV> svd(M);
     FittedSVD tsvd;
     tsvd.components = svd.matrixV().leftCols(low_dim).transpose();  // (low_dim, d)
     tsvd.is_fitted  = true;
