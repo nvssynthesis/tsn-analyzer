@@ -57,11 +57,12 @@ int main (const int argc, char* argv[]) {
 
     app.addCommand ({
         "--analyze|-a",
-        "--analyze|-a --input|-i <input_file> [-s <settings_file>] [-o <output_file>]",
+        "--analyze|-a --input|-i <input_file> [-s <settings_file>] [-o <output_file>] [--print|-p]",
         "Analyzes the audio file and extracts timbre features",
         "This application analyzes an input audio file by splitting it into either events or " + newLine +
-            "uniformly-spaced frames, then analyzing each event/frame in terms of pitch, loudness, and timbral features." + newLine +
-                "If no <output_file> is supplied, analyze will simply print the resulting analysis to the console.",
+        "uniformly-spaced frames, then analyzing each event/frame in terms of pitch, loudness, and timbral features." + newLine +
+        "If no <output_file> is supplied, analyze will create an output filename based on that of the input and the settings." + newLine +
+        "Supplying -p will print the analysis to the console, whether or not an output file is supplied.",
         mainAnalysisProgram
     });
 

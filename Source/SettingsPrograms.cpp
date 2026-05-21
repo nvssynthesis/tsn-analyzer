@@ -104,7 +104,7 @@ void createSettingsPresetFromDefault(const ArgumentList &args) {
     }
 
 
-    const File outputSettingsFile = getOutputFile(args, presetsDir, true); // presetsDir.getChildFile(args.arguments[1].resolveAsFile().getFileName());
+    const File outputSettingsFile = getOutputFile(args, presetsDir, {}, true); // presetsDir.getChildFile(args.arguments[1].resolveAsFile().getFileName());
 
     // check if same file name already exists
     if (outputSettingsFile.existsAsFile()) {

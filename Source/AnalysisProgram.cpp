@@ -164,11 +164,17 @@ void mainAnalysisProgram(const ArgumentList &args)
             (analysisResult.onsets->audioFileAbsPath == audioFileFullAbsPath));
 
 
-    if (const File outAnalysisFile = getOutputFile(args, nvs::config::analysisFilesLocation, true);
+    if (args.containsOption("--print|-p")) {
+        Logger::writeToLog(nvs::util::valueTreeToXmlStringSafe(timbreSpaceVT));
+        return;
+    }
+    if (const File outAnalysisFile =
+        getOutputAnalysisFile(args,
+        nvs::config::analysisFilesLocation,
+        analysisResult.settingsHash, true);
         outAnalysisFile == File{})
     {
-        Logger::writeToLog("No output file argument; printing analysis tree...\n");
-        Logger::writeToLog(nvs::util::valueTreeToXmlStringSafe(timbreSpaceVT));
+        return; // cancelled or error, already reported
     }
     else {
         Logger::writeToLog("Writing to " + outAnalysisFile.getFullPathName());

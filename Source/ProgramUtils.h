@@ -71,15 +71,27 @@ inline bool checkForYesNoResponse() {
     jassert (jresponse.startsWith("y") || jresponse.startsWith("n"));
     return jresponse.startsWith("y");
 }
-
-inline File getOutputFile(const ArgumentList &args, const File &directoryWithin,
-    const bool shouldCreateParentDirectories=true) {
+inline File getOutputFile(const ArgumentList &args,
+                          const File &directoryWithin,
+                          const String &autoFilename = {},
+                          const bool shouldCreateParentDirectories = true)
+{
     const auto outputFileEntry = args.getValueForOption("--output|-o");
-    if (outputFileEntry.isEmpty()) {
-        std::cerr << "please specify an output file via --output|-o <output_filename>" << std::endl;
-        return {};
+
+    File outputFile;
+    if (outputFileEntry.isEmpty())
+    {
+        if (autoFilename.isEmpty())
+        {
+            std::cerr << "please specify an output file via --output|-o <output_filename>" << std::endl;
+            return {};
+        }
+        outputFile = asAbsPathOrWithinDirectory(autoFilename, directoryWithin);
     }
-    auto outputFile = asAbsPathOrWithinDirectory(outputFileEntry, directoryWithin);
+    else
+    {
+        outputFile = asAbsPathOrWithinDirectory(outputFileEntry, directoryWithin);
+    }
 
     if (const bool forceOverwrite = args.containsOption("--force|-f");
         outputFile.existsAsFile() && !forceOverwrite)
@@ -88,15 +100,33 @@ inline File getOutputFile(const ArgumentList &args, const File &directoryWithin,
                   << "' already exists.\n";
         std::cout << "Overwrite? (y/N): ";
 
-        if (!checkForYesNoResponse()) // if 'no'
+        if (!checkForYesNoResponse())
         {
             std::cout << "Operation cancelled.\n";
             return {};
         }
     }
 
-    if (shouldCreateParentDirectories) {
+    if (shouldCreateParentDirectories)
         createParentDirectories(outputFile);
-    }
+
     return outputFile;
+}
+
+inline File getOutputAnalysisFile(const ArgumentList &args,
+                                  const File &directoryWithin,
+                                  const String &settingsHash,
+                                  const bool shouldCreateParentDirectories = true)
+{
+    const auto inputFileEntry = args.getValueForOption("--input|-i");
+    if (inputFileEntry.isEmpty())
+    {
+        std::cerr << "please specify an input file via --input|-i <input_file>" << std::endl;
+        return {};
+    }
+
+    const auto stem = File(inputFileEntry).getFileNameWithoutExtension();
+    const auto autoFilename = stem + "_" + settingsHash.substring(0, 7) + ".json";
+
+    return getOutputFile(args, directoryWithin, autoFilename, shouldCreateParentDirectories);
 }
