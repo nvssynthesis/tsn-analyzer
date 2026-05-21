@@ -30,6 +30,8 @@ inline juce::String toString(Feature_e f){
             return axiom::tsn::SpectralComplexity;
         case Feature_e::StrongPeak:
             return axiom::tsn::StrongPeak;
+        case Feature_e::PitchSalience:
+            return axiom::tsn::PitchSalience;
         case Feature_e::Periodicity:
             return axiom::tsn::Periodicity;
         case Feature_e::Loudness:

@@ -49,6 +49,9 @@ STRAXIOMIZE(SpectralFlatness);
 STRAXIOMIZE(SpectralCrest);
 STRAXIOMIZE(SpectralComplexity);
 STRAXIOMIZE(StrongPeak);
+STRAXIOMIZE(PitchSalience);
+STRAXIOMIZE(highBoundary);
+STRAXIOMIZE(lowBoundary);
 
 STRAXIOMIZE(highFrequencyBound);
 STRAXIOMIZE(liftering);

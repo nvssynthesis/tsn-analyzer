@@ -53,7 +53,7 @@ using AnySpec = std::variant<
 >;
 
 // defined in .cpp to avoid circular include (issue was just with calling nvs::analysis::buildFeatureChoiceVec, but this allows consistency)
-extern const std::map<juce::String, AnySpec> analysisSpecs, bfccSpecs, onsetSpecs, sBicSpecs, pitchSpecs, splitSpecs, timbreSpaceSpecs;
+extern const std::map<juce::String, AnySpec> analysisSpecs, bfccSpecs, onsetSpecs, sBicSpecs, pitchSpecs, pitchSalienceSpecs, splitSpecs, timbreSpaceSpecs;
 extern const std::map<juce::String, const std::map<juce::String,AnySpec>*> specsByBranch;
 
 struct AnalyzerSettings {
@@ -154,6 +154,18 @@ struct AnalyzerSettings {
         int sizeFirstPass = 300;
         int sizeSecondPass = 200;
     } sBic;
+
+    struct SpectralPeak {
+        float magnitudeThreshold_dB = -60.f;
+        float minFrequency = 40.f;
+        float maxFrequency = 6000.f;
+        int maxPeaks = 64;
+    } spectralPeak;
+
+    struct PitchSalienceSettings {
+        double highBoundary = 5000.0;
+        double lowBoundary = 100.0;
+    } pitchSalience;
 
     struct PaCMAP {
         float MN_ratio = 0.5f;

@@ -35,6 +35,7 @@ enum class Feature_e {
     SpectralCrest,
     SpectralComplexity,
     StrongPeak,
+    PitchSalience,
 
 	Periodicity,
 	Loudness,
@@ -43,8 +44,8 @@ enum class Feature_e {
 	NumFeatures
 };
 static constexpr int NumBFCC = 13;
-static constexpr auto NumTimbralFeatures = static_cast<int>(Feature_e::StrongPeak) + 1;
-static_assert(NumTimbralFeatures == 19);
+static constexpr auto NumTimbralFeatures = static_cast<int>(Feature_e::PitchSalience) + 1;
+static_assert(NumTimbralFeatures == 20);
 
 const std::set bfccSet {
 	Feature_e::bfcc0,

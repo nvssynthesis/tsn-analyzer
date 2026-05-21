@@ -132,6 +132,8 @@ vecReal calculateLoudnesses(const std::span<Real const> waveSpan, AnalyzerSettin
     return loudnesses;
 }
 
+#define USE_SPECTRAL_PEAK_FEATURES true
+
 FeatureContainer<vecReal> calculateTimbres(std::span<Real const> waveSpan, AnalyzerSettings const& settings)
 {
     vecReal wave(waveSpan.begin(), waveSpan.end());
@@ -202,11 +204,23 @@ FeatureContainer<vecReal> calculateTimbres(std::span<Real const> waveSpan, Analy
     const auto spectralComplexity_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("SpectralComplexity",
         "magnitudeThreshold", settings.spectralComplexity.magnitudeThreshold));
     const auto strongPeakinesses_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create("StrongPeak"));
+    const auto pitchSalience_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create("PitchSalience",
+        "sampleRate", sampleRate,
+        "highBoundary", settings.pitchSalience.highBoundary,
+        "lowBoundary", settings.pitchSalience.lowBoundary));
 
     std::string const specInputStr  = isPower ? "signal"        : "frame";
     std::string const specOutputStr = isPower ? "powerSpectrum" : "spectrum";
 
-    // std::vector<std::vector<float>> barkBandsVV, BFCCsVV;
+#ifdef USE_SPECTRAL_PEAK_FEATURES
+    const auto spectralPeaks_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("SpectralPeaks",
+        "sampleRate", sampleRate,
+        "magnitudeThreshold", settings.spectralPeak.magnitudeThreshold_dB,
+        "minFrequency", settings.spectralPeak.minFrequency,
+        "maxFrequency", settings.spectralPeak.maxFrequency,
+        "maxPeaks", settings.spectralPeak.maxPeaks));
+#endif
+
 
     FeatureContainer<vecReal> timbres;
 
@@ -278,6 +292,12 @@ FeatureContainer<vecReal> calculateTimbres(std::span<Real const> waveSpan, Analy
         strongPeakinesses_a->output("strongPeak").set(strongPeak);
         strongPeakinesses_a->compute();
         timbres[Feature_e::StrongPeak].push_back(strongPeak);
+
+        Real pitchSalienceValue;
+        pitchSalience_a->input("spectrum").set(spectrumVec);
+        pitchSalience_a->output("pitchSalience").set(pitchSalienceValue);
+        pitchSalience_a->compute();
+        timbres[Feature_e::PitchSalience].push_back(pitchSalienceValue);
 
         frameCounter++;
     }

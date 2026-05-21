@@ -48,11 +48,14 @@ const std::map<juce::String, AnySpec> analysisSpecs
 	{ axiom::tsn::hopSize,       RangedSettingsSpec<int>{   makePowerOfTwoRange(32, 4096),  512 } },
 	{ axiom::tsn::windowingType,  ChoiceSettingsSpec{ 	{axiom::tsn::hann, axiom::tsn::hamming, axiom::tsn::hannnsgcq,
 		axiom::tsn::triangular, axiom::tsn::square, axiom::tsn::blackmanharris62, axiom::tsn::blackmanharris70,
-		axiom::tsn::blackmanharris74, 	axiom::tsn::blackmanharris92}, /* default: */		axiom::tsn::hann 		} },
+		axiom::tsn::blackmanharris74, 	axiom::tsn::blackmanharris92},
+	    /* default: */axiom::tsn::blackmanharris92,
+	    "Use blackmanharris92 for best results, at least for Spectral Peak-based features."} },
     { axiom::tsn::numThreads, RangedSettingsSpec<int>{NormalisableRangeDouble(1, maxThreads), defaultThreads,
         "The number of threads used for timbral analysis. Higher # of threads => faster analysis, but limited testing has been done for greater than 1 thread."}}
 };
 
+#pragma message("Pull spectrum settings out from BFCCs, as it is reused by others")
 const std::map<juce::String, AnySpec> bfccSpecs
 {
 	{ axiom::tsn::highFrequencyBound,  RangedSettingsSpec<double>{ {20.0,24000.0,1.0,0.4},4000.0,
@@ -72,8 +75,8 @@ const std::map<juce::String, AnySpec> bfccSpecs
         "Per frame, normalize the BFCC vector based on the 0th BFCC, which represents overall energy. This adjusts the frame's contribution to the overall event's BFCC calculation."}},
     { axiom::tsn::BFCC0_eventNormalize, BoolSettingsSpec{true,
         "Per event, normalize the BFCC vector based on the 0th BFCC, which represents overall energy. This normalizes the overall event's BFCCs based on the 0th."}},
-	{ axiom::tsn::spectrumType,        ChoiceSettingsSpec{ {axiom::tsn::magnitude, axiom::tsn::power},axiom::tsn::power,
-	    "use magnitude or power spectrum"} },
+    { axiom::tsn::spectrumType,        ChoiceSettingsSpec{ {axiom::tsn::magnitude, axiom::tsn::power},axiom::tsn::power,
+	    "Whether to use magnitude or power spectrum."} },
 	{ axiom::tsn::weightingType,       ChoiceSettingsSpec{ {axiom::tsn::warping,  axiom::tsn::linear},axiom::tsn::warping,
 	    "type of weighting function for determining triangle area"} },
 	{ axiom::tsn::dctType,             ChoiceSettingsSpec{ {axiom::tsn::typeII,   axiom::tsn::typeIII},axiom::tsn::typeII } }
@@ -136,6 +139,12 @@ const std::map<juce::String, AnySpec> loudnessSpecs
     {axiom::tsn::equalizeLoudness, BoolSettingsSpec{true}}
 };
 
+const std::map<juce::String, AnySpec> pitchSalienceSpecs
+{
+    { axiom::tsn::highBoundary, RangedSettingsSpec<double>{ {0.0, 22050.0, 1.0, 1.0}, 5000.0, "Upper frequency boundary for pitch salience analysis [Hz]", 1, "Hz" } },
+    { axiom::tsn::lowBoundary,  RangedSettingsSpec<double>{ {0.0, 22050.0, 1.0, 1.0}, 100.0, "Lower frequency boundary for pitch salience analysis [Hz]", 1, "Hz" } }
+};
+
 const std::map<juce::String, AnySpec> splitSpecs
 {
 	{ axiom::tsn::fadeInSamps,  RangedSettingsSpec<int>{ {0,10000,1,1}, 5 } },
@@ -162,6 +171,7 @@ const std::map<juce::String, const std::map<juce::String,AnySpec>*>
 	{ axiom::tsn::Onset,    &onsetSpecs    },
 	{ axiom::tsn::Pitch,    &pitchSpecs    },
 	{ axiom::tsn::Loudness, &loudnessSpecs },
+	{ axiom::tsn::PitchSalience, &pitchSalienceSpecs },
 	{ axiom::tsn::PaCMAP,   &pacmapSpecs   },
 	{ axiom::tsn::Split,    &splitSpecs    },
 };
@@ -366,6 +376,12 @@ juce::ValueTree createParentTreeFromSettings(const AnalyzerSettings& settings) {
     loudnessNode.setProperty(axiom::tsn::equalizeLoudness, settings.loudness.equalizeLoudness, nullptr);
     settingsTree.appendChild(loudnessNode, nullptr);
 
+    // PitchSalience node
+    juce::ValueTree pitchSalienceNode(axiom::tsn::PitchSalience);
+    pitchSalienceNode.setProperty(axiom::tsn::highBoundary, settings.pitchSalience.highBoundary, nullptr);
+    pitchSalienceNode.setProperty(axiom::tsn::lowBoundary, settings.pitchSalience.lowBoundary, nullptr);
+    settingsTree.appendChild(pitchSalienceNode, nullptr);
+
     // Split node
     juce::ValueTree splitNode(axiom::tsn::Split);
     splitNode.setProperty(axiom::tsn::fadeInSamps, settings.split.fadeInSamps, nullptr);
@@ -549,6 +565,21 @@ bool updateSettingsFromValueTree(AnalyzerSettings& settings, const ValueTree& se
         return false;
     }
     settings.loudness.equalizeLoudness = loudnessNode.getProperty(axiom::tsn::equalizeLoudness);
+
+    // PitchSalience settings
+    auto pitchSalienceNode = settingsTree.getChildWithName(axiom::tsn::PitchSalience);
+    if (!pitchSalienceNode.isValid()) {
+        std::cerr << "PitchSalience node missing\n";
+        jassertfalse;
+        return false;
+    }
+    if (!pitchSalienceNode.hasProperty(axiom::tsn::highBoundary) || !pitchSalienceNode.hasProperty(axiom::tsn::lowBoundary)) {
+        std::cerr << "PitchSalience node missing required properties\n";
+        jassertfalse;
+        return false;
+    }
+    settings.pitchSalience.highBoundary = pitchSalienceNode.getProperty(axiom::tsn::highBoundary);
+    settings.pitchSalience.lowBoundary = pitchSalienceNode.getProperty(axiom::tsn::lowBoundary);
 
 	// Split settings
 	auto splitNode = settingsTree.getChildWithName(axiom::tsn::Split);

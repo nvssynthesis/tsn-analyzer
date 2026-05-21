@@ -27,39 +27,6 @@ template<typename T>
 using FeatureContainerMemberPtr = T FeatureContainer<T>::*;
 
 template<typename T>
-constexpr auto makeScalarLookup() {
-	// index this array by (enumValue - NumBFCC)
-	// so scalarIndex = enumValue - NumBFCC must be 0..ScalarCount-1
-	static_assert(static_cast<int>(Feature_e::SpectralCentroid) == NumBFCC + 0);
-	static_assert(static_cast<int>(Feature_e::SpectralDecrease) == NumBFCC + 1);
-	static_assert(static_cast<int>(Feature_e::SpectralFlatness) == NumBFCC + 2);
-    static_assert(static_cast<int>(Feature_e::SpectralCrest) == NumBFCC + 3);
-    static_assert(static_cast<int>(Feature_e::SpectralComplexity) == NumBFCC + 4);
-    static_assert(static_cast<int>(Feature_e::StrongPeak) == NumBFCC + 5);
-
-    static_assert(static_cast<int>(Feature_e::Periodicity) == NumBFCC + 6);
-    static_assert(static_cast<int>(Feature_e::Loudness) == NumBFCC + 7);
-    static_assert(static_cast<int>(Feature_e::f0) == NumBFCC + 8);
-
-	constexpr int ScalarCount = 9;
-	static constexpr std::array<FeatureContainerMemberPtr<T>, ScalarCount> table {
-#pragma message("From the future: is the first element really supposed to be created this way?")
-	    &FeatureContainer<T>::features[Feature_e::SpectralCentroid],
-	    &FeatureContainer<T>::spectralDecrease,
-	    &FeatureContainer<T>::spectralFlatness,
-	    &FeatureContainer<T>::spectralCrest,
-	    &FeatureContainer<T>::spectralComplexity,
-	    &FeatureContainer<T>::strongPeak,
-
-		&FeatureContainer<T>::periodicity,
-		&FeatureContainer<T>::loudness,
-		&FeatureContainer<T>::f0
-	};
-	return table;
-}
-
-
-template<typename T>
 [[nodiscard]]
 std::vector<T>
 extractFeatures(const FeatureContainer<T> &allFeatures,
