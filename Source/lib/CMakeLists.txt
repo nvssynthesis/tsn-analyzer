@@ -226,11 +226,13 @@ target_include_directories(tsn_analyzer
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>      # BUILD_INTERFACE is used when building target itself, or other targets in same build tree link against this target
         $<INSTALL_INTERFACE:include>                        # INSTALL_INTERFACE is used when target has been installed or external projects find and link against installed version
         $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/tsn_analyze_artefacts/JuceLibraryCode>
-        SYSTEM # suppress warnings from these headers:
+        "${CMAKE_CURRENT_BINARY_DIR}"
+)
+target_include_directories(tsn_analyzer
+        SYSTEM PUBLIC # suppress warnings from these headers:
         ${ESSENTIA_INCLUDE_DIRS}
         ${EIGEN_INCLUDE_DIR}
         ${CMAKE_CURRENT_LIST_DIR}/../../juce_utils
-        "${CMAKE_CURRENT_BINARY_DIR}"
 )
 
 target_link_libraries(tsn_analyzer
@@ -245,7 +247,7 @@ target_link_libraries(tsn_analyzer
         fmt::fmt
         PRIVATE
         essentia_built
-        Eigen3::Eigen
+#        Eigen3::Eigen
 )
 
 target_compile_features(tsn_analyzer PUBLIC cxx_std_20)
