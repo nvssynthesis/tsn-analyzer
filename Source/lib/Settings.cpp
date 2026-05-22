@@ -18,6 +18,73 @@ static constexpr bool TIMBRE_SPACE_SETTINGS_EXIST {false};  // these 'settings' 
 
 using ValueTree = juce::ValueTree;
 
+namespace {
+template<typename T>
+void setTreeProperty(ValueTree& tree, juce::Identifier const& propertyId, T const& value)
+{
+    tree.setProperty(propertyId, value, nullptr);
+}
+
+bool requireChildTree(const ValueTree& parent, juce::Identifier const& childName, ValueTree& child)
+{
+    child = parent.getChildWithName(childName);
+    if (!child.isValid()) {
+        std::cerr << childName.toString() << " node missing\n";
+        jassertfalse;
+        return false;
+    }
+    return true;
+}
+
+bool validateProperties(const ValueTree& node, std::initializer_list<juce::Identifier> properties)
+{
+    for (auto const& property : properties) {
+        if (!node.hasProperty(property)) {
+            std::cerr << node.getType().toString() << " node missing property " << property.toString() << "\n";
+            jassertfalse;
+            return false;
+        }
+    }
+    return true;
+}
+
+template<typename T>
+bool loadRequiredProperty(const ValueTree& node, juce::Identifier const& propertyName, T& outProperty)
+{
+    if (!node.hasProperty(propertyName)) {
+        std::cerr << node.getType().toString() << " node missing property " << propertyName.toString() << "\n";
+        jassertfalse;
+        return false;
+    }
+    outProperty = node.getProperty(propertyName);
+    return true;
+}
+
+
+bool loadRequiredProperty(const ValueTree& node, juce::Identifier const& propertyName, juce::String& outProperty)
+{
+    if (!node.hasProperty(propertyName)) {
+        std::cerr << node.getType().toString() << " node missing property " << propertyName.toString() << "\n";
+        jassertfalse;
+        return false;
+    }
+    outProperty = node.getProperty(propertyName).toString();
+    return true;
+}
+
+template<typename... Ts>
+bool loadRequiredProperties(const ValueTree& node, std::pair<juce::Identifier, Ts>&&... pairs)
+{
+    return (loadRequiredProperty(node, pairs.first, pairs.second) && ...);
+}
+template<typename T>
+auto prop(juce::Identifier id, T& out)
+{
+    return std::pair<juce::Identifier, T&>{ id, out };
+}
+
+}
+
 static NormalisableRangeDouble makePowerOfTwoRange (double minValue, double maxValue)
 {
     const auto minLog = std::log2 (minValue);
@@ -189,7 +256,7 @@ void ensureBranchAndInitializeDefaults (ValueTree& settingsVT,
 				using SpecT = std::decay_t<T0>;
 
 				if constexpr (std::is_same_v<SpecT, RangedSettingsSpec<int>> ||
-							  std::is_same_v<SpecT, RangedSettingsSpec<double>>) {
+							  std::is_same_v<SpecT, RangedSettingsSpec<double>>) { // NOLINT
 					branchVT.setProperty (propName, spec.defaultValue, nullptr);
 				}
 				else if constexpr (std::is_same_v<SpecT, ChoiceSettingsSpec>) {
@@ -293,13 +360,13 @@ bool verifySettingsStructureWithAttemptedFix (ValueTree& settingsVT)
     return true;
 }
 
-juce::ValueTree createParentTreeFromSettings(const AnalyzerSettings& settings) {
+juce::ValueTree createParentTreeFromSettings(const AnalyzerSettings &settings) {
     juce::ValueTree parent("Root");
 
     // Create FileInfo node
     juce::ValueTree fileInfoTree(axiom::tsn::FileInfo);
-    fileInfoTree.setProperty(axiom::tsn::sampleFilePath, settings.info.sampleFilePath, nullptr);
-    fileInfoTree.setProperty(axiom::tsn::sampleRate, settings.analysis.sampleRate, nullptr);
+    setTreeProperty(fileInfoTree, axiom::tsn::sampleFilePath, settings.info.sampleFilePath);
+    setTreeProperty(fileInfoTree, axiom::tsn::sampleRate, settings.analysis.sampleRate);
     parent.appendChild(fileInfoTree, nullptr);
 
     // Create Settings tree
@@ -307,95 +374,102 @@ juce::ValueTree createParentTreeFromSettings(const AnalyzerSettings& settings) {
 
     // Analysis node
     juce::ValueTree analysisNode(axiom::tsn::Analysis);
-    analysisNode.setProperty(axiom::tsn::frameSize, settings.analysis.frameSize, nullptr);
-    analysisNode.setProperty(axiom::tsn::hopSize, settings.analysis.hopSize, nullptr);
-    analysisNode.setProperty(axiom::tsn::windowingType, settings.analysis.windowingType, nullptr);
-    analysisNode.setProperty(axiom::tsn::numThreads, settings.analysis.numThreads, nullptr);
+    setTreeProperty(analysisNode, axiom::tsn::frameSize, settings.analysis.frameSize);
+    setTreeProperty(analysisNode, axiom::tsn::hopSize, settings.analysis.hopSize);
+    setTreeProperty(analysisNode, axiom::tsn::windowingType, settings.analysis.windowingType);
+    setTreeProperty(analysisNode, axiom::tsn::numThreads, settings.analysis.numThreads);
     settingsTree.appendChild(analysisNode, nullptr);
 
     // BFCC node
     juce::ValueTree bfccNode(axiom::tsn::BFCC);
-    bfccNode.setProperty(axiom::tsn::dctType, settings.bfcc.dctType, nullptr);
-    bfccNode.setProperty(axiom::tsn::highFrequencyBound, settings.bfcc.highFrequencyBound, nullptr);
-    bfccNode.setProperty(axiom::tsn::liftering, settings.bfcc.liftering, nullptr);
-    bfccNode.setProperty(axiom::tsn::lowFrequencyBound, settings.bfcc.lowFrequencyBound, nullptr);
-    bfccNode.setProperty(axiom::tsn::normalize, settings.bfcc.normalize, nullptr);
-    bfccNode.setProperty(axiom::tsn::numBands, settings.bfcc.numBands, nullptr);
-    bfccNode.setProperty(axiom::tsn::numCoefficients, settings.bfcc.numCoefficients, nullptr);
-    bfccNode.setProperty(axiom::tsn::spectrumType, settings.bfcc.spectrumType, nullptr);
-    bfccNode.setProperty(axiom::tsn::weightingType, settings.bfcc.weightingType, nullptr);
-    bfccNode.setProperty(axiom::tsn::BFCC0_frameNormalizationFactor, settings.bfcc.BFCC0_frameNormalizationFactor, nullptr);
-    bfccNode.setProperty(axiom::tsn::BFCC0_eventNormalize, settings.bfcc.BFCC0_eventNormalize, nullptr);
+    setTreeProperty(bfccNode, axiom::tsn::dctType, settings.bfcc.dctType);
+    setTreeProperty(bfccNode, axiom::tsn::highFrequencyBound, settings.bfcc.highFrequencyBound);
+    setTreeProperty(bfccNode, axiom::tsn::liftering, settings.bfcc.liftering);
+    setTreeProperty(bfccNode, axiom::tsn::lowFrequencyBound, settings.bfcc.lowFrequencyBound);
+    setTreeProperty(bfccNode, axiom::tsn::normalize, settings.bfcc.normalize);
+    setTreeProperty(bfccNode, axiom::tsn::numBands, settings.bfcc.numBands);
+    setTreeProperty(bfccNode, axiom::tsn::numCoefficients, settings.bfcc.numCoefficients);
+    setTreeProperty(bfccNode, axiom::tsn::spectrumType, settings.bfcc.spectrumType);
+    setTreeProperty(bfccNode, axiom::tsn::weightingType, settings.bfcc.weightingType);
+    setTreeProperty(bfccNode, axiom::tsn::BFCC0_frameNormalizationFactor, settings.bfcc.BFCC0_frameNormalizationFactor);
+    setTreeProperty(bfccNode, axiom::tsn::BFCC0_eventNormalize, settings.bfcc.BFCC0_eventNormalize);
     settingsTree.appendChild(bfccNode, nullptr);
 
     // Onset node
     juce::ValueTree onsetNode(axiom::tsn::Onset);
-    onsetNode.setProperty(axiom::tsn::segmentation,
-        settings.onset.segmentation == AnalyzerSettings::Onset::Segmentation::Uniform ? axiom::tsn::Uniform : axiom::tsn::Event, nullptr);
-    onsetNode.setProperty(axiom::tsn::alpha, settings.onset.alpha, nullptr);
-    onsetNode.setProperty(axiom::tsn::numFrames_shortOnsetFilter, settings.onset.numFrames_shortOnsetFilter, nullptr);
-    onsetNode.setProperty(axiom::tsn::silenceThreshold, settings.onset.silenceThreshold, nullptr);
-    onsetNode.setProperty(axiom::tsn::weight_complex, settings.onset.weight_complex, nullptr);
-    onsetNode.setProperty(axiom::tsn::weight_complexPhase, settings.onset.weight_complexPhase, nullptr);
-    onsetNode.setProperty(axiom::tsn::weight_flux, settings.onset.weight_flux, nullptr);
-    onsetNode.setProperty(axiom::tsn::weight_hfc, settings.onset.weight_hfc, nullptr);
-    onsetNode.setProperty(axiom::tsn::weight_rms, settings.onset.weight_rms, nullptr);
-    onsetNode.setProperty(axiom::tsn::weight_novelty, settings.onset.weight_novelty, nullptr);
-    onsetNode.setProperty(axiom::tsn::refinementNumEventSubdivisions, settings.onset._refinement.numEventSubdivisions, nullptr);
-    onsetNode.setProperty(axiom::tsn::refinementSilenceThresholdDb, settings.onset._refinement.silenceThresholdDb, nullptr);
-    onsetNode.setProperty(axiom::tsn::refinementMinSilenceDurationMs, settings.onset._refinement.minSilenceDurationMs, nullptr);
-    onsetNode.setProperty(axiom::tsn::refinementMinEventWithinSilenceDurationMs, settings.onset._refinement.minEventWithinSilenceDurationMs, nullptr);
+    setTreeProperty(onsetNode, axiom::tsn::segmentation,
+                    settings.onset.segmentation == AnalyzerSettings::Onset::Segmentation::Uniform
+                        ? axiom::tsn::Uniform
+                        : axiom::tsn::Event);
+    setTreeProperty(onsetNode, axiom::tsn::alpha, settings.onset.alpha);
+    setTreeProperty(onsetNode, axiom::tsn::numFrames_shortOnsetFilter, settings.onset.numFrames_shortOnsetFilter);
+    setTreeProperty(onsetNode, axiom::tsn::silenceThreshold, settings.onset.silenceThreshold);
+    setTreeProperty(onsetNode, axiom::tsn::weight_complex, settings.onset.weight_complex);
+    setTreeProperty(onsetNode, axiom::tsn::weight_complexPhase, settings.onset.weight_complexPhase);
+    setTreeProperty(onsetNode, axiom::tsn::weight_flux, settings.onset.weight_flux);
+    setTreeProperty(onsetNode, axiom::tsn::weight_hfc, settings.onset.weight_hfc);
+    setTreeProperty(onsetNode, axiom::tsn::weight_rms, settings.onset.weight_rms);
+    setTreeProperty(onsetNode, axiom::tsn::weight_novelty, settings.onset.weight_novelty);
+    setTreeProperty(onsetNode, axiom::tsn::refinementNumEventSubdivisions,
+                    settings.onset._refinement.numEventSubdivisions);
+    setTreeProperty(onsetNode, axiom::tsn::refinementSilenceThresholdDb, settings.onset._refinement.silenceThresholdDb);
+    setTreeProperty(onsetNode, axiom::tsn::refinementMinSilenceDurationMs,
+                    settings.onset._refinement.minSilenceDurationMs);
+    setTreeProperty(onsetNode, axiom::tsn::refinementMinEventWithinSilenceDurationMs,
+                    settings.onset._refinement.minEventWithinSilenceDurationMs);
     settingsTree.appendChild(onsetNode, nullptr);
 
     // Pitch node
     {
         juce::ValueTree pitchNode(axiom::tsn::Pitch);
-        pitchNode.setProperty(axiom::tsn::pitchDetectionAlgorithm, settings.pitch.pitchDetectionAlgorithm, nullptr);
-        pitchNode.setProperty(axiom::tsn::frameSize, settings.pitch.frameSize, nullptr);
-        pitchNode.setProperty(axiom::tsn::hopSize, settings.pitch.hopSize, nullptr);
+        setTreeProperty(pitchNode, axiom::tsn::pitchDetectionAlgorithm, settings.pitch.pitchDetectionAlgorithm);
+        setTreeProperty(pitchNode, axiom::tsn::frameSize, settings.pitch.frameSize);
+        setTreeProperty(pitchNode, axiom::tsn::hopSize, settings.pitch.hopSize);
 
-        pitchNode.setProperty(axiom::tsn::replace_dismal_confidences_with_constant, settings.pitch.replace_dismal_confidences_with_constant, nullptr);
-        pitchNode.setProperty(axiom::tsn::dismal_confidence_threshold, settings.pitch.dismal_confidence_threshold, nullptr);
-        pitchNode.setProperty(axiom::tsn::dismal_replacement_constant, settings.pitch.dismal_replacement_constant, nullptr);
-
-        {   /// TODO: make these subtrees. will involve changing validation and thus spec structure, and retrieval from tree
-            pitchNode.setProperty(axiom::tsn::maxFrequency, settings.pitch._yin.maxFrequency, nullptr);
-            pitchNode.setProperty(axiom::tsn::minFrequency, settings.pitch._yin.minFrequency, nullptr);
-            pitchNode.setProperty(axiom::tsn::interpolate, settings.pitch._yin.interpolate, nullptr);
-            pitchNode.setProperty(axiom::tsn::tolerance, settings.pitch._yin.tolerance, nullptr);
+        setTreeProperty(pitchNode, axiom::tsn::replace_dismal_confidences_with_constant,
+                        settings.pitch.replace_dismal_confidences_with_constant);
+        setTreeProperty(pitchNode, axiom::tsn::dismal_confidence_threshold, settings.pitch.dismal_confidence_threshold);
+        setTreeProperty(pitchNode, axiom::tsn::dismal_replacement_constant,
+                        settings.pitch.dismal_replacement_constant);
+        {
+            /// TODO: make these subtrees. will involve changing validation and thus spec structure, and retrieval from tree
+            setTreeProperty(pitchNode, axiom::tsn::maxFrequency, settings.pitch._yin.maxFrequency);
+            setTreeProperty(pitchNode, axiom::tsn::minFrequency, settings.pitch._yin.minFrequency);
+            setTreeProperty(pitchNode, axiom::tsn::interpolate, settings.pitch._yin.interpolate);
+            setTreeProperty(pitchNode, axiom::tsn::tolerance, settings.pitch._yin.tolerance);
         }
         {
-            pitchNode.setProperty(axiom::tsn::lowRMSThreshold, settings.pitch._pYin.lowRMSThreshold, nullptr);
-            pitchNode.setProperty(axiom::tsn::preciseTime, settings.pitch._pYin.preciseTime, nullptr);
+            setTreeProperty(pitchNode, axiom::tsn::lowRMSThreshold, settings.pitch._pYin.lowRMSThreshold);
+            setTreeProperty(pitchNode, axiom::tsn::preciseTime, settings.pitch._pYin.preciseTime);
         }
         settingsTree.appendChild(pitchNode, nullptr);
     }
 
     // Loudness node
     juce::ValueTree loudnessNode(axiom::tsn::Loudness);
-    loudnessNode.setProperty(axiom::tsn::equalizeLoudness, settings.loudness.equalizeLoudness, nullptr);
+    setTreeProperty(loudnessNode, axiom::tsn::equalizeLoudness, settings.loudness.equalizeLoudness);
     settingsTree.appendChild(loudnessNode, nullptr);
 
     // PitchSalience node
     juce::ValueTree pitchSalienceNode(axiom::tsn::PitchSalience);
-    pitchSalienceNode.setProperty(axiom::tsn::highBoundary, settings.pitchSalience.highBoundary, nullptr);
-    pitchSalienceNode.setProperty(axiom::tsn::lowBoundary, settings.pitchSalience.lowBoundary, nullptr);
+    setTreeProperty(pitchSalienceNode, axiom::tsn::highBoundary, settings.pitchSalience.highBoundary);
+    setTreeProperty(pitchSalienceNode, axiom::tsn::lowBoundary, settings.pitchSalience.lowBoundary);
     settingsTree.appendChild(pitchSalienceNode, nullptr);
 
     // Split node
     juce::ValueTree splitNode(axiom::tsn::Split);
-    splitNode.setProperty(axiom::tsn::fadeInSamps, settings.split.fadeInSamps, nullptr);
-    splitNode.setProperty(axiom::tsn::fadeOutSamps, settings.split.fadeOutSamps, nullptr);
+    setTreeProperty(splitNode, axiom::tsn::fadeInSamps, settings.split.fadeInSamps);
+    setTreeProperty(splitNode, axiom::tsn::fadeOutSamps, settings.split.fadeOutSamps);
     settingsTree.appendChild(splitNode, nullptr);
 
     juce::ValueTree pacmapNode{axiom::tsn::PaCMAP};
-    pacmapNode.setProperty(axiom::tsn::num_neighbours, settings.pacmap.num_neighbours, nullptr);
-    pacmapNode.setProperty(axiom::tsn::MN_ratio, settings.pacmap.MN_ratio, nullptr);
-    pacmapNode.setProperty(axiom::tsn::FP_ratio, settings.pacmap.FP_ratio, nullptr);
-    pacmapNode.setProperty(axiom::tsn::learning_rate, settings.pacmap.learning_rate, nullptr);
-    pacmapNode.setProperty(axiom::tsn::phase_1_iters, settings.pacmap.phase_1_iters, nullptr);
-    pacmapNode.setProperty(axiom::tsn::phase_2_iters, settings.pacmap.phase_2_iters, nullptr);
-    pacmapNode.setProperty(axiom::tsn::preprocess_mode, settings.pacmap.preprocess_mode, nullptr);
+    setTreeProperty(pacmapNode, axiom::tsn::num_neighbours, settings.pacmap.num_neighbours);
+    setTreeProperty(pacmapNode, axiom::tsn::MN_ratio, settings.pacmap.MN_ratio);
+    setTreeProperty(pacmapNode, axiom::tsn::FP_ratio, settings.pacmap.FP_ratio);
+    setTreeProperty(pacmapNode, axiom::tsn::learning_rate, settings.pacmap.learning_rate);
+    setTreeProperty(pacmapNode, axiom::tsn::phase_1_iters, settings.pacmap.phase_1_iters);
+    setTreeProperty(pacmapNode, axiom::tsn::phase_2_iters, settings.pacmap.phase_2_iters);
+    setTreeProperty(pacmapNode, axiom::tsn::preprocess_mode, settings.pacmap.preprocess_mode);
     settingsTree.appendChild(pacmapNode, nullptr);
 
     // Add settings tree to parent
@@ -418,70 +492,74 @@ bool updateSettingsFromValueTree(AnalyzerSettings& settings, const ValueTree& se
     jassert(0.0 < settings.analysis.sampleRate);
 
 
-    auto analysisNode = settingsTree.getChildWithName(axiom::tsn::Analysis);
-
-    if (!analysisNode.isValid()) {
-        std::cerr << "Analysis node missing\n";
-        jassertfalse;
+    auto analysisNode = ValueTree{};
+    if (!requireChildTree(settingsTree, axiom::tsn::Analysis, analysisNode) ||
+        !validateProperties(analysisNode, {axiom::tsn::frameSize, axiom::tsn::hopSize, axiom::tsn::windowingType, axiom::tsn::numThreads}))
+    {
         return false;
     }
-    if (!analysisNode.hasProperty(axiom::tsn::frameSize) || !analysisNode.hasProperty(axiom::tsn::hopSize)
-        || !analysisNode.hasProperty(axiom::tsn::windowingType)) {
-        std::cerr << "Analysis node missing required properties\n";
-        jassertfalse;
+    if (!loadRequiredProperties(analysisNode,
+            prop(axiom::tsn::frameSize, settings.analysis.frameSize),
+            prop(axiom::tsn::hopSize, settings.analysis.hopSize),
+            prop(axiom::tsn::windowingType, settings.analysis.windowingType),
+            prop(axiom::tsn::numThreads, settings.analysis.numThreads)))
+    {
         return false;
-        }
-    settings.analysis.frameSize = analysisNode.getProperty(axiom::tsn::frameSize);
-    settings.analysis.hopSize = analysisNode.getProperty(axiom::tsn::hopSize);
-    settings.analysis.windowingType = analysisNode.getProperty(axiom::tsn::windowingType).toString();
-    settings.analysis.numThreads = analysisNode.getProperty(axiom::tsn::numThreads);
+    }
 
     // BFCC settings
-    auto bfccNode = settingsTree.getChildWithName(axiom::tsn::BFCC);
-    if (!bfccNode.isValid()) {
-        std::cerr << "BFCC node missing\n";
-        jassertfalse;
-        return false;
-    }
-    if (!bfccNode.hasProperty(axiom::tsn::dctType) || !bfccNode.hasProperty(axiom::tsn::highFrequencyBound) ||
-        !bfccNode.hasProperty(axiom::tsn::liftering) || !bfccNode.hasProperty(axiom::tsn::lowFrequencyBound) ||
-        !bfccNode.hasProperty(axiom::tsn::normalize) || !bfccNode.hasProperty(axiom::tsn::numBands) ||
-        !bfccNode.hasProperty(axiom::tsn::numCoefficients) || !bfccNode.hasProperty(axiom::tsn::spectrumType) ||
-        !bfccNode.hasProperty(axiom::tsn::weightingType)
-        || !bfccNode.hasProperty(axiom::tsn::BFCC0_frameNormalizationFactor) || !bfccNode.hasProperty(axiom::tsn::BFCC0_eventNormalize))
+    auto bfccNode = ValueTree{};
+    if (!requireChildTree(settingsTree, axiom::tsn::BFCC, bfccNode) ||
+        !validateProperties(bfccNode, {axiom::tsn::dctType, axiom::tsn::highFrequencyBound, axiom::tsn::liftering,
+            axiom::tsn::lowFrequencyBound, axiom::tsn::normalize, axiom::tsn::numBands,
+            axiom::tsn::numCoefficients, axiom::tsn::spectrumType, axiom::tsn::weightingType,
+            axiom::tsn::BFCC0_frameNormalizationFactor, axiom::tsn::BFCC0_eventNormalize}))
     {
-        std::cerr << "BFCC node missing required properties\n";
-        jassertfalse;
         return false;
     }
-    settings.bfcc.dctType = bfccNode.getProperty(axiom::tsn::dctType).toString();
-    settings.bfcc.highFrequencyBound = bfccNode.getProperty(axiom::tsn::highFrequencyBound);
-    settings.bfcc.liftering = bfccNode.getProperty(axiom::tsn::liftering);
-    settings.bfcc.lowFrequencyBound = bfccNode.getProperty(axiom::tsn::lowFrequencyBound);
-    settings.bfcc.normalize = bfccNode.getProperty(axiom::tsn::normalize).toString();
-    settings.bfcc.numBands = bfccNode.getProperty(axiom::tsn::numBands);
-    settings.bfcc.numCoefficients = bfccNode.getProperty(axiom::tsn::numCoefficients);
-    settings.bfcc.spectrumType = bfccNode.getProperty(axiom::tsn::spectrumType).toString();
-    settings.bfcc.weightingType = bfccNode.getProperty(axiom::tsn::weightingType).toString();
-    settings.bfcc.BFCC0_frameNormalizationFactor = bfccNode.getProperty(axiom::tsn::BFCC0_frameNormalizationFactor);
-    settings.bfcc.BFCC0_eventNormalize = bfccNode.getProperty(axiom::tsn::BFCC0_eventNormalize);
+    if (!loadRequiredProperties(bfccNode,
+            prop(axiom::tsn::dctType, settings.bfcc.dctType),
+            prop(axiom::tsn::highFrequencyBound, settings.bfcc.highFrequencyBound),
+            prop(axiom::tsn::liftering, settings.bfcc.liftering),
+            prop(axiom::tsn::lowFrequencyBound, settings.bfcc.lowFrequencyBound),
+            prop(axiom::tsn::normalize, settings.bfcc.normalize),
+            prop(axiom::tsn::numBands, settings.bfcc.numBands),
+            prop(axiom::tsn::numCoefficients, settings.bfcc.numCoefficients),
+            prop(axiom::tsn::spectrumType, settings.bfcc.spectrumType),
+            prop(axiom::tsn::weightingType, settings.bfcc.weightingType),
+            prop(axiom::tsn::BFCC0_frameNormalizationFactor, settings.bfcc.BFCC0_frameNormalizationFactor),
+            prop(axiom::tsn::BFCC0_eventNormalize, settings.bfcc.BFCC0_eventNormalize)))
+    {
+        return false;
+    }
 
     // Onset settings
-    auto onsetNode = settingsTree.getChildWithName(axiom::tsn::Onset);
-    if (!onsetNode.isValid()) {
-        std::cerr << "Onset node missing\n";
-        jassertfalse;
-        return false;
-    }
-    if (!onsetNode.hasProperty(axiom::tsn::alpha) || !onsetNode.hasProperty(axiom::tsn::numFrames_shortOnsetFilter) ||
-        !onsetNode.hasProperty(axiom::tsn::silenceThreshold) || !onsetNode.hasProperty(axiom::tsn::weight_complex) ||
-        !onsetNode.hasProperty(axiom::tsn::weight_complexPhase) || !onsetNode.hasProperty(axiom::tsn::weight_flux) ||
-        !onsetNode.hasProperty(axiom::tsn::weight_hfc) || !onsetNode.hasProperty(axiom::tsn::weight_rms))
+    auto onsetNode = ValueTree{};
+    if (!requireChildTree(settingsTree, axiom::tsn::Onset, onsetNode) ||
+        !validateProperties(onsetNode, {axiom::tsn::alpha, axiom::tsn::numFrames_shortOnsetFilter,
+            axiom::tsn::silenceThreshold, axiom::tsn::segmentation,
+            axiom::tsn::weight_complex, axiom::tsn::weight_complexPhase,
+            axiom::tsn::weight_flux, axiom::tsn::weight_hfc, axiom::tsn::weight_rms}))
     {
-        std::cerr << "Onset node missing required properties\n";
-        jassertfalse;
         return false;
     }
+    if (!loadRequiredProperties(onsetNode,
+        prop(axiom::tsn::alpha, settings.onset.alpha),
+        prop(axiom::tsn::numFrames_shortOnsetFilter, settings.onset.numFrames_shortOnsetFilter),
+        prop(axiom::tsn::silenceThreshold, settings.onset.silenceThreshold),
+        prop(axiom::tsn::weight_complex, settings.onset.weight_complex),
+        prop(axiom::tsn::weight_complexPhase, settings.onset.weight_complexPhase),
+        prop(axiom::tsn::weight_flux, settings.onset.weight_flux),
+        prop(axiom::tsn::weight_hfc, settings.onset.weight_hfc),
+        prop(axiom::tsn::weight_novelty, settings.onset.weight_novelty),
+        prop(axiom::tsn::refinementNumEventSubdivisions, settings.onset._refinement.numEventSubdivisions),
+        prop(axiom::tsn::refinementSilenceThresholdDb, settings.onset._refinement.silenceThresholdDb),
+        prop(axiom::tsn::refinementMinSilenceDurationMs, settings.onset._refinement.minSilenceDurationMs),
+        prop(axiom::tsn::refinementMinEventWithinSilenceDurationMs, settings.onset._refinement.minEventWithinSilenceDurationMs)))
+    {
+        return false;
+    }
+    // assigning to an enum member; loadRequiredProperties does not know how to convert juce::var to enum
     if (onsetNode.hasProperty(axiom::tsn::segmentation)) {
         const auto segmentationStr = onsetNode.getProperty(axiom::tsn::segmentation).toString();
         settings.onset.segmentation = segmentationStr == axiom::tsn::Uniform ? AnalyzerSettings::Onset::Segmentation::Uniform : AnalyzerSettings::Onset::Segmentation::Event;
@@ -489,22 +567,8 @@ bool updateSettingsFromValueTree(AnalyzerSettings& settings, const ValueTree& se
         settings.onset.segmentation = AnalyzerSettings::Onset::Segmentation::Event;
         DBG(juce::String("No property ") + axiom::tsn::segmentation + " found in settingsTree\n");
     }
-    settings.onset._refinement.numEventSubdivisions = static_cast<int>(onsetNode.getProperty(axiom::tsn::refinementNumEventSubdivisions, 1));
-    settings.onset._refinement.silenceThresholdDb = static_cast<float>(onsetNode.getProperty(axiom::tsn::refinementSilenceThresholdDb, -50.f));
-    settings.onset._refinement.minSilenceDurationMs = static_cast<float>(onsetNode.getProperty(nvs::axiom::tsn::refinementMinSilenceDurationMs, 400.f));
-    settings.onset._refinement.minEventWithinSilenceDurationMs = static_cast<float>(onsetNode.getProperty(axiom::tsn::refinementMinEventWithinSilenceDurationMs, 600.f));
 
-    settings.onset.alpha = onsetNode.getProperty(axiom::tsn::alpha);
-	settings.onset.numFrames_shortOnsetFilter = onsetNode.getProperty(axiom::tsn::numFrames_shortOnsetFilter);
-	settings.onset.silenceThreshold = onsetNode.getProperty(axiom::tsn::silenceThreshold);
-	settings.onset.weight_complex = onsetNode.getProperty(axiom::tsn::weight_complex);
-	settings.onset.weight_complexPhase = onsetNode.getProperty(axiom::tsn::weight_complexPhase);
-	settings.onset.weight_flux = onsetNode.getProperty(axiom::tsn::weight_flux);
-	settings.onset.weight_hfc = onsetNode.getProperty(axiom::tsn::weight_hfc);
-	settings.onset.weight_rms = onsetNode.getProperty(axiom::tsn::weight_rms);
-    settings.onset.weight_novelty = onsetNode.getProperty(axiom::tsn::weight_novelty, 0.0);
-
-	// Pitch settings
+    // Pitch settings
     {
         auto pitchNode = settingsTree.getChildWithName(axiom::tsn::Pitch);
         if (!pitchNode.isValid()) {
@@ -553,61 +617,59 @@ bool updateSettingsFromValueTree(AnalyzerSettings& settings, const ValueTree& se
     }
 
     // Loudness settings
-    auto loudnessNode = settingsTree.getChildWithName(axiom::tsn::Loudness);
-    if (!loudnessNode.isValid()) {
-        std::cerr << "Loudness node missing\n";
-        jassertfalse;
+    auto loudnessNode = ValueTree{};
+    if (!requireChildTree(settingsTree, axiom::tsn::Loudness, loudnessNode) ||
+        !validateProperties(loudnessNode, {axiom::tsn::equalizeLoudness}))
+    {
         return false;
     }
-    if (!loudnessNode.hasProperty(axiom::tsn::equalizeLoudness)) {
-        std::cerr << "Loudness node missing required properties\n";
-        jassertfalse;
+    if (!loadRequiredProperty(loudnessNode, axiom::tsn::equalizeLoudness, settings.loudness.equalizeLoudness))
+    {
         return false;
     }
-    settings.loudness.equalizeLoudness = loudnessNode.getProperty(axiom::tsn::equalizeLoudness);
 
     // PitchSalience settings
-    auto pitchSalienceNode = settingsTree.getChildWithName(axiom::tsn::PitchSalience);
-    if (!pitchSalienceNode.isValid()) {
-        std::cerr << "PitchSalience node missing\n";
-        jassertfalse;
+    auto pitchSalienceNode = ValueTree{};
+    if (!requireChildTree(settingsTree, axiom::tsn::PitchSalience, pitchSalienceNode) ||
+        !validateProperties(pitchSalienceNode, {axiom::tsn::highBoundary, axiom::tsn::lowBoundary}))
+    {
         return false;
     }
-    if (!pitchSalienceNode.hasProperty(axiom::tsn::highBoundary) || !pitchSalienceNode.hasProperty(axiom::tsn::lowBoundary)) {
-        std::cerr << "PitchSalience node missing required properties\n";
-        jassertfalse;
+    if (!loadRequiredProperties(pitchSalienceNode,
+        prop(axiom::tsn::highBoundary, settings.pitchSalience.highBoundary),
+        prop(axiom::tsn::lowBoundary, settings.pitchSalience.lowBoundary)))
+    {
         return false;
     }
-    settings.pitchSalience.highBoundary = pitchSalienceNode.getProperty(axiom::tsn::highBoundary);
-    settings.pitchSalience.lowBoundary = pitchSalienceNode.getProperty(axiom::tsn::lowBoundary);
 
 	// Split settings
-	auto splitNode = settingsTree.getChildWithName(axiom::tsn::Split);
-	if (!splitNode.isValid()) {
-		std::cerr << "Split node missing\n";
-		jassertfalse;
+	auto splitNode = ValueTree{};
+	if (!requireChildTree(settingsTree, axiom::tsn::Split, splitNode) ||
+	    !validateProperties(splitNode, {axiom::tsn::fadeInSamps, axiom::tsn::fadeOutSamps}))
+	{
 		return false;
 	}
-	if (!splitNode.hasProperty(axiom::tsn::fadeInSamps) || !splitNode.hasProperty(axiom::tsn::fadeOutSamps)) {
-		std::cerr << "Split node missing required properties\n";
-		jassertfalse;
+	if (!loadRequiredProperties(splitNode,
+	    prop(axiom::tsn::fadeInSamps, settings.split.fadeInSamps),
+	    prop(axiom::tsn::fadeOutSamps, settings.split.fadeOutSamps)))
+	{
 		return false;
 	}
-	settings.split.fadeInSamps = splitNode.getProperty(axiom::tsn::fadeInSamps);
-	settings.split.fadeOutSamps = splitNode.getProperty(axiom::tsn::fadeOutSamps);
 
-    auto pacmapNode = settingsTree.getChildWithName(axiom::tsn::PaCMAP);
-    if (!pacmapNode.isValid()) {
-        std::cerr << "Pacmap node missing\n";
-        jassertfalse;
+    auto pacmapNode = ValueTree{};
+    if (!requireChildTree(settingsTree, axiom::tsn::PaCMAP, pacmapNode)) {
         return false;
     }
-    settings.pacmap.num_neighbours = pacmapNode.getProperty(axiom::tsn::num_neighbours);
-    settings.pacmap.MN_ratio = pacmapNode.getProperty(axiom::tsn::MN_ratio);
-    settings.pacmap.FP_ratio = pacmapNode.getProperty(axiom::tsn::FP_ratio);
-    settings.pacmap.learning_rate = pacmapNode.getProperty(axiom::tsn::learning_rate);
-    settings.pacmap.phase_1_iters = pacmapNode.getProperty(axiom::tsn::phase_1_iters);
-    settings.pacmap.phase_2_iters = pacmapNode.getProperty(axiom::tsn::phase_2_iters);
+    if (!loadRequiredProperties(pacmapNode,
+        prop(axiom::tsn::num_neighbours, settings.pacmap.num_neighbours),
+        prop(axiom::tsn::MN_ratio, settings.pacmap.MN_ratio),
+        prop(axiom::tsn::FP_ratio, settings.pacmap.FP_ratio),
+        prop(axiom::tsn::learning_rate, settings.pacmap.learning_rate),
+        prop(axiom::tsn::phase_1_iters, settings.pacmap.phase_1_iters),
+        prop(axiom::tsn::phase_2_iters, settings.pacmap.phase_2_iters)))
+    {
+        return false;
+    }
     settings.pacmap.preprocess_mode =
         [&pacmapNode]() {
             const auto s = pacmapNode.getProperty(axiom::tsn::preprocess_mode).toString();
@@ -619,23 +681,6 @@ bool updateSettingsFromValueTree(AnalyzerSettings& settings, const ValueTree& se
             jassertfalse;
             return dim::PreprocessMode_e::Normalize;
         }();
-
-	// TimbreSpace settings
-    if constexpr (TIMBRE_SPACE_SETTINGS_EXIST) {
-        ValueTree timbreSpaceNode = settingsTree.getChildWithName("TimbreSpace");
-        if (!timbreSpaceNode.isValid()) {
-            std::cerr << "TimbreSpace node missing\n";
-            jassertfalse;
-            return false;
-        }
-        if (!timbreSpaceNode.hasProperty("HistogramEqualization") || !timbreSpaceNode.hasProperty("xAxis") ||
-            !timbreSpaceNode.hasProperty("yAxis")) {
-            std::cerr << "TimbreSpace node missing required properties\n";
-            jassertfalse;
-            return false;
-            }
-    }
-
 	return true;
 }
 
