@@ -19,29 +19,29 @@ namespace nvs::analysis {
 
 // X-macro definition for all features
 #define FEATURE_LIST(X) \
-    X(bfcc0, "bfcc0", axiom::tsn::BFCC, "cepstal", true) \
-    X(bfcc1, "bfcc1", axiom::tsn::BFCC, "cepstal", true) \
-    X(bfcc2, "bfcc2", axiom::tsn::BFCC, "cepstal", true) \
-    X(bfcc3, "bfcc3", axiom::tsn::BFCC, "cepstal", true) \
-    X(bfcc4, "bfcc4", axiom::tsn::BFCC, "cepstal", true) \
-    X(bfcc5, "bfcc5", axiom::tsn::BFCC, "cepstal", true) \
-    X(bfcc6, "bfcc6", axiom::tsn::BFCC, "cepstal", true) \
-    X(bfcc7, "bfcc7", axiom::tsn::BFCC, "cepstal", true) \
-    X(bfcc8, "bfcc8", axiom::tsn::BFCC, "cepstal", true) \
-    X(bfcc9, "bfcc9", axiom::tsn::BFCC, "cepstal", true) \
-    X(bfcc10, "bfcc10", axiom::tsn::BFCC, "cepstal", true) \
-    X(bfcc11, "bfcc11", axiom::tsn::BFCC, "cepstal", true) \
-    X(bfcc12, "bfcc12", axiom::tsn::BFCC, "cepstal", true) \
-    X(SpectralCentroid, axiom::tsn::SpectralCentroid, "spectral", "barks", true) \
-    X(SpectralDecrease, axiom::tsn::SpectralDecrease, "spectral", "", true) \
-    X(SpectralFlatness, axiom::tsn::SpectralFlatness, "spectral", "", true) \
-    X(SpectralCrest, axiom::tsn::SpectralCrest, "spectral", "", true) \
-    X(SpectralComplexity, axiom::tsn::SpectralComplexity, "spectral", "", true) \
-    X(StrongPeak, axiom::tsn::StrongPeak, "spectral", "", true) \
-    X(PitchSalience, axiom::tsn::PitchSalience, "spectral", "", true) \
-    X(Periodicity, axiom::tsn::Periodicity, "pitch", "", false) \
-    X(Loudness, axiom::tsn::Loudness, "loudness", "", false) \
-    X(f0, axiom::tsn::f0, "pitch", "Hz", false)
+    X(bfcc0, axiom::tsn::BFCC0, axiom::tsn::BFCC, "", true) \
+    X(bfcc1, axiom::tsn::BFCC1, axiom::tsn::BFCC, "", true) \
+    X(bfcc2, axiom::tsn::BFCC2, axiom::tsn::BFCC, "", true) \
+    X(bfcc3, axiom::tsn::BFCC3, axiom::tsn::BFCC, "", true) \
+    X(bfcc4, axiom::tsn::BFCC4, axiom::tsn::BFCC, "", true) \
+    X(bfcc5, axiom::tsn::BFCC5, axiom::tsn::BFCC, "", true) \
+    X(bfcc6, axiom::tsn::BFCC6, axiom::tsn::BFCC, "", true) \
+    X(bfcc7, axiom::tsn::BFCC7, axiom::tsn::BFCC, "", true) \
+    X(bfcc8, axiom::tsn::BFCC8, axiom::tsn::BFCC, "", true) \
+    X(bfcc9, axiom::tsn::BFCC9, axiom::tsn::BFCC, "", true) \
+    X(bfcc10, axiom::tsn::BFCC10, axiom::tsn::BFCC, "", true) \
+    X(bfcc11, axiom::tsn::BFCC11, axiom::tsn::BFCC, "", true) \
+    X(bfcc12, axiom::tsn::BFCC12, axiom::tsn::BFCC, "", true) \
+    X(SpectralCentroid,     axiom::tsn::SpectralCentroid,   axiom::tsn::spectral, "barks", true) \
+    X(SpectralDecrease,     axiom::tsn::SpectralDecrease,   axiom::tsn::spectral, "", true) \
+    X(SpectralFlatness,     axiom::tsn::SpectralFlatness,   axiom::tsn::spectral, "", true) \
+    X(SpectralCrest,        axiom::tsn::SpectralCrest,      axiom::tsn::spectral, "", true) \
+    X(SpectralComplexity,   axiom::tsn::SpectralComplexity, axiom::tsn::spectral, "", true) \
+    X(StrongPeak,           axiom::tsn::StrongPeak,         axiom::tsn::spectral, "", true) \
+    X(PitchSalience,        axiom::tsn::PitchSalience,      axiom::tsn::spectral, "", true) \
+    X(Periodicity,          axiom::tsn::Periodicity,        axiom::tsn::pitch, "", false) \
+    X(Loudness,             axiom::tsn::Loudness,           axiom::tsn::loudness, "", false) \
+    X(f0,                   axiom::tsn::f0,                 axiom::tsn::pitch, "Hz", false)
 
 // auto-generate enum
 enum class Feature_e {
@@ -76,7 +76,7 @@ static constexpr auto NumTimbralFeatures = []() {
 }();
 static_assert(NumTimbralFeatures == 20);
 
-// Utility functions
+// utility functions
 constexpr const char* getFeatureName(Feature_e f) {
     return FeatureRegistry[static_cast<size_t>(f)].name;
 }
@@ -89,9 +89,11 @@ constexpr bool isFeatureTimbral(Feature_e f) {
     return FeatureRegistry[static_cast<size_t>(f)].isTimbral;
 }
 
-constexpr bool isBFCC(Feature_e f) {
+constexpr bool isBFCC(const Feature_e f) {
     return getFeatureCategory(f) == axiom::tsn::BFCC;
 }
+
+
 
 // legacy compatibility
 const std::set bfccSet {

@@ -7,10 +7,7 @@
 
 #include "Statistics.h"
 #include "FeatureOperations.h"
-#include "StringAxiom.h"
-#include "TimbreAnalysis/TimbreAnalysisResult.h"
 #include "AnalysisUsing.h"
-#include "juce_utils.h"
 
 namespace nvs::analysis {
 

@@ -6,7 +6,6 @@
 
 #include "Analyzer.h"
 #include "version.h"
-#include "juce_utils.h"
 
 namespace nvs::analysis {
 
