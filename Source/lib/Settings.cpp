@@ -108,7 +108,7 @@ static NormalisableRangeDouble makePowerOfTwoRange (double minValue, double maxV
 /// TODO: add metadata subtree within settings, including author, creation date, and description
 
 const int maxThreads = juce::SystemStats::getNumCpus();
-const int defaultThreads = std::min(maxThreads - 2, 1);
+const int defaultThreads = std::max(maxThreads - 2, 1);
 const std::map<juce::String, AnySpec> analysisSpecs
 {
 	{ axiom::tsn::frameSize,     RangedSettingsSpec<int>{   makePowerOfTwoRange(64, 8192), 1024 } }, // NOLINT(readability-redundant-template-arguments)
