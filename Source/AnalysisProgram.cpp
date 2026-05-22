@@ -8,7 +8,7 @@
 
 using namespace juce;
 
-AudioFileInfo readIntoBuffer(AudioSampleBuffer &buff, const juce::File &file)
+static AudioFileInfo readIntoBuffer(AudioSampleBuffer &buff, const juce::File &file)
 {
     AudioFormatManager formatManager;
     formatManager.registerBasicFormats();
@@ -36,7 +36,7 @@ AudioFileInfo readIntoBuffer(AudioSampleBuffer &buff, const juce::File &file)
     };
 }
 
-ValueTree makeSettingsParentTree(double sampleRate, const String &filePath)
+static ValueTree makeSettingsParentTree(double sampleRate, const String &filePath)
 {
     nvs::analysis::AnalyzerSettings settings;
     settings.analysis.sampleRate = sampleRate;
@@ -46,7 +46,7 @@ ValueTree makeSettingsParentTree(double sampleRate, const String &filePath)
     const auto settingsParentTree = nvs::analysis::createParentTreeFromSettings(settings);
     return settingsParentTree;
 }
-ValueTree makeSettingsParentTree(const ValueTree settingsTree, double sampleRate, const String &filePath)
+static ValueTree makeSettingsParentTree(const ValueTree settingsTree, const double sampleRate, const String &filePath)
 {
     ValueTree settingsParentTree("Root");
 
@@ -58,7 +58,7 @@ ValueTree makeSettingsParentTree(const ValueTree settingsTree, double sampleRate
     settingsParentTree.addChild(settingsTree, -1, nullptr);
     return settingsParentTree;
 }
-AnalyzerResult runAnalyzer(const std::span<const float> &channel, const String &audioFileFullAbsolutePath, auto &settingsTree)
+static AnalyzerResult runAnalyzer(const std::span<const float> &channel, const String &audioFileFullAbsolutePath, auto &settingsTree)
 {
     nvs::analysis::ThreadedAnalyzer analyzer;
     analyzer.updateStoredAudioAndSettings(channel, audioFileFullAbsolutePath, settingsTree, true);

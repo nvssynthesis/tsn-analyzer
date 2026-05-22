@@ -21,7 +21,4 @@ struct AnalyzerResult {
     String settingsHash;
 };
 
-AudioFileInfo readIntoBuffer(AudioSampleBuffer &buff, const File &file);
-ValueTree makeSettingsParentTree(double sampleRate, const String &filePath);
-AnalyzerResult runAnalyzer(const std::span<const float> &channel, const String &audioFileFullAbsolutePath, auto &settingsTree);
 void mainAnalysisProgram(const ArgumentList &args);
