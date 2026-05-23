@@ -186,12 +186,21 @@ struct SettingsGroup {
     
     void resetToDefaults() {
         auto reset = [](auto& setting) {
-            setting.value = std::decay_t<decltype(setting)>::defaultValue;
+            using SettingType = std::decay_t<decltype(setting)>;
+            using ValueType = typename SettingType::value_type;
+
+            if constexpr (std::is_same_v<ValueType, juce::String>) {
+                // juce::String will need conversion from string_view
+                setting.value = juce::String(SettingType::defaultValue.data());
+            } else {
+                setting.value = SettingType::defaultValue;
+            }
         };
         std::apply([&reset](auto&... _settings) {
             (reset(_settings), ...);
         }, settings);
     }
+
 };
 
 // settings registry - manages all settings groups

@@ -28,39 +28,48 @@ TEST_CASE("Setting default value", "[RangedSetting]")
     REQUIRE(s.maxValue == 1.0f);
 }
 
-TEST_CASE("To and from ValueTree", "[SettingsGroup]")
+TEST_CASE("SettingsGroup", "[SettingsGroup]")
 {
     using namespace analysis::modern;
     using ValueTree = juce::ValueTree;
     constexpr bool printout = false;
-
+//========================================================
     using Group = SettingsGroup<"Group",
         RangedSetting<double, 0.1, "s1", -1.0, 2.0>,
         BoolSetting<true, "s2">,
         ChoiceSetting<"a", "s3", "a", "b", "c">
     >;
 
-    const Group group;
-    ValueTree vt("vt");
-    group.toValueTree(vt);
+    SECTION("toFromValueTree") {
+        const Group group;
+        ValueTree vt("vt");
+        group.toValueTree(vt);
 
-    Group group2;
-    group2.fromValueTree(vt);
+        Group group2;
+        group2.fromValueTree(vt);
 
-    ValueTree vt2("vt");
-    group2.toValueTree(vt2);
+        ValueTree vt2("vt");
+        group2.toValueTree(vt2);
 
-    if constexpr (printout) {
-        const auto str = util::valueTreeToXmlStringSafe(vt);
-        const auto str2 = util::valueTreeToXmlStringSafe(vt2);
-        std::cout << str << "\n" << str2 << "\n";
+        if constexpr (printout) {
+            const auto str = util::valueTreeToXmlStringSafe(vt);
+            const auto str2 = util::valueTreeToXmlStringSafe(vt2);
+            std::cout << str << "\n" << str2 << "\n";
+        }
+
+        REQUIRE(vt.isEquivalentTo(vt2));
     }
-
-    REQUIRE(vt.isEquivalentTo(vt2));
+    SECTION("resetDefaults") {
+        Group group;
+        REQUIRE(group.get<0>().value == group.get<0>().defaultValue);
+        auto &s1 = group.get<0>();
+        const auto s1NewValue = s1.value + 0.5;
+        s1.value = s1NewValue;
+        REQUIRE(s1.value != s1.defaultValue);
+        group.resetToDefaults();
+        REQUIRE(s1.value == s1.defaultValue);
+    }
 }
 
-TEST_CASE("", "") {
-
-}
 
 }   // namespace nvs::test
