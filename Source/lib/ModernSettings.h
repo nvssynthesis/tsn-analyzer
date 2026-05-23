@@ -43,7 +43,12 @@ struct BoolSettingsSpec
     juce::String tooltip = {};
 };
 
-using AnySpec = std::variant<RangedSettingsSpec<int>, RangedSettingsSpec<double>, ChoiceSettingsSpec, BoolSettingsSpec>;
+using AnySpec = std::variant<
+    RangedSettingsSpec<int>,
+    RangedSettingsSpec<double>,
+    ChoiceSettingsSpec,
+    BoolSettingsSpec
+>;
 
 // concepts
 template<typename T>

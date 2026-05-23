@@ -69,6 +69,22 @@ TEST_CASE("SettingsGroup", "[SettingsGroup]")
         group.resetToDefaults();
         REQUIRE(s1.value == s1.defaultValue);
     }
+    SECTION("public members") {
+        Group group;
+        REQUIRE(std::string(group.groupName) == "Group");
+        REQUIRE(group.numSettings == 3);
+    }
+    SECTION("getSpecs") {
+        Group group;
+        const std::map<juce::String, AnySpec>& specs = group.getSpecs();
+        REQUIRE(specs.size() == 3);
+        REQUIRE(specs.find("s1") != specs.end());
+        REQUIRE(specs.find("s2") != specs.end());
+        REQUIRE(specs.find("s3") != specs.end());
+        REQUIRE(specs.find("s1")->first == "s1");
+        AnySpec spec1 = specs.find("s1")->second;
+        REQUIRE(std::holds_alternative<RangedSettingsSpec<double>>(spec1));
+    }
 }
 
 
