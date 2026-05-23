@@ -4,3 +4,4 @@ project(tsn-analyzer-root VERSION 0.1.0)
 
 add_subdirectory(juce_utils)
 add_subdirectory(Source)
+add_subdirectory(Tests)

@@ -6,7 +6,7 @@
 
 namespace nvs::axiom::tsn {
 #ifndef STRAXIOMIZE
-#define STRAXIOMIZE(x) inline constexpr const char* x {#x}
+#define STRAXIOMIZE(x) inline constexpr char x[] {#x}
 #endif
 
 STRAXIOMIZE(Metadata);
@@ -68,6 +68,14 @@ STRAXIOMIZE(StrongPeak);
 STRAXIOMIZE(PitchSalience);
 STRAXIOMIZE(highBoundary);
 STRAXIOMIZE(lowBoundary);
+
+//
+STRAXIOMIZE(magnitudeThreshold);
+STRAXIOMIZE(SpectralPeak);
+STRAXIOMIZE(magnitudeThreshold_dB);
+STRAXIOMIZE(maxPeaks);
+
+//
 
 STRAXIOMIZE(highFrequencyBound);
 STRAXIOMIZE(liftering);

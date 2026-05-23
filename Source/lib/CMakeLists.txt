@@ -247,7 +247,6 @@ target_link_libraries(tsn_analyzer
         fmt::fmt
         PRIVATE
         essentia_built
-#        Eigen3::Eigen
 )
 
 target_compile_features(tsn_analyzer PUBLIC cxx_std_20)
