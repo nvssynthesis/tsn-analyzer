@@ -12,39 +12,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
 
-# JUCE setup options
-set(JUCE_DIR "" CACHE PATH "Path to JUCE framework (leave empty to fetch)")
-option(JUCE_FETCH_IF_MISSING "Automatically fetch JUCE if JUCE_DIR is not set" ON)
-set(JUCE_VERSION "8.0.10" CACHE STRING "JUCE version to fetch if JUCE_FETCH_IF_MISSING is ON")
-
-# ============================================================================
-# JUCE Setup
-# ============================================================================
-if(JUCE_DIR)
-    message(STATUS "Using user-specified JUCE from: ${JUCE_DIR}")
-    add_subdirectory(${JUCE_DIR} juce_build)
-elseif(JUCE_FETCH_IF_MISSING)
-    message(STATUS "Fetching JUCE ${JUCE_VERSION}...")
-    FetchContent_Declare(
-            JUCE
-            GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
-            GIT_TAG ${JUCE_VERSION}
-            GIT_SHALLOW TRUE
-            GIT_PROGRESS TRUE
-    )
-    FetchContent_MakeAvailable(JUCE)
-else()
-    message(FATAL_ERROR
-            "JUCE not found!\n"
-            "Please either:\n"
-            "  1. Set JUCE_DIR to your JUCE installation path, or\n"
-            "  2. Enable JUCE_FETCH_IF_MISSING to auto-download JUCE"
-    )
-endif()
-
-# ============================================================================
-# Add the analysis library subdirectory
-# ============================================================================
 add_subdirectory(lib)
 
 # ============================================================================
@@ -56,8 +23,6 @@ juce_add_console_app(tsn_analyze
 )
 
 juce_generate_juce_header(tsn_analyze)
-
-#target_sources(AnalysisProgram
 
 target_sources(tsn_analyze
         PRIVATE
@@ -76,6 +41,7 @@ target_include_directories(tsn_analyze
 target_link_libraries(tsn_analyze
         PRIVATE
         tsn::analyzer   # :: syntax tells cmake this MUST be a target rather than a system or library name. good practice to use when linking to my own libs.
+        juce_utils
         juce::juce_core
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags

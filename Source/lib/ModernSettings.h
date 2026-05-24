@@ -169,7 +169,10 @@ struct SettingsGroup {
     // auto-generate ValueTree deserialization
     void fromValueTree(const juce::ValueTree& parent) {
         auto child = parent.getChildWithName(juce::String(groupName.data()));
-        if (!child.isValid()) return;
+        if (!child.isValid()) {
+            DBG("fromValueTree: child invalid; returning...");
+            return;
+        }
         
         auto deserialize = [&child](auto& setting) {
             using SettingType = std::decay_t<decltype(setting)>;
