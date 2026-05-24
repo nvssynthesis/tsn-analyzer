@@ -12,7 +12,7 @@
 #include "essentia/types.h"
 #include <juce_data_structures/juce_data_structures.h>
 
-#include "DimensionalityReduction/pca.h"
+#include "../DimensionalityReduction/pca.h"
 
 namespace nvs::analysis {
 

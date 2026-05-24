@@ -3,7 +3,7 @@
 #include "lib/OnsetAnalysis/OnsetProcessing.h"
 #include "juce_utils.h"
 #include "ProgramUtils.h"
-#include "SettingsPresets.h"
+#include "lib/Settings/SettingsPresets.h"
 #include "./lib/config.h"
 
 using namespace juce;

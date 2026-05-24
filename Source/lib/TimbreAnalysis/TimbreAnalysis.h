@@ -11,7 +11,7 @@
 #pragma once
 
 #include "AnalysisUsing.h"
-#include "../Settings.h"
+#include "../Settings/Settings.h"
 #include "../Features.h"
 #include <span>
 

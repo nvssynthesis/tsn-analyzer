@@ -88,7 +88,9 @@ struct BoolSetting {
 };
 
 // specialized settings with additional metadata
-template<NumericSettingType T, NumericParam DefaultValue, StringLiteral Name, NumericParam Min, NumericParam Max>
+template<NumericSettingType T, NumericParam DefaultValue, StringLiteral Name,
+    NumericParam Min, NumericParam Max,
+    StringLiteral Tooltip="", StringLiteral Unit="">
 struct RangedSetting {
     using value_type = T;
     T value = static_cast<T>(DefaultValue.value);
@@ -96,6 +98,8 @@ struct RangedSetting {
     static constexpr T defaultValue = static_cast<T>(DefaultValue.value);
     static constexpr T minValue = static_cast<T>(Min.value);
     static constexpr T maxValue = static_cast<T>(Max.value);
+    static constexpr std::string_view tooltip = Tooltip.view();
+    static constexpr std::string_view unit = Unit.view();
 
     static auto createSpec() {
         juce::NormalisableRange<double> range{Min.value, Max.value};

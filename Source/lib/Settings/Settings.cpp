@@ -9,8 +9,8 @@
 */
 
 #include "Settings.h"
-#include "Analyzer.h"
-#include "StringAxiom.h"
+#include "../Analyzer.h"
+#include "../StringAxiom.h"
 
 namespace nvs::analysis {
 

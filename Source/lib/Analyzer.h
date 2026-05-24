@@ -18,7 +18,7 @@
 #include "AnalysisUsing.h"
 #include "Features.h"
 #include "Statistics.h"
-#include "Settings.h"
+#include "Settings/Settings.h"
 
 
 namespace nvs::analysis {

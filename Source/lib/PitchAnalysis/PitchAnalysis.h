@@ -4,7 +4,7 @@
 
 #pragma once
 #include "AnalysisUsing.h"
-#include "../Settings.h"
+#include "../Settings/Settings.h"
 #include <span>
 
 namespace nvs::analysis {

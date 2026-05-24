@@ -2,7 +2,7 @@
 // Created by Nicholas Solem on 5/22/26.
 //
 
-#include "ModernSettings.h"
+#include "../Source/lib/Settings/ModernSettings.h"
 #include <catch2/catch_all.hpp>
 
 #include "juce_utils.h"

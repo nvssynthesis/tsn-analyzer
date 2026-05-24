@@ -4,7 +4,7 @@
 #include <span>
 #include "lib/ThreadedAnalyzer.h"
 #include "lib/TSNValueTreeUtilities.h"
-#include "lib/Settings.h"
+#include "lib/Settings/Settings.h"
 
 using namespace juce;
 

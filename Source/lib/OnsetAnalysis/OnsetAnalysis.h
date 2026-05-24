@@ -10,7 +10,7 @@
 
 #pragma once
 #include "AnalysisUsing.h"
-#include "Settings.h"
+#include "../Settings/Settings.h"
 #include "../RunLoopStatus.h"
 
 #include "essentia/utils/tnt/tnt2vector.h"
