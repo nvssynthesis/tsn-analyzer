@@ -2,9 +2,10 @@
 // Created by Nicholas Solem on 5/22/26.
 //
 
-#include "../Source/lib/Settings/ModernSettings.h"
 #include <catch2/catch_all.hpp>
+#include <catch2/catch_approx.hpp>
 
+#include "../Source/lib/Settings/ModernSettings.h"
 #include "juce_utils.h"
 #include "../cmake-build-release/_deps/fmt-src/include/fmt/format.h"
 
@@ -12,14 +13,16 @@ namespace nvs::test {
 
 TEST_CASE("Setting default value", "[RangedSetting]")
 {
+    using namespace analysis::modern;
+
     constexpr char name[] = "myFloat";
-    analysis::modern::RangedSetting<double, 0.5, name, -1.0, 2.0> s;
+    analysis::modern::RangedSetting<SInfo<name>, double, 0.5, -1.0, 2.0> s;
 
     // constexpr char *wontCompileName1 = "wontCompile";
-    // analysis::modern::RangedSetting<double, 0.5, wontCompileName1, -1.0, 2.0> wontCompile1;
+    // analysis::modern::RangedSetting<SInfo<wontCompileName1>, double, 0.5, -1.0, 2.0> wontCompile1;
 
     // constexpr std::string_view wontCompileName2 {"wontCompile"};
-    // analysis::modern::RangedSetting<double, 0.5, wontCompileName2, -1.0, 2.0> wontCompile2;
+    // analysis::modern::RangedSetting<SInfo<wontCompileName2>, double, 0.5, -1.0, 2.0> wontCompile2;
 
     REQUIRE(s.value == 0.5f);
     REQUIRE(s.defaultValue == 0.5f);
@@ -35,9 +38,9 @@ TEST_CASE("SettingsGroup", "[SettingsGroup]")
     constexpr bool printout = false;
 //========================================================
     using Group = SettingsGroup<"Group",
-        RangedSetting<double, 0.1, "s1", -1.0, 2.0>,
-        BoolSetting<true, "s2">,
-        ChoiceSetting<"a", "s3", "a", "b", "c">
+        RangedSetting<SInfo<"s1", "">, double, 0.1, -1.0, 2.0>, // explicit about blank default
+        BoolSetting<SInfo<"s2">, true>, // default tooltip==""
+        ChoiceSetting<SInfo<"s3", "tooltip">, "a", "a", "b", "c">
     >;
 
     SECTION("toFromValueTree") {
@@ -59,15 +62,46 @@ TEST_CASE("SettingsGroup", "[SettingsGroup]")
 
         REQUIRE(vt.isEquivalentTo(vt2));
     }
+    SECTION("get/set values") {
+        Group group;
+        REQUIRE(group.getValue("") == std::nullopt);
+        REQUIRE(std::get<double>(group.getValue("s1").value()) == Catch::Approx(0.1));
+        REQUIRE(std::get<bool>(group.getValue("s2").value()) == true);
+        REQUIRE(std::get<juce::String>(group.getValue("s3").value()) == "a");
+
+        group.setValue("s1", 0.2);
+        REQUIRE(std::get<double>(group.getValue("s1").value()) == Catch::Approx(0.2));
+        group.setValue("s2", false);
+        REQUIRE(std::get<bool>(group.getValue("s2").value()) == false);
+        group.setValue("s3", "b");
+        REQUIRE(std::get<juce::String>(group.getValue("s3").value()) == "b");
+
+        REQUIRE(group.getFloatValue("s2") == std::nullopt);
+        const auto v = group.getFloatValue("s1").value();
+        REQUIRE(v == Catch::Approx(0.2));
+        REQUIRE(group.getStringValue("s1") == std::nullopt);
+        REQUIRE(group.getStringValue("s3").value() == "b");
+
+        REQUIRE(group.setFloatValue("s2", 100.0) == false);
+        REQUIRE(group.setFloatValue("s1", 0.3) == true);
+        REQUIRE(group.getFloatValue("s1").value() == Catch::Approx(0.3));
+        REQUIRE(group.setBoolValue("", true) == false);
+        REQUIRE(group.setBoolValue("s2", true) == true);
+        REQUIRE(group.setStringValue("s1", "nope") == false);
+
+#pragma message("Advanced: could require the following to actually fail, since \"yes\" is not one of the choices")
+        REQUIRE(group.setStringValue("s3", "yes") == true);
+        REQUIRE(group.getStringValue("s3").value() == "yes");
+    }
     SECTION("resetDefaults") {
         Group group;
-        REQUIRE(group.get<0>().value == group.get<0>().defaultValue);
-        auto &s1 = group.get<0>();
-        const auto s1NewValue = s1.value + 0.5;
-        s1.value = s1NewValue;
-        REQUIRE(s1.value != s1.defaultValue);
+        const auto spec = group.getFloatSpec("s1");
+        const auto defaultVal = spec.value().defaultValue;
+        REQUIRE(group.getFloatValue("s1") == defaultVal);
+        group.setFloatValue("s1", 10.5);
+        REQUIRE(group.getFloatValue("s1") != defaultVal);
         group.resetToDefaults();
-        REQUIRE(s1.value == s1.defaultValue);
+        REQUIRE(group.getFloatValue("s1") == defaultVal);
     }
     SECTION("public members") {
         Group group;
@@ -85,7 +119,21 @@ TEST_CASE("SettingsGroup", "[SettingsGroup]")
         AnySpec spec1 = specs.find("s1")->second;
         REQUIRE(std::holds_alternative<RangedSettingsSpec<double>>(spec1));
     }
-}
+    SECTION("get spec") {
+        Group group;
+        auto fSpec = group.getSpec<RangedSettingsSpec<double>>("");
+        REQUIRE(fSpec.has_value() == false);
+        fSpec = group.getSpec<RangedSettingsSpec<double>>("s1");
+        REQUIRE(fSpec.has_value());
+        REQUIRE(fSpec.value().range.start == -1.0);
+        REQUIRE(fSpec.value().range.end == 2.0);
 
+        auto bSpec = group.getBoolSpec("");
+        REQUIRE(bSpec.has_value() == false);
+        bSpec = group.getBoolSpec("s2");
+        REQUIRE(bSpec.has_value());
+        REQUIRE(bSpec.value().defaultValue == true);
+    }
+}
 
 }   // namespace nvs::test
