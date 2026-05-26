@@ -22,6 +22,8 @@
 namespace nvs::analysis::modern {
 
 using NormalisableRangeDouble = juce::NormalisableRange<double>;
+using String = juce::String;
+using ValueTree = juce::ValueTree;
 
 // forward declarations for specs (to maintain compatibility with existing system)
 template<typename T>
@@ -29,20 +31,20 @@ struct RangedSettingsSpec
 {
     NormalisableRangeDouble range;
     T defaultValue;
-    juce::String tooltip = {};           // Optional tooltip
-    juce::String unit = {};              // e.g., "Hz", "dB", "ms"
-    int numDecimalPlaces = 2;            // Default precision (unused if T is integral)
+    String tooltip = {};           // Optional tooltip
+    String unit = {};              // e.g., "Hz", "dB", "ms"
+    int numDecimalPlaces = 2;      // Default precision (unused if T is integral)
 };
 struct ChoiceSettingsSpec
 {
-    std::vector<juce::String> options;
-    juce::String defaultValue;
-    juce::String tooltip = {};
+    std::vector<String> options;
+    String defaultValue;
+    String tooltip = {};
 };
 struct BoolSettingsSpec
 {
     bool defaultValue;
-    juce::String tooltip = {};
+    String tooltip = {};
 };
 
 using AnySpec = std::variant<
@@ -54,7 +56,7 @@ using AnySpec = std::variant<
 
 // concepts
 template<typename T>
-concept SettingType = std::is_arithmetic_v<T> || std::is_same_v<T, juce::String> || std::is_enum_v<T>;
+concept SettingType = std::is_arithmetic_v<T> || std::is_same_v<T, String> || std::is_enum_v<T>;
 
 template<typename T>
 concept NumericSettingType = std::is_arithmetic_v<T> && !std::is_same_v<T, bool>;
@@ -129,19 +131,19 @@ struct RangedSetting {
     }
 };
 
-template<typename /*SInfo*/ Info, StringLiteral DefaultValue, StringLiteral... Choices>
+template<typename /*SInfo*/Info, StringLiteral DefaultValue, StringLiteral... Choices>
 struct ChoiceSetting {
     static_assert(sizeof...(Choices) >= 1, "ChoiceSetting must have at least one choice");
 
-    using value_type = juce::String;
-    juce::String value { DefaultValue.view().data() };
+    using value_type = String;
+    String value { DefaultValue.view().data() };
     static constexpr std::string_view name = Info::name;
     static constexpr std::string_view tooltip = Info::tooltip;
     static constexpr std::string_view defaultValue = DefaultValue.view();
 
     static auto createSpec() {
-        return ChoiceSettingsSpec{{ juce::String(Choices.view().data())... },
-                                    juce::String(DefaultValue.view().data()),
+        return ChoiceSettingsSpec{{ String(Choices.view().data())... },
+                                    String(DefaultValue.view().data()),
                                     Info::tooltip.data()};
     }
 };
@@ -154,12 +156,12 @@ struct SettingsGroup {
     static constexpr size_t numSettings = sizeof...(Settings);
     
     // auto-generate specs map
-    static const std::map<juce::String, AnySpec>& getSpecs() {
+    static const std::map<String, AnySpec>& getSpecs() {
         static const auto specs = []() {
-            std::map<juce::String, AnySpec> map;
+            std::map<String, AnySpec> map;
             auto addSpec = [&map]<typename S>(S*) {
                 const AnySpec spec = S::createSpec();
-                map[juce::String(S::name.data())] = spec;
+                map[String(S::name.data())] = spec;
             };
             (addSpec(static_cast<Settings*>(nullptr)), ...);
             return map;
@@ -197,7 +199,7 @@ public:
     auto getIntSpec(const std::string_view name)    { return getSpec<RangedSettingsSpec<int>>(name); }
     auto getStringSpec(const std::string_view name) { return getSpec<ChoiceSettingsSpec>(name); }
 
-    using Value = std::variant<int, double, bool, juce::String>;
+    using Value = std::variant<int, double, bool, String>;
     std::optional<Value> getValue(const std::string_view name) {
         const auto valueExtractor = [](const auto& s) {
             return s.value;
@@ -218,7 +220,7 @@ private:
     }
 public:
     std::optional<double> getFloatValue(const std::string_view name) { return getTypedValue<double>(name); }
-    std::optional<juce::String> getStringValue(const std::string_view name) { return getTypedValue<juce::String>(name); }
+    std::optional<String> getStringValue(const std::string_view name) { return getTypedValue<String>(name); }
     std::optional<bool> getBoolValue(const std::string_view name) { return getTypedValue<bool>(name); }
 
     bool setValue(const std::string_view name, const Value& newVal) {
@@ -240,12 +242,12 @@ public:
     }
     bool setBoolValue(const std::string_view name, const bool newVal) { return setValue(name, newVal); }
     bool setFloatValue(const std::string_view name, const double newVal) { return setValue(name, newVal); }
-    bool setStringValue(const std::string_view name, const juce::String& newVal) { return setValue(name, newVal); }
+    bool setStringValue(const std::string_view name, const String& newVal) { return setValue(name, newVal); }
 
     // auto-generate ValueTree serialization
-    void toValueTree(juce::ValueTree& parent) const {
+    void toValueTree(ValueTree& parent) const {
         jassert(parent.isValid());
-        auto child = parent.getOrCreateChildWithName(juce::String(groupName.data()), nullptr);
+        auto child = parent.getOrCreateChildWithName(String(groupName.data()), nullptr);
         auto serialize = [&child]<typename T0>(const T0& setting) {
             using SettingType = std::decay_t<T0>;
             juce::var value;
@@ -257,7 +259,7 @@ public:
                 value = setting.value;
             }
             const auto name = SettingType::name.data();
-            child.setProperty(juce::String(name), value, nullptr);
+            child.setProperty(String(name), value, nullptr);
         };
         std::apply([&serialize](const auto&... _settings) {
             (serialize(_settings), ...);
@@ -265,8 +267,8 @@ public:
     }
     
     // auto-generate ValueTree deserialization
-    void fromValueTree(const juce::ValueTree& parent) {
-        auto child = parent.getChildWithName(juce::String(groupName.data()));
+    void fromValueTree(const ValueTree& parent) {
+        auto child = parent.getChildWithName(String(groupName.data()));
         if (!child.isValid()) {
             DBG("fromValueTree: child invalid; returning...");
             return;
@@ -274,8 +276,9 @@ public:
         
         auto deserialize = [&child](auto& setting) {
             using SettingType = std::decay_t<decltype(setting)>;
-            const auto propertyName = juce::String(SettingType::name.data());
-            if (child.hasProperty(propertyName)) {
+            if (const auto propertyName = String(SettingType::name.data());
+                child.hasProperty(propertyName))
+            {
                 if constexpr (std::is_enum_v<typename SettingType::value_type>) {
                     setting.value = static_cast<typename SettingType::value_type>(
                         static_cast<int>(child.getProperty(propertyName)));
@@ -295,9 +298,9 @@ public:
             using SettingType = std::decay_t<decltype(setting)>;
             using ValueType = typename SettingType::value_type;
 
-            if constexpr (std::is_same_v<ValueType, juce::String>) {
-                // juce::String will need conversion from string_view
-                setting.value = juce::String(SettingType::defaultValue.data());
+            if constexpr (std::is_same_v<ValueType, String>) {
+                // String will need conversion from string_view
+                setting.value = String(SettingType::defaultValue.data());
             } else {
                 setting.value = SettingType::defaultValue;
             }
@@ -323,11 +326,11 @@ struct SettingsRegistry {
     const auto& get() const { return std::get<I>(groups); }
     
     // auto-generate specsByBranch
-    static const std::map<juce::String, const std::map<juce::String,AnySpec>*>& getSpecsByBranch() {
+    static const std::map<String, const std::map<String, AnySpec>*>& getSpecsByBranch() {
         static const auto registry = []() {
-            std::map<juce::String, const std::map<juce::String,AnySpec>*> map;
+            std::map<String, const std::map<String, AnySpec>*> map;
             auto addGroup = []<typename G>(G*, auto& _map) {
-                _map[juce::String(G::groupName.data())] = &G::getSpecs();
+                _map[String(G::groupName.data())] = &G::getSpecs();
             };
             (addGroup(static_cast<Groups*>(nullptr), map), ...);
             return map;
@@ -336,8 +339,8 @@ struct SettingsRegistry {
     }
     
     // auto-generate createParentTreeFromSettings
-    juce::ValueTree createValueTree() const {
-        juce::ValueTree parent("Settings");
+    ValueTree createValueTree() const {
+        ValueTree parent("Settings");
         std::apply([&parent](const auto&... _groups) {
             (_groups.toValueTree(parent), ...);
         }, groups);
@@ -345,7 +348,7 @@ struct SettingsRegistry {
     }
     
     // auto-generate updateSettingsFromValueTree
-    void fromValueTree(const juce::ValueTree& tree) {
+    void fromValueTree(const ValueTree& tree) {
         std::apply([&tree](auto&... _groups) {
             (_groups.fromValueTree(tree), ...);
         }, groups);
