@@ -13,17 +13,14 @@
 
 namespace nvs::analysis {
 
-vecReal calculateLoudnesses(const std::span<Real const> waveSpan, AnalyzerSettings const& settings)
+vecReal calculateLoudnesses(const vecReal &waveform, const modern::AnalyzerSettingsRegistry &settings, const double sampleRate)
 {
-    auto const filteredWave = [&settings](std::span<Real const> _waveSpan) -> vecReal
+    namespace ax = axiom::tsn;
+    auto const filteredWave = [&settings, &waveform, originalSampleRate = sampleRate]() -> vecReal
     {
-        const vecReal wave(_waveSpan.begin(), _waveSpan.end());
-        if (!settings.loudness.equalizeLoudness) {
-            return wave;
+        if (!settings.getBool(ax::Loudness, ax::equalizeLoudness)) {
+            return waveform;
         }
-
-        [[maybe_unused]] const float originalSampleRate = settings.analysis.sampleRate;
-
         try {
             constexpr int rs_quality = 2;/* quality: SRC_SINC_FASTEST
                                  from enum {
@@ -35,15 +32,15 @@ vecReal calculateLoudnesses(const std::span<Real const> waveSpan, AnalyzerSettin
                                        } ;
                                  */
             constexpr std::array permittedRates { 8000.f, 16000.f, 32000.f, 44100.f, 48000.f };
-            auto resample = [](const vecReal &wave, const float source_sr, const float target_sr, const int resample_quality) -> vecReal {
+            auto resample = [](const vecReal &_wave, const float source_sr, const float target_sr, const int resample_quality) -> vecReal {
                 // resample for essentia's loudness algorithm
-                const auto resampler	= std::unique_ptr<standard::Algorithm>(StandardFactory::create(
-                    "Resample",
+                const auto resampler = std::unique_ptr<standard::Algorithm>(StandardFactory::create(
+                "Resample",
                  "inputSampleRate", source_sr,
                  "outputSampleRate", target_sr,
                  "quality",	resample_quality));
                 vecReal resampledWave;
-                resampler->input("signal").set(wave);
+                resampler->input("signal").set(_wave);
                 resampler->output("signal").set(resampledWave);
                 resampler->compute();
                 return resampledWave;
@@ -52,7 +49,7 @@ vecReal calculateLoudnesses(const std::span<Real const> waveSpan, AnalyzerSettin
             const bool needsResample = std::ranges::find(permittedRates, originalSampleRate) == permittedRates.end();
             const float internal_sr = needsResample ? 44100.f : originalSampleRate;
             const auto internalWave = needsResample ?
-                resample(wave, originalSampleRate, internal_sr, rs_quality) : wave ;
+                resample(waveform, originalSampleRate, internal_sr, rs_quality) : waveform ;
             const auto equalLoudnessFilter = std::unique_ptr<standard::Algorithm>(StandardFactory::create(
                     "EqualLoudness",
                     "sampleRate", internal_sr
@@ -75,10 +72,12 @@ vecReal calculateLoudnesses(const std::span<Real const> waveSpan, AnalyzerSettin
             jassertfalse;
             return {};
         }
-    }(waveSpan);
+    }();
 
-    const int frameSize = settings.analysis.frameSize;
-    const int hopSize = settings.analysis.hopSize;
+
+    const auto anSettings = settings.get<modern::AnalysisSettings>();
+    const int frameSize = anSettings.getIntValue(ax::frameSize);
+    const int hopSize = anSettings.getIntValue(ax::hopSize);
     const auto frameCutter = std::unique_ptr<standard::Algorithm>(StandardFactory::create (
             "FrameCutter",
             "frameSize",               frameSize,
@@ -93,7 +92,7 @@ vecReal calculateLoudnesses(const std::span<Real const> waveSpan, AnalyzerSettin
             "normalized",  false,
             "size",        frameSize,
             "zeroPadding", frameSize,
-            "type",        settings.analysis.windowingType.toStdString(),
+            "type",        anSettings.getStringValue(ax::windowingType).toStdString(),
             "zeroPhase",   false
             ));
 
@@ -134,18 +133,18 @@ vecReal calculateLoudnesses(const std::span<Real const> waveSpan, AnalyzerSettin
 
 #define USE_SPECTRAL_PEAK_FEATURES true
 
-FeatureContainer<vecReal> calculateTimbres(std::span<Real const> waveSpan, AnalyzerSettings const& settings)
+FeatureContainer<vecReal> calculateTimbres(const vecReal &waveform, const modern::AnalyzerSettingsRegistry & settings, double sampleRate)
 {
-    vecReal wave(waveSpan.begin(), waveSpan.end());
+    const auto anSettings = settings.get<modern::AnalysisSettings>();
+    namespace ax = axiom::tsn;
+    const int frameSize  = anSettings.getIntValue(ax::frameSize);
 
-    const int frameSize  = settings.analysis.frameSize;
+    // for (auto &e : waveform) {
+    //     const float normFactor = 1.f;   // settings.analysis.frameSize;
+    //     e *= normFactor;
+    // }
 
-    for (auto &e : wave) {
-        const float normFactor = 1.f;   // settings.analysis.frameSize;
-        e *= normFactor;
-    }
-
-    const int hopSize = settings.analysis.hopSize;
+    const int hopSize = anSettings.getIntValue(ax::hopSize);
     const auto frameCutter = std::unique_ptr<standard::Algorithm>(StandardFactory::create (
         "FrameCutter",
           "frameSize",               frameSize,
@@ -159,11 +158,14 @@ FeatureContainer<vecReal> calculateTimbres(std::span<Real const> waveSpan, Analy
           "normalized",  false,
           "size",        frameSize,
           "zeroPadding", frameSize, // why am i even zero padding?
-          "type",        settings.analysis.windowingType.toStdString(),
+          "type",        anSettings.getStringValue(ax::windowingType).toStdString(),
           "zeroPhase",   false
     ));
-    auto const spectrumTypeStr = settings.bfcc.spectrumType.toStdString();
-    bool const isPower = (spectrumTypeStr == "power");
+    const auto &bfccSettings = settings.get<modern::BFCCSettings>();
+
+    auto const spectrumTypeStr = bfccSettings.getStringValue(ax::spectrumType).toStdString();
+    jassert (spectrumTypeStr == ax::power || spectrumTypeStr == ax::magnitude);
+    bool const isPower = spectrumTypeStr == ax::power;
     std::string const specAlgoStr = isPower ? "PowerSpectrum" : "Spectrum";
     const auto spectrum = std::unique_ptr<standard::Algorithm>(StandardFactory::create (
             specAlgoStr,
@@ -177,24 +179,24 @@ FeatureContainer<vecReal> calculateTimbres(std::span<Real const> waveSpan, Analy
             {"PowerSpectrum", "dbpow"},
             {"Spectrum", "dbamp"}
     };
-    const auto sampleRate  = static_cast<float>(settings.analysis.sampleRate);
-    const auto numBarks = settings.bfcc.numBands;
+    const auto numBarks = bfccSettings.getIntValue(ax::numBands);
     const auto bfcc = std::unique_ptr<standard::Algorithm>(StandardFactory::create (
         "BFCC",
-        "dctType",             dctTypeStringToInt.at(settings.bfcc.dctType.toStdString()),
-        "highFrequencyBound",  settings.bfcc.highFrequencyBound,
+        "dctType",             dctTypeStringToInt.at(bfccSettings.getStringValue(ax::dctType).toStdString()),
+        "highFrequencyBound",  bfccSettings.getFloatValue(ax::highFrequencyBound),
         "inputSize",           frameSize + 1,
-        "liftering",           settings.bfcc.liftering,
+        "liftering",           bfccSettings.getIntValue(ax::liftering),
         "logType",             logTypeMap.at(specAlgoStr),
 
-        "lowFrequencyBound",   settings.bfcc.lowFrequencyBound,
-        "normalize",           settings.bfcc.normalize.toStdString(),
+        "lowFrequencyBound",   bfccSettings.getFloatValue(ax::lowFrequencyBound),
+        "normalize",           bfccSettings.getStringValue(ax::normalize).toStdString(),
         "numberBands",         numBarks,
-        "numberCoefficients",  settings.bfcc.numCoefficients,
-        "sampleRate",          sampleRate,
+        "numberCoefficients",  bfccSettings.getIntValue(ax::numCoefficients),
+        "sampleRate",          static_cast<float>(sampleRate),
         "type",                spectrumTypeStr,
-        "weighting",           settings.bfcc.weightingType.toStdString()
+        "weighting",           bfccSettings.getStringValue(ax::weightingType).toStdString()
     ));
+
     const auto centroid_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("Centroid",
         "range", 1.0));
     const auto decrease_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("Decrease",
@@ -202,23 +204,26 @@ FeatureContainer<vecReal> calculateTimbres(std::span<Real const> waveSpan, Analy
     const auto flatnessDB_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("FlatnessDB"));
     const auto crest_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("Crest"));
     const auto spectralComplexity_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("SpectralComplexity",
-        "magnitudeThreshold", settings.spectralComplexity.magnitudeThreshold));
+        "magnitudeThreshold", settings.getFloat(ax::SpectralComplexity, ax::magnitudeThreshold).value()));
     const auto strongPeakinesses_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create("StrongPeak"));
+
+    const auto &pSalienceSettings = settings.get<modern::PitchSalienceSettings>();
     const auto pitchSalience_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create("PitchSalience",
         "sampleRate", sampleRate,
-        "highBoundary", settings.pitchSalience.highBoundary,
-        "lowBoundary", settings.pitchSalience.lowBoundary));
+        "highBoundary", pSalienceSettings.getFloatValue(ax::highBoundary),
+        "lowBoundary", pSalienceSettings.getFloatValue(ax::lowBoundary)));
 
     std::string const specInputStr  = isPower ? "signal"        : "frame";
     std::string const specOutputStr = isPower ? "powerSpectrum" : "spectrum";
 
 #ifdef USE_SPECTRAL_PEAK_FEATURES
+    const auto &sPeakSettings = settings.get<modern::SpectralPeakSettings>();
     const auto spectralPeaks_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("SpectralPeaks",
         "sampleRate", sampleRate,
-        "magnitudeThreshold", settings.spectralPeak.magnitudeThreshold_dB,
-        "minFrequency", settings.spectralPeak.minFrequency,
-        "maxFrequency", settings.spectralPeak.maxFrequency,
-        "maxPeaks", settings.spectralPeak.maxPeaks));
+        "magnitudeThreshold", sPeakSettings.getFloatValue(ax::magnitudeThreshold_dB),
+        "minFrequency", sPeakSettings.getFloatValue(ax::minFrequency),
+        "maxFrequency", sPeakSettings.getFloatValue(ax::maxFrequency),
+        "maxPeaks", sPeakSettings.getIntValue(ax::maxPeaks)));
 #endif
 
 
@@ -230,7 +235,7 @@ FeatureContainer<vecReal> calculateTimbres(std::span<Real const> waveSpan, Analy
         vecReal frame;
 
         // get next frame
-        frameCutter->input("signal").set(wave);
+        frameCutter->input("signal").set(waveform);
         frameCutter->output("frame").set(frame);
         frameCutter->compute();
 
@@ -316,7 +321,7 @@ FeatureContainer<vecReal> calculateTimbres(std::span<Real const> waveSpan, Analy
     return timbres;
 }
 
-vecVecReal PCA(vecVecReal const &V, int num_features_out){
+vecVecReal PCA(const vecVecReal &V, const int num_features_out) {
     const std::string namespaceIn {"data"};
     const std::string namespaceOut {"pca"};
 

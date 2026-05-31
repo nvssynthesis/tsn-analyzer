@@ -17,8 +17,6 @@
 #include <type_traits>
 #include <juce_data_structures/juce_data_structures.h>
 
-#include "fmt/base.h"
-
 namespace nvs::analysis::modern {
 
 using NormalisableRangeDouble = juce::NormalisableRange<double>;
@@ -171,7 +169,7 @@ struct SettingsGroup {
     
 private:
     template<typename Ret, typename Extractor>
-    std::optional<Ret> getProperty(std::string_view name, Extractor extractor) {
+    std::optional<Ret> getProperty(std::string_view name, Extractor extractor) const {
         std::optional<Ret> ret;
         std::apply([&](auto&... s) {
             auto tryOne = [&](auto& setting) {
@@ -188,19 +186,19 @@ private:
     }
 public:
     template<typename Spec>
-    std::optional<Spec> getSpec(std::string_view name) {
+    std::optional<Spec> getSpec(std::string_view name) const {
         return getProperty<Spec>(name,
             [](const auto& s) {
                 return s.createSpec();
             });
     }
-    auto getBoolSpec(const std::string_view name)   { return getSpec<BoolSettingsSpec>(name); }
-    auto getFloatSpec(const std::string_view name)  { return getSpec<RangedSettingsSpec<double>>(name); }
-    auto getIntSpec(const std::string_view name)    { return getSpec<RangedSettingsSpec<int>>(name); }
-    auto getStringSpec(const std::string_view name) { return getSpec<ChoiceSettingsSpec>(name); }
+    auto getBoolSpec(const std::string_view name)   const { return getSpec<BoolSettingsSpec>(name); }
+    auto getFloatSpec(const std::string_view name)  const { return getSpec<RangedSettingsSpec<double>>(name); }
+    auto getIntSpec(const std::string_view name)    const { return getSpec<RangedSettingsSpec<int>>(name); }
+    auto getStringSpec(const std::string_view name) const { return getSpec<ChoiceSettingsSpec>(name); }
 
     using Value = std::variant<int, double, bool, String>;
-    std::optional<Value> getValue(const std::string_view name) {
+    std::optional<Value> getValue(const std::string_view name) const {
         const auto valueExtractor = [](const auto& s) {
             return s.value;
         };
@@ -208,7 +206,7 @@ public:
     }
 private:
     template<typename T>
-    std::optional<T> getTypedValue(const std::string_view name) {
+    std::optional<T> getTypedOptional(const std::string_view name) const {
         const auto tmp = getValue(name);
         if (!tmp) {
             return std::nullopt;
@@ -218,10 +216,17 @@ private:
         }
         return std::nullopt;
     }
+    template<typename T>
+    T getTypedValue(const std::string_view name) const {
+        const auto opt = getTypedOptional<T>(name);
+        jassert(opt.has_value());   // catch runtime error in debug
+        return opt.value();
+    }
 public:
-    std::optional<double> getFloatValue(const std::string_view name) { return getTypedValue<double>(name); }
-    std::optional<String> getStringValue(const std::string_view name) { return getTypedValue<String>(name); }
-    std::optional<bool> getBoolValue(const std::string_view name) { return getTypedValue<bool>(name); }
+    double getFloatValue(const std::string_view name)    const { return getTypedValue<double>(name); }
+    int getIntValue(const std::string_view name)         const { return getTypedValue<int>(name); }
+    String getStringValue(const std::string_view name)   const { return getTypedValue<String>(name); }
+    bool getBoolValue(const std::string_view name)       const { return getTypedValue<bool>(name); }
 
     bool setValue(const std::string_view name, const Value& newVal) {
         auto _setValue = [&](auto& setting) {
@@ -240,9 +245,6 @@ public:
             return (_setValue(s) || ...);
         }, settings);
     }
-    bool setBoolValue(const std::string_view name, const bool newVal) { return setValue(name, newVal); }
-    bool setFloatValue(const std::string_view name, const double newVal) { return setValue(name, newVal); }
-    bool setStringValue(const std::string_view name, const String& newVal) { return setValue(name, newVal); }
 
     // auto-generate ValueTree serialization
     void toValueTree(ValueTree& parent) const {
@@ -324,7 +326,70 @@ struct SettingsRegistry {
     
     template<size_t I>
     const auto& get() const { return std::get<I>(groups); }
-    
+
+    using GroupVariant = std::variant<std::reference_wrapper<Groups>...>;
+    using ConstGroupVariant = std::variant<std::reference_wrapper<const Groups>...>;
+
+    std::optional<GroupVariant> getGroupVariant(const std::string_view groupName) {
+        std::optional<GroupVariant> ret;
+        std::apply([&](auto&... s) {
+            auto tryOne = [&](auto& group) {
+                if (std::string_view(group.groupName) == groupName) {
+                    ret = std::ref(group);
+                }
+            };
+            (tryOne(s), ...);
+        }, groups);
+        return ret;
+    }
+
+    std::optional<ConstGroupVariant> getGroupVariant(const std::string_view groupName) const {
+        std::optional<ConstGroupVariant> ret;
+        std::apply([&](const auto&... s) {
+            auto tryOne = [&](const auto& group) {
+                if (std::string_view(group.groupName) == groupName) {
+                    ret = std::cref(group);
+                }
+            };
+            (tryOne(s), ...);
+        }, groups);
+        return ret;
+    }
+
+    template<StringLiteral GroupName>
+    auto getGroupByName() const //-> std::optional<std::reference_wrapper<std::decay_t<decltype(std::get<findGroupIndex<GroupName>()>(groups))>>>
+    {
+        constexpr auto index = findGroupIndex<GroupName>();
+        static_assert(index != sizeof...(Groups), "Group not found");
+
+        using GroupType = std::decay_t<decltype(std::get<index>(groups))>;
+        return std::optional<std::reference_wrapper<const GroupType>>{std::cref(std::get<index>(groups))};
+    }
+
+    template<typename GroupType>
+    std::optional<std::reference_wrapper<const GroupType>> getGroupTyped(const std::string_view groupName) const {
+        const auto groupOpt = getGroupVariant(groupName);
+        if (!groupOpt.has_value()) {
+            return std::nullopt;
+        }
+        const auto& groupVar = groupOpt.value();
+        if (const auto* group = std::get_if<std::reference_wrapper<const GroupType>>(&groupVar)) {
+            return *group;
+        }
+        return std::nullopt;
+    }
+    template<typename GroupType>
+    std::optional<std::reference_wrapper<GroupType>> getGroupTyped(const std::string_view groupName) {
+        auto groupOpt = getGroupVariant(groupName);
+        if (!groupOpt.has_value()) {
+            return std::nullopt;
+        }
+        auto& groupVar = groupOpt.value();
+        if (auto* group = std::get_if<std::reference_wrapper<GroupType>>(&groupVar)) {
+            return *group;
+        }
+        return std::nullopt;
+    }
     // auto-generate specsByBranch
     static const std::map<String, const std::map<String, AnySpec>*>& getSpecsByBranch() {
         static const auto registry = []() {
@@ -337,7 +402,7 @@ struct SettingsRegistry {
         }();
         return registry;
     }
-    
+
     // auto-generate createParentTreeFromSettings
     ValueTree createValueTree() const {
         ValueTree parent("Settings");
@@ -346,20 +411,82 @@ struct SettingsRegistry {
         }, groups);
         return parent;
     }
-    
+
     // auto-generate updateSettingsFromValueTree
     void fromValueTree(const ValueTree& tree) {
         std::apply([&tree](auto&... _groups) {
             (_groups.fromValueTree(tree), ...);
         }, groups);
     }
-    
+
     // reset all groups to defaults
     void resetToDefaults() {
         std::apply([](auto&... _groups) {
             (_groups.resetToDefaults(), ...);
         }, groups);
     }
+    template<typename T>
+    bool setSetting(const std::string_view groupName, const std::string_view settingName, const T& value) {
+        auto groupOpt = getGroupVariant(groupName);
+        if (!groupOpt) return false;
+
+        bool result = false;
+        std::visit([&](auto& groupRef) {
+            auto& group = groupRef.get();
+            result = group.setValue(settingName, value);
+        }, *groupOpt);
+        return result;
+    }
+
+    std::optional<int> getInt(const std::string_view groupName, const std::string_view settingName) const {
+        return getSetting<int>(groupName, settingName);
+    }
+
+    std::optional<double> getFloat(const std::string_view groupName, const std::string_view settingName) const {
+        return getSetting<double>(groupName, settingName);
+    }
+
+    std::optional<bool> getBool(const std::string_view groupName, const std::string_view settingName) const {
+        return getSetting<bool>(groupName, settingName);
+    }
+
+    std::optional<String> getString(const std::string_view groupName, const std::string_view settingName) const {
+        return getSetting<String>(groupName, settingName);
+    }
+private:
+    template<StringLiteral GroupName>
+    static constexpr std::size_t findGroupIndex() {
+        std::size_t index = 0;
+        std::size_t result = sizeof...(Groups); // default to "not found"
+
+        // iterate through groups and find matching name
+        ((std::string_view(Groups::groupName) == GroupName.view() ?
+            (result = index, false) :   // always evaluating the condition to false prevents ever short circuiting (assign to result if match)
+            (++index, false)) || ...);
+
+        return result;
+    }
+    template<typename T>
+    std::optional<T> getSetting(const std::string_view groupName, const std::string_view settingName) const {
+        auto groupOpt = getGroupVariant(groupName);
+        if (!groupOpt) return std::nullopt;
+
+        std::optional<T> result;
+        std::visit([&](auto& groupRef) {
+            auto& group = groupRef.get();
+            if constexpr (std::is_same_v<T, int>) {
+                result = group.getIntValue(settingName);
+            } else if constexpr (std::is_same_v<T, double>) {
+                result = group.getFloatValue(settingName);
+            } else if constexpr (std::is_same_v<T, bool>) {
+                result = group.getBoolValue(settingName);
+            } else if constexpr (std::is_same_v<T, String>) {
+                result = group.getStringValue(settingName);
+            }
+        }, *groupOpt);
+        return result;
+    }
+
 };
 
 } // namespace nvs::analysis::modern

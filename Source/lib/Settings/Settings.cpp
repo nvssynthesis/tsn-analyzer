@@ -12,7 +12,7 @@
 #include "../Analyzer.h"
 #include "../StringAxiom.h"
 
-namespace nvs::analysis {
+namespace nvs::analysis::deprecated {
 
 static constexpr bool TIMBRE_SPACE_SETTINGS_EXIST {false};  // these 'settings' were meant to be automatable, so they are now parameters
 

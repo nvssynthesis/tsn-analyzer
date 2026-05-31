@@ -3,6 +3,7 @@
 //
 
 #pragma once
+#include <span>
 #include <vector>
 
 namespace nvs::analysis {
@@ -13,17 +14,17 @@ void filterRedundantOnsets(std::vector<float> &onsetsInSeconds, float minimumOns
 #pragma message("When relevant, take in the precomputed RMS envelope instead of the raw waveform.")
 
 void improveOnsetsInSeconds(
-    std::vector<float>&   onsetsInSeconds,
-    const std::vector<float>&   wave,
+    std::vector<float>&         onsetsInSeconds,
+    std::span<const float>      wave,
     float                       sampleRate,
     float                       searchBackMs    = 500.0f,  // how far back to look for pre-onset silence
     float                       rmsWindowMs     = 30.0f,    // RMS analysis window size
     bool                        giveChanceBeforeStart = true // enables algo that lets first onset potentially move to sample 0 if it otherwise would be unchanged
 );
 
-void subdivideOnsetsNaive(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave, float sampleRate, unsigned int numSubsections);
+void subdivideOnsetsNaive(std::vector<float>& onsetsInSeconds, std::span<const float>  wave, float sampleRate, unsigned int numSubsections);
 
-void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave, float sampleRate,
+void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, std::span<const float>  wave, float sampleRate,
     unsigned int numSubsections,
     float rmsHopProportion = 0.002f,
     float minimumSubdivisionLengthMs = 100.f);
@@ -41,7 +42,7 @@ struct SilenceTimings {
     std::vector<float> silenceOnsets;
     std::vector<float> silenceOffsets;
 };
-SilenceTimings detectSilences(const std::vector<float>& wave, float sampleRate,
+SilenceTimings detectSilences(std::span<const float>  wave, float sampleRate,
     float silenceThresholdDb = -50.0f,
     float minSilenceDurationMs = 300.0f,
     float minEventDurationMs = 500.0f,

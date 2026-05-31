@@ -162,7 +162,7 @@ void denormalizeOnsets(std::vector<float> &normalizedOnsets, const double length
 }
 
 namespace {
-float rmsEnergy(const std::vector<float>& wave, const int centerSample, const int halfWindow) {
+float rmsEnergy(const std::span<const float> wave, const int centerSample, const int halfWindow) {
     const int start = std::max(0, centerSample - halfWindow);
     const int end   = std::min(static_cast<int>(wave.size()) - 1, centerSample + halfWindow);
     float sum = 0.0f;
@@ -171,7 +171,7 @@ float rmsEnergy(const std::vector<float>& wave, const int centerSample, const in
     }
     return std::sqrt(sum / (end - start + 1));
 }
-std::vector<float> movingAverage(const std::vector<float>& energy, const int smoothingFrames) {
+std::vector<float> movingAverage(const std::span<const float>  energy, const int smoothingFrames) {
     const int numFrames = static_cast<int>(energy.size());
     const int halfWindow = smoothingFrames / 2;
     std::vector<float> smoothed(numFrames, 0.0f);
@@ -191,7 +191,7 @@ std::vector<float> movingAverage(const std::vector<float>& energy, const int smo
 
 void improveOnsetsInSeconds(
     std::vector<float>& onsetsInSeconds,
-    const std::vector<float>& wave,
+    const std::span<const float> wave,
     const float          sampleRate,
     const float          searchBackMs,  // how far back to look for pre-onset silence
     const float          rmsWindowMs,   // RMS analysis window size
@@ -253,7 +253,7 @@ void improveOnsetsInSeconds(
     onsetsInSeconds = improved;
 }
 
-void subdivideOnsetsNaive(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave, float sampleRate, unsigned int numSubsections) {
+void subdivideOnsetsNaive(std::vector<float>& onsetsInSeconds, const std::span<const float>  wave, float sampleRate, unsigned int numSubsections) {
     if (numSubsections <= 1) return;
 
     const std::vector<float> original = onsetsInSeconds;
@@ -281,7 +281,7 @@ void subdivideOnsetsNaive(std::vector<float>& onsetsInSeconds, const std::vector
     onsetsInSeconds = result;
 }
 
-void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vector<float>& wave,
+void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::span<const float>  wave,
     const float sampleRate, const unsigned int numSubsections, const float rmsHopProportion,
     const float minimumSubdivisionLengthMs)
 {
@@ -376,7 +376,7 @@ void subdivideOnsetsEnergy(std::vector<float>& onsetsInSeconds, const std::vecto
     onsetsInSeconds = resultOnsets;
 }
 
-SilenceTimings detectSilences(const std::vector<float>& wave, const float sampleRate,
+SilenceTimings detectSilences(const std::span<const float>  wave, const float sampleRate,
     const float silenceThresholdDb,
     const float minSilenceDurationMs,
     const float minEventDurationMs,

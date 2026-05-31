@@ -14,11 +14,16 @@
 
 #include "../DimensionalityReduction/pca.h"
 
-namespace nvs::analysis {
+namespace nvs::analysis::deprecated {
 
+[[deprecated("Use ModernSettings instead")]]
 void ensureBranchAndInitializeDefaults (juce::ValueTree& settingsVT, const juce::String& branchName);
+[[deprecated("Use ModernSettings instead")]]
 void initializeSettingsBranches(juce::ValueTree& settingsVT, bool dbg=false);
+
+[[deprecated("ModernSettings used now–does not need verification")]]
 bool verifySettingsStructure (const juce::ValueTree& settingsVT);
+[[deprecated("ModernSettings used now–does not need verification")]]
 bool verifySettingsStructureWithAttemptedFix (juce::ValueTree& settingsVT);
 
 using NormalisableRangeDouble = juce::NormalisableRange<double>;
@@ -44,7 +49,6 @@ struct BoolSettingsSpec
     bool defaultValue;
     juce::String tooltip = {};
 };
-
 using AnySpec = std::variant<
     RangedSettingsSpec<int>,
     RangedSettingsSpec<double>,
@@ -56,7 +60,9 @@ using AnySpec = std::variant<
 extern const std::map<juce::String, AnySpec> analysisSpecs, bfccSpecs, onsetSpecs, sBicSpecs, pitchSpecs, pitchSalienceSpecs, splitSpecs, timbreSpaceSpecs;
 extern const std::map<juce::String, const std::map<juce::String,AnySpec>*> specsByBranch;
 
-struct AnalyzerSettings {
+struct AnalyzerSettings
+{
+    [[deprecated("Use ModernSettings instead")]]
     struct Analysis {
         double sampleRate = 0.0;
         int frameSize = 1024;
@@ -182,7 +188,9 @@ struct AnalyzerSettings {
         juce::String author;
     } info;
 };
+[[deprecated("Use ModernSettings instead")]]
 bool updateSettingsFromValueTree(AnalyzerSettings& settings, const juce::ValueTree& settingsTree);
+[[deprecated("Use ModernSettings instead")]]
 juce::ValueTree createParentTreeFromSettings(const AnalyzerSettings& settings);
 
 }

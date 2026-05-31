@@ -38,7 +38,7 @@ target_link_libraries(tsn-tests
         PUBLIC ${COMMON_LIBS_PUBLIC}
         PRIVATE
         Catch2::Catch2WithMain
-        tsn::analyzer
+#        tsn::analyzer
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags
 )

@@ -28,8 +28,8 @@ public:
     ThreadedAnalyzer();
     ~ThreadedAnalyzer() override;
     //===============================================================================
-    void updateStoredAudioAndSettings(std::span<float const> wave, const juce::String &audioFileAbsPath,
-        juce::ValueTree &settingsTree, bool attemptFix);
+    void updateStoredAudioAndSettings(const SampleManager &sampleManager,
+        juce::ValueTree settingsTree, bool attemptFix);
     //===============================================================================
     void stopAnalysis() { DBG("Stopping analysis thread..."); signalThreadShouldExit(); }
     //===============================================================================
@@ -73,19 +73,17 @@ public:
     //===============================================================================
 private:
     Analyzer _analyzer;
-    vecReal _inputWave;
+    SampleManager _sampleManager;
+
     std::shared_ptr<OnsetAnalysisResult> _onsetAnalysisResult;
     std::shared_ptr<TimbreAnalysisResult> _timbreAnalysisResult;
     std::shared_ptr<PacmapResult> _pacmapResult;
-
-    String _audioFileAbsPath {};
 
     RunLoopStatus _rls;
 
     std::atomic<State> _state {State::Idle};
 
     //===============================================================================
-    juce::String _lastAudioHash;
     juce::int64 _lastOnsetSettingsHash;
     juce::int64 _lastTimbreSettingsHash;
     juce::int64 _lastPacmapSettingsHash;

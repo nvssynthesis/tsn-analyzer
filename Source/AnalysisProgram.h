@@ -8,12 +8,6 @@
 
 using namespace juce;
 
-struct AudioFileInfo {
-    int64 numSamples;
-    double sampleRate;
-    unsigned int bitDepth;
-};
-
 struct AnalyzerResult {
     std::shared_ptr<nvs::analysis::TimbreAnalysisResult> timbres {};
     std::shared_ptr<nvs::analysis::OnsetAnalysisResult> onsets {};

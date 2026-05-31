@@ -49,8 +49,9 @@ ThreadedAnalyzer::~ThreadedAnalyzer(){
 	stopThread(10000);
 }
 
-void ThreadedAnalyzer::updateStoredAudioAndSettings(std::span<float const> wave, const juce::String &audioFileAbsPath,
-    juce::ValueTree &settingsTree, const bool attemptFix)
+void ThreadedAnalyzer::updateStoredAudioAndSettings(
+    const SampleManager &sampleManager,
+    const juce::ValueTree settingsTree/*NOLINT*/, const bool attemptFix)
 {
     jassert(!isThreadRunning());
     jassert( settingsTree.hasType(nvs::axiom::tsn::Settings) );
@@ -58,32 +59,24 @@ void ThreadedAnalyzer::updateStoredAudioAndSettings(std::span<float const> wave,
     _state = State::Idle;
     sendChangeMessage();
 
-	_audioFileAbsPath = audioFileAbsPath;   // always update; it's possible that the audio file moved even tho it's the same content
-    if (const auto audioHash = util::hashAudioData(_inputWave);
-        audioHash == _lastAudioHash)
-    {
-        _onsetAnalysisResult.reset();
-        _shouldComputeOnsets = true;
-        _timbreAnalysisResult.reset();
-        _shouldComputeTimbre = true;
-        _pacmapResult.reset();
-        _shouldComputePacmap = true;
-        _analysisFile = File{};
-    } else {
-        _inputWave.assign(wave.begin(), wave.end());
-    }
+    // inform self if we truly need to do any new analysis – did EITHER the waveform hash OR the settings hash change?
+    _sampleManager = sampleManager;
 
-    if (!_analyzer.updateSettings(settingsTree, attemptFix))    // 'blindly' update all settings of analyzer
-    {
-        Logger::writeToLog("Failed to update settings\n");
-        jassertfalse;
-    }
+    _onsetAnalysisResult.reset();
+    _shouldComputeOnsets = true;
+    _timbreAnalysisResult.reset();
+    _shouldComputeTimbre = true;
+    _pacmapResult.reset();
+    _shouldComputePacmap = true;
+
+    _analysisFile = File{};
+
+    _analyzer.updateSettings(settingsTree);
 
     // recompute the per‑branch hashes, to see if we can skip parts of analysis in the next run
     if (const auto parent = _analyzer.getSettingsParentTree();
         parent.isValid())
     {
-
         if (const auto onsetSettingsHash = hashBranch(settingsTree, axiom::tsn::Onset);
             onsetSettingsHash == _lastOnsetSettingsHash && _onsetAnalysisResult != nullptr)
         {
@@ -172,7 +165,7 @@ void ThreadedAnalyzer::run() {
     _analysisFile = File();
     sendChangeMessage();
 
-	if (!(_inputWave.data() && !_inputWave.empty())){
+	if (!_sampleManager.hasValidAudio()){
 		return;
 	}
 	_rls.set(0.0);
@@ -186,17 +179,16 @@ void ThreadedAnalyzer::run() {
 			if (retval){
 				DBG("ThreadedAnalyzer: exit requested");
 			}
-			return retval;;
+			return retval;
 		};
-
-	    const String audioHash = util::hashAudioData(_inputWave);
-
-	    const auto sr = _analyzer.getAnalyzedFileSampleRate();
-
-	    const auto unnormalizedOnsets = [this, shouldExit, audioHash, sr, &report]()-> vecReal {
+        const auto waveform = [this]() {
+            const auto waveSpan = _sampleManager.getChannelSpan(0);
+            return vecReal(waveSpan.begin(), waveSpan.end());
+        }();
+	    const auto unnormalizedOnsets = [this, &waveform, shouldExit, &report]()-> vecReal {
 	        // perform onset analysis
 	        report("Calculating Onsets...");
-	        const auto lengthInSeconds = getLengthInSeconds(_inputWave.size(), sr);
+	        const auto lengthInSeconds = getLengthInSeconds(_sampleManager.getLength(), _sampleManager.getSampleRate());
 
 	        if (!_shouldComputeOnsets) {
 	            // return existing onsets but unnormalized
@@ -208,7 +200,9 @@ void ThreadedAnalyzer::run() {
 	            return onsetsCpy;
 	        }
 
-	        const auto onsetOpt = _analyzer.calculateOnsetsInSeconds(_inputWave, _rls, shouldExit);
+	        const auto onsetOpt = _analyzer.calculateOnsetsInSeconds(
+	            waveform, _sampleManager.getSampleRate(),
+	            _rls, shouldExit);
 	        if (threadShouldExit() || onsetOpt.value().empty()) {
 	            DBG("Threaded Analyzer: exit requested");
                 _state = State::Failed;
@@ -217,29 +211,29 @@ void ThreadedAnalyzer::run() {
 	        }
 	        jassert(onsetOpt.has_value());
 
-		    _onsetAnalysisResult = std::make_shared<OnsetAnalysisResult>(onsetOpt.value(), audioHash, _audioFileAbsPath, sr);
+		    _onsetAnalysisResult = std::make_shared<OnsetAnalysisResult>(onsetOpt.value(),
+		        _sampleManager.getWaveformHash(), _sampleManager.getFullPath(), _sampleManager.getSampleRate());
 
-	        const auto unnormCpy = [this, sr, lengthInSeconds, &report](){
+	        const auto unnormCpy = [this, &waveform, lengthInSeconds, &report](){
 	            report("Processing onsets..");
 
-	            const auto &[doRefinements,
-                    numEventSubdivisions,
-                    silenceThresholdDb,
-                    minSilenceDurationMs,
-                    minEventWithinSilenceDurationMs] = _analyzer.getSettings().onset._refinement;
-
-	            if (doRefinements) {
-	                improveOnsetsInSeconds(_onsetAnalysisResult->onsets, _inputWave, sr);
+	            namespace ax = axiom::tsn;
+                if (const auto& onsetSettings =_analyzer.getSettings().get<modern::OnsetSettings>();
+                    onsetSettings.getBoolValue(ax::doRefinements))
+                {
+	                improveOnsetsInSeconds(_onsetAnalysisResult->onsets, waveform, _sampleManager.getSampleRate());
 
 	                filterOnsetsOutsideBounds(_onsetAnalysisResult->onsets, lengthInSeconds);
 	                filterRedundantOnsets(_onsetAnalysisResult->onsets);
 
 
-	                subdivideOnsetsEnergy(_onsetAnalysisResult->onsets, _inputWave, sr, numEventSubdivisions);
+	                subdivideOnsetsEnergy(_onsetAnalysisResult->onsets, waveform, _sampleManager.getSampleRate(), onsetSettings.getIntValue(ax::refinementNumEventSubdivisions));
 
-	                const auto silenceMarkers = detectSilences(_inputWave, sr,
-                        silenceThresholdDb, minSilenceDurationMs,
-                        minEventWithinSilenceDurationMs);
+	                const auto silenceMarkers = detectSilences(
+	                    waveform, _sampleManager.getSampleRate(),
+	                    onsetSettings.getFloatValue(ax::refinementSilenceThresholdDb),
+	                    onsetSettings.getFloatValue(ax::refinementMinSilenceDurationMs),
+	                    onsetSettings.getFloatValue(ax::refinementMinEventWithinSilenceDurationMs));
 
 	                combineOnsetsAndSilenceTimings(_onsetAnalysisResult->onsets, silenceMarkers,
                         0.2, 0.2,
@@ -264,7 +258,7 @@ void ThreadedAnalyzer::run() {
 	        sendChangeMessage();
 	        return;
 	    }
-	    [this, &report, &shouldExit, sr, audioHash](const std::vector<float> &unnormOnsets){
+	    [this, &waveform, &report, &shouldExit](const std::vector<float> &unnormOnsets){
 	        // perform onsetwise timbral analysis
 		    if (!_shouldComputeTimbre) {
 		        jassert(_timbreAnalysisResult != nullptr);
@@ -272,7 +266,9 @@ void ThreadedAnalyzer::run() {
 		        return;
 		    }
 		    report("Calculating Onsetwise TimbreSpace...");
-		    const auto timbreMeasurementsOpt = _analyzer.calculateOnsetwiseTimbreSpace(_inputWave, unnormOnsets, _rls, shouldExit);
+
+		    const auto timbreMeasurementsOpt = _analyzer.calculateOnsetwiseTimbreSpace(
+		        waveform, _sampleManager.getSampleRate(), unnormOnsets, _rls, shouldExit);
 		    if (!timbreMeasurementsOpt.has_value() || threadShouldExit()) {
 		        DBG("Threaded Analyzer: exit requested");
 		        _state = State::Failed;
@@ -280,8 +276,11 @@ void ThreadedAnalyzer::run() {
 		        return;
 		    }
 
-		    jassert (sr == _analyzer.getAnalyzedFileSampleRate());  // sr should not have possibly changed... sanity check
-	        _timbreAnalysisResult = std::make_shared<TimbreAnalysisResult>(timbreMeasurementsOpt.value(), audioHash, _audioFileAbsPath, sr);
+	        _timbreAnalysisResult = std::make_shared<TimbreAnalysisResult>(
+	            timbreMeasurementsOpt.value(),
+	            _sampleManager.getWaveformHash(),
+	            _sampleManager.getFullPath(),
+	            _sampleManager.getSampleRate());
 	    }(unnormalizedOnsets);
 
 	    if (threadShouldExit()) {
@@ -297,7 +296,8 @@ void ThreadedAnalyzer::run() {
         if (const auto pacmapMatrix = _analyzer.calculatePaCMAP(_timbreAnalysisResult->timbreMeasurements);
             pacmapMatrix.has_value())
         {
-            _pacmapResult = std::make_shared<PacmapResult>(*pacmapMatrix, audioHash, _audioFileAbsPath, sr);
+            _pacmapResult = std::make_shared<PacmapResult>(*pacmapMatrix,
+                _sampleManager.getWaveformHash(), _sampleManager.getFullPath(), _sampleManager.getSampleRate());
         } else {
             report("Not enough points for PaCMAP, skipping...");
             jassert(_pacmapResult == nullptr);

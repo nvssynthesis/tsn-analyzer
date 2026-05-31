@@ -8,7 +8,12 @@
 namespace nvs::analysis {
 namespace {
 
-PitchesAndConfidences processFrequenciesAndConfidences(vecReal &&frequencies, const vecReal &confidences, const AnalyzerSettings &settings){
+PitchesAndConfidences processFrequenciesAndConfidences(
+    vecReal &&frequencies,
+    const vecReal &confidences,
+    const double sampleRate,
+    const modern::AnalyzerSettingsRegistry &settings)
+{
     // convert frequency to pitch
     vecReal pitches = std::move(frequencies);
     assert(pitches.size() == confidences.size());
@@ -17,13 +22,15 @@ PitchesAndConfidences processFrequenciesAndConfidences(vecReal &&frequencies, co
     std::transform(pitches.begin(), pitches.end(), // first1, last1
         confidences.begin(),    // first2
         pitches.begin(),    // output
-        [&settings](const float pitch, const float confidence) {
-            if ((pitch <= 0.f) || (pitch >= settings.analysis.sampleRate * 0.5)) {
+        [&settings, sampleRate](const float pitch, const float confidence) {
+            if ((pitch <= 0.f) || (pitch >= sampleRate * 0.5)) {
                 return -100.0f;
             }
-            if (settings.pitch.replace_dismal_confidences_with_constant) {
-                if (confidence <= settings.pitch.dismal_confidence_threshold) {
-                    return settings.pitch.dismal_replacement_constant;
+            const auto pSettings = settings.get<modern::PitchSettings>();
+            namespace ax = axiom::tsn;
+            if (pSettings.getBoolValue(ax::replace_dismal_confidences_with_constant)) {
+                if (confidence <= pSettings.getFloatValue(ax::dismal_confidence_threshold)) {
+                    return static_cast<float>(pSettings.getFloatValue(ax::dismal_replacement_constant));
                 }
             }
             return 69.f + 12.f * std::log2(pitch / 440.f);
@@ -36,15 +43,17 @@ PitchesAndConfidences processFrequenciesAndConfidences(vecReal &&frequencies, co
     };
 }
 
-PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, AnalyzerSettings const& settings){
-    const vecReal wave(waveSpan.begin(), waveSpan.end());
-
+PitchesAndConfidences calculatePitchesEssentiaYin(
+    const vecReal &waveEvent, const double sampleRate, modern::AnalyzerSettingsRegistry const& settings)
+{
     constexpr int zeroPadding = 2048;
 
+    const auto pSettings = settings.get<modern::PitchSettings>();
+    namespace ax = axiom::tsn;
     const auto frameCutter = std::unique_ptr<standard::Algorithm>(
         StandardFactory::create ("FrameCutter",
-                "frameSize",            settings.pitch.frameSize,
-                "hopSize",              settings.pitch.hopSize,
+                "frameSize",            pSettings.getIntValue(ax::frameSize),
+                "hopSize",              pSettings.getIntValue(ax::hopSize),
                 "lastFrameToEndOfFile", true,
                 "startFromZero",        true,
                 "validFrameThresholdRatio", 0.f
@@ -54,21 +63,21 @@ PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, Anal
     const auto windowing = std::unique_ptr<standard::Algorithm>(
         StandardFactory::create ("Windowing",
                 "normalized", false,
-                "size",        settings.pitch.frameSize,
+                "size",        pSettings.getIntValue(ax::frameSize),
                 "zeroPadding", zeroPadding,
-                "type",        settings.analysis.windowingType.toStdString(),
+                "type",        settings.getString(ax::Analysis, ax::windowingType).value().toStdString(),
                 "zeroPhase",   false
             ));
 
 
     const auto pitchDet = std::unique_ptr<standard::Algorithm>(
         StandardFactory::create ("PitchYin",
-                "sampleRate",   settings.analysis.sampleRate,
-                "frameSize",    settings.pitch.frameSize,
-                "interpolate",  settings.pitch._yin.interpolate,
-                "maxFrequency", settings.pitch._yin.maxFrequency,
-                "minFrequency", settings.pitch._yin.minFrequency,
-                "tolerance",    settings.pitch._yin.tolerance
+                "sampleRate",   sampleRate,
+                "frameSize",    pSettings.getIntValue(ax::frameSize),
+                "interpolate",  pSettings.getBoolValue(ax::interpolate),
+                "maxFrequency", pSettings.getFloatValue(ax::maxFrequency),
+                "minFrequency", pSettings.getFloatValue(ax::minFrequency),
+                "tolerance",    pSettings.getFloatValue(ax::tolerance)
             ));
 
     vecReal frequencies, confidences; // accumulate results manually
@@ -76,7 +85,7 @@ PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, Anal
         vecReal frame;
 
         // get next frame
-        frameCutter->input("signal").set(wave);
+        frameCutter->input("signal").set(waveEvent);
         frameCutter->output("frame").set(frame);
         frameCutter->compute();
 
@@ -100,16 +109,18 @@ PitchesAndConfidences calculatePitchesEssentiaYin(std::span<Real> waveSpan, Anal
         frequencies.push_back(pitch);
         confidences.push_back(pitchConfidence);
     }
-    return processFrequenciesAndConfidences(std::move(frequencies), confidences, settings);
+    return processFrequenciesAndConfidences(std::move(frequencies), confidences, sampleRate, settings);
 }
 
-PitchesAndConfidences calculatePitchesEssentiaYinFFT(std::span<Real> waveSpan, AnalyzerSettings const& settings){
-    const vecReal wave(waveSpan.begin(), waveSpan.end());
-
+PitchesAndConfidences calculatePitchesEssentiaYinFFT(
+    const vecReal &waveEvent, const double sampleRate, modern::AnalyzerSettingsRegistry const& settings)
+{
+    const auto pSettings = settings.get<modern::PitchSettings>();
+    namespace ax = axiom::tsn;
     const auto frameCutter = std::unique_ptr<standard::Algorithm>(
         StandardFactory::create ("FrameCutter",
-                "frameSize",            settings.pitch.frameSize,
-                "hopSize",              settings.pitch.hopSize,
+                "frameSize",            pSettings.getIntValue(ax::frameSize),
+                "hopSize",              pSettings.getIntValue(ax::hopSize),
                 "lastFrameToEndOfFile", true,
                 "startFromZero",        true,
                 "validFrameThresholdRatio", 0.f
@@ -119,7 +130,7 @@ PitchesAndConfidences calculatePitchesEssentiaYinFFT(std::span<Real> waveSpan, A
     const auto windowing = std::unique_ptr<standard::Algorithm>(
         StandardFactory::create ("Windowing",
                 "normalized", false,
-                "size",        settings.pitch.frameSize,
+                "size",        pSettings.getIntValue(ax::frameSize),
                 "zeroPadding", 0, //zeroPadding,
                 "type",        "hann",
                 "zeroPhase",   false
@@ -127,17 +138,17 @@ PitchesAndConfidences calculatePitchesEssentiaYinFFT(std::span<Real> waveSpan, A
 
     const auto spectrum = std::unique_ptr<standard::Algorithm>(
         StandardFactory::create ("Spectrum",
-                "size",  settings.pitch.frameSize
+                "size",  pSettings.getIntValue(ax::frameSize)
                 ));
 
     const auto pitchDet = std::unique_ptr<standard::Algorithm>(
         StandardFactory::create ("PitchYinFFT",
-                "sampleRate",   settings.analysis.sampleRate,
-                "frameSize",    settings.pitch.frameSize,
-                "interpolate",  settings.pitch._yin.interpolate,
-                "maxFrequency", settings.pitch._yin.maxFrequency,
-                "minFrequency", settings.pitch._yin.minFrequency,
-                "tolerance",    settings.pitch._yin.tolerance,
+                "sampleRate",   sampleRate,
+                "frameSize",    pSettings.getIntValue(ax::frameSize),
+                "interpolate",  pSettings.getBoolValue(ax::interpolate),
+                "maxFrequency", pSettings.getFloatValue(ax::maxFrequency),
+                "minFrequency", pSettings.getFloatValue(ax::minFrequency),
+                "tolerance",    pSettings.getFloatValue(ax::tolerance),
                 "weighting", "custom"   // {custom, A, B, C, D, Z}
             ));
 
@@ -146,7 +157,7 @@ PitchesAndConfidences calculatePitchesEssentiaYinFFT(std::span<Real> waveSpan, A
         vecReal frame;
 
         // get next frame
-        frameCutter->input("signal").set(wave);
+        frameCutter->input("signal").set(waveEvent);
         frameCutter->output("frame").set(frame);
         frameCutter->compute();
 
@@ -177,37 +188,37 @@ PitchesAndConfidences calculatePitchesEssentiaYinFFT(std::span<Real> waveSpan, A
         confidences.push_back(pitchConfidence);
     }
 
-    return processFrequenciesAndConfidences(std::move(frequencies), confidences, settings);
+    return processFrequenciesAndConfidences(std::move(frequencies), confidences, sampleRate, settings);
 }
 
-PitchesAndConfidences calculatePitchesEssentiaProbabilisticYin(std::span<Real> waveSpan, AnalyzerSettings const& settings){
-    const vecReal wave(waveSpan.begin(), waveSpan.end());
-
-    const auto outputUnvoiced = [&settings]() -> std::string {
-        if (settings.pitch.replace_dismal_confidences_with_constant) {
+PitchesAndConfidences calculatePitchesEssentiaProbabilisticYin(
+    const vecReal &waveEvent, const double sampleRate,
+    modern::AnalyzerSettingsRegistry const& settings)
+{
+    const auto pSettings = settings.get<modern::PitchSettings>();
+    namespace ax = axiom::tsn;
+    const auto outputUnvoiced = [&pSettings]() -> std::string {
+        if (pSettings.getBoolValue(ax::replace_dismal_confidences_with_constant)) {
             //  {zero, abs, negative}
-            std::string retval =
-                settings.pitch.dismal_replacement_constant < 0 ? "negative"
-                : settings.pitch.dismal_replacement_constant == 0 ? "zero"
-                    : "abs";
-            return retval;
+            const auto dismal_replacement_constant = pSettings.getStringValue(ax::dismal_replacement_constant);
+            return dismal_replacement_constant.toStdString();
         }
         return "abs";
     }();
 
     const auto pitchDet = std::unique_ptr<standard::Algorithm>(
         StandardFactory::create ("PitchYinProbabilistic",
-                "sampleRate",   settings.analysis.sampleRate,
-                "frameSize",     settings.analysis.frameSize,
-                "hopSize",      settings.analysis.hopSize,
-                "lowRMSThreshold", settings.pitch._pYin.lowRMSThreshold,
-                "preciseTime", settings.pitch._pYin.preciseTime,
-                "outputUnvoiced", outputUnvoiced
-            ));
+            "sampleRate",   sampleRate,
+            "frameSize",    pSettings.getIntValue(ax::frameSize),
+            "hopSize",      pSettings.getIntValue(ax::hopSize),
+            "lowRMSThreshold", pSettings.getIntValue(ax::lowRMSThreshold),
+            "preciseTime",  pSettings.getIntValue(ax::preciseTime),
+            "outputUnvoiced", outputUnvoiced  // {"zero", "abs", "negative"}
+        ));
 
     vecReal frequencies, confidences;
 
-    pitchDet->input("signal").set(wave);
+    pitchDet->input("signal").set(waveEvent);
     pitchDet->output("pitch").set(frequencies);
     pitchDet->output("voicedProbabilities").set(confidences);
 
@@ -223,14 +234,14 @@ PitchesAndConfidences calculatePitchesEssentiaProbabilisticYin(std::span<Real> w
         std::transform(pitches.begin(), pitches.end(), // first1, last1
             confidences.begin(),    // first2
             pitches.begin(),    // output
-            [&pitchSettings = settings.pitch](const float pitch, const float confidence) {
+            [&pSettings](const float pitch, const float confidence) {
                 if (pitch <= 0.f) {
                     return 0.0f;
                 }
         // NOTE: PitchYinProbabilistic already takes care of this EXCEPT the nyquist setting
-                if (pitchSettings.replace_dismal_confidences_with_constant) {
-                    if (confidence <= pitchSettings.dismal_confidence_threshold) {
-                        return pitchSettings.dismal_replacement_constant;
+                if (pSettings.getBoolValue(ax::replace_dismal_confidences_with_constant)) {
+                    if (confidence <= pSettings.getFloatValue(ax::dismal_confidence_threshold)) {
+                        return static_cast<float>(pSettings.getFloatValue(ax::dismal_replacement_constant));
                     }
                 }
                 const auto retval = 69.f + 12.f * std::log2(pitch / 440.f);
@@ -246,19 +257,19 @@ PitchesAndConfidences calculatePitchesEssentiaProbabilisticYin(std::span<Real> w
 }
 }	// anonymous namespace
 
-PitchesAndConfidences calculatePitchesAndConfidences (vecReal waveEvent,
-                                                      AnalyzerSettings const& settings)
+PitchesAndConfidences calculatePitchesAndConfidences(const vecReal &waveEvent, const double sampleRate,
+                                                      modern::AnalyzerSettingsRegistry const& settings)
 {
-    auto const algo      = settings.pitch.pitchDetectionAlgorithm.toStdString();
+    auto const algo = settings.getString(axiom::tsn::Pitch, axiom::tsn::pitchDetectionAlgorithm).value().toStdString();
     try {
         if (algo == axiom::tsn::yin) {
-            return calculatePitchesEssentiaYin (waveEvent, settings);
+            return calculatePitchesEssentiaYin (waveEvent, sampleRate, settings);
         }
         if (algo == axiom::tsn::yinFFT) {
-            return calculatePitchesEssentiaYinFFT(waveEvent, settings);
+            return calculatePitchesEssentiaYinFFT(waveEvent, sampleRate, settings);
         }
         if (algo == axiom::tsn::pYin) {
-            return calculatePitchesEssentiaProbabilisticYin (waveEvent, settings);
+            return calculatePitchesEssentiaProbabilisticYin (waveEvent, sampleRate, settings);
         }
         if (algo == axiom::tsn::chroma) {
             jassertfalse;  // not implemented
@@ -276,3 +287,4 @@ PitchesAndConfidences calculatePitchesAndConfidences (vecReal waveEvent,
 }
 
 }   // namespace nvs::analysis
+

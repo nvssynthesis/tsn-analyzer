@@ -27,50 +27,43 @@ using Thread = juce::Thread;
 
 
 Analyzer::Analyzer()
-:	ess_init()  // don't delete this seemingly unnecessary construction-it is a good reminder that ess_init MUST be initialized first
+:	ess_init()  // NOLINT don't delete this seemingly unnecessary construction-it is a good reminder that ess_init MUST be initialized first
 ,	ess_hold(ess_init)
 {}
 
-bool Analyzer::updateSettings(juce::ValueTree &newSettings, const bool attemptFix){
-    // verify tree structure
-    bool valid {false};
-    if (!attemptFix) {
-       valid = verifySettingsStructure(newSettings);
-    } else {
-        valid = verifySettingsStructureWithAttemptedFix(newSettings);
-    }
+void Analyzer::updateSettings(const juce::ValueTree newSettings) { // NOLINT
     jassert (newSettings.getParent().getChildWithName("FileInfo").hasProperty("sampleRate"));
-
-    if (valid){
-        updateSettingsFromValueTree(settings, newSettings);
-        _settingsHash = util::hashValueTree(newSettings);
-    }
-    else {
-        std::cerr << "settings tree invalid\n";
-        jassertfalse;
-    }
-    return valid;
+    settings.fromValueTree(newSettings);
 }
-AnalyzerSettings const &Analyzer::getSettings() const {
+juce::String Analyzer::getSettingsHash() const {
+    return util::hashValueTree(settings.createValueTree());
+}
+modern::AnalyzerSettingsRegistry const &Analyzer::getSettings() const {
     return settings;
 }
 ValueTree Analyzer::getSettingsParentTree() const {
-    return createParentTreeFromSettings(settings);
+    return settings.createValueTree();
 }
 
-float Analyzer::getAnalyzedFileSampleRate() const {
-    return static_cast<float>(settings.analysis.sampleRate);
-}
-
-std::optional<vecReal> Analyzer::calculateOnsetsInSeconds(const vecReal &wave, RunLoopStatus& rls, const ShouldExitFn &shouldExit) const {
+std::optional<vecReal> Analyzer::calculateOnsetsInSeconds(
+    const vecReal &wave,
+    const double sampleRate,
+    RunLoopStatus& rls,
+    const ShouldExitFn &shouldExit) const
+{
     if (wave.empty()){
         return std::nullopt;
     }
 
-    if (settings.onset.segmentation == AnalyzerSettings::Onset::Segmentation::Uniform) {
+    namespace ax = axiom::tsn;
+
+    const auto onsetGroup = settings.get<const modern::OnsetSettings>();
+    const auto segmentationSetting = onsetGroup.getStringValue(ax::segmentation);
+
+    if (segmentationSetting == ax::Uniform) {
         // make a vecReal of evenly distributed onsets
-        const float dt = settings.onset.uniform_event_length;
-        const auto L_sec = getLengthInSeconds(wave.size(), settings.analysis.sampleRate);
+        const float dt = onsetGroup.getFloatValue(ax::uniformEventLength);
+        const auto L_sec = getLengthInSeconds(wave.size(), sampleRate);
         vecReal onsets (static_cast<size_t>(L_sec / dt));
         for (size_t i = 0; i < onsets.size(); ++i) {
             onsets[i] = static_cast<Real>(i) * dt;
@@ -79,7 +72,7 @@ std::optional<vecReal> Analyzer::calculateOnsetsInSeconds(const vecReal &wave, R
     }
 
     Logger::writeToLog("Calculating onsets matrix...");
-    const array2dReal onsets2d = calculateOnsetsMatrix(wave, settings, rls, shouldExit);
+    const array2dReal onsets2d = calculateOnsetsMatrix(wave, sampleRate, settings, rls, shouldExit);
     if (shouldExit()) {
         return std::nullopt;
     }
@@ -134,14 +127,14 @@ static std::vector<T> weightedMeanFrames(const std::vector<std::vector<T>>& fram
 vecReal filterByTopPercentile(
     const vecReal& x,
     const vecReal& confidences,
-    const float upper_prcntl = 0.90f)
+    const float upper_percentile = 0.90f)
 {
     if (x.empty()) return {};
 
     vecReal sorted_confidences = confidences;
     std::ranges::sort(sorted_confidences);
 
-    auto threshold_idx = static_cast<size_t>(upper_prcntl * static_cast<float>(sorted_confidences.size()));
+    auto threshold_idx = static_cast<size_t>(upper_percentile * static_cast<float>(sorted_confidences.size()));
     threshold_idx = std::min(threshold_idx, sorted_confidences.size() - 1);
     const float threshold = sorted_confidences[threshold_idx];
 
@@ -153,10 +146,17 @@ vecReal filterByTopPercentile(
     return { result.begin(), result.end() };
 }
 
-void Analyzer::calculateEventwisePitchDescription(const vecReal &waveEvent, FeatureContainer<EventwiseStats> &features) const {
-    const auto [pitches, confidences] = calculatePitchesAndConfidences(waveEvent, settings);
+void Analyzer::calculateEventwisePitchDescription(
+    const vecReal &waveEvent,
+    const double sampleRate,
+    FeatureContainer<EventwiseStats> &features) const
+{
+    const auto [pitches, confidences] =
+        calculatePitchesAndConfidences(waveEvent, sampleRate, settings);
 
-    const vecReal confidentPitches = filterByTopPercentile(pitches, confidences, settings.pitch.minimum_confidence_considered);
+
+    const vecReal confidentPitches = filterByTopPercentile(pitches, confidences,
+        settings.getFloat(axiom::tsn::Pitch, axiom::tsn::dismal_confidence_threshold).value());
 
     const auto p_mean = mean(confidentPitches);
     const auto c_mean = mean(confidences);
@@ -182,8 +182,12 @@ void Analyzer::calculateEventwisePitchDescription(const vecReal &waveEvent, Feat
     };
 }
 
-void Analyzer::calculateEventwiseLoudness(const vecReal &waveEvent, FeatureContainer<EventwiseStats> &features) const {
-    const vecReal l_tmp = calculateLoudnesses(waveEvent, settings);
+void Analyzer::calculateEventwiseLoudness(
+    const vecReal &waveEvent,
+    const double sampleRate,
+    FeatureContainer<EventwiseStats> &features) const
+{
+    const vecReal l_tmp = calculateLoudnesses(waveEvent, settings, sampleRate);
 
     const auto l_mean = mean(l_tmp);
 
@@ -196,14 +200,18 @@ void Analyzer::calculateEventwiseLoudness(const vecReal &waveEvent, FeatureConta
     };
 }
 
-void Analyzer::calculateEventwiseTimbreDescription(const vecReal &waveEvent, FeatureContainer<EventwiseStats> &features) const {
-    const FeatureContainer<vecReal> timbres_tmp = calculateTimbres(waveEvent, settings);
+void Analyzer::calculateEventwiseTimbreDescription(
+    const vecReal &waveEvent, const double sampleRate, FeatureContainer<EventwiseStats> &features) const
+{
+    const FeatureContainer<vecReal> timbres_tmp = calculateTimbres(waveEvent, settings, sampleRate);
 
     // const vecReal means = essentia::meanFrames(b_tmp);	// get mean per bfcc across all frames
     vecReal frameWeights;
     frameWeights.reserve(timbres_tmp.features.size());
     for (auto const &bfcc0: timbres_tmp[Feature_e::bfcc0]) {
-        const Real weight = std::exp(bfcc0 * static_cast<float>(settings.bfcc.BFCC0_frameNormalizationFactor));
+
+        const Real weight = std::exp(bfcc0 *
+            static_cast<float>(settings.getFloat(axiom::tsn::BFCC, axiom::tsn::BFCC0_frameNormalizationFactor).value()));
         frameWeights.push_back(weight);
     }
     const vecVecReal featurewiseFrames = transpose(std::span(timbres_tmp.features).first(NumTimbralFeatures));
@@ -239,7 +247,8 @@ void Analyzer::calculateEventwiseTimbreDescription(const vecReal &waveEvent, Fea
 }
 
 auto Analyzer::calculateOnsetwiseTimbreSpace(const vecReal &wave,
-                                        const std::vector<float> &onsetsInSeconds,
+                                        const double sampleRate,
+                                        const vecReal &onsetsInSeconds,
                                         RunLoopStatus& rls, const ShouldExitFn &shouldExit)
 const -> std::optional<std::vector<FeatureContainer<EventwiseStats>>>
 {
@@ -252,15 +261,15 @@ const -> std::optional<std::vector<FeatureContainer<EventwiseStats>>>
 
     rls.set("Splitting Wave into Events...");
 
-    const vecVecReal events = splitWaveIntoEvents(wave, onsetsInSeconds, settings, rls, shouldExit);
+    const vecVecReal events = splitWaveIntoEvents(wave, sampleRate, onsetsInSeconds, settings, rls, shouldExit);
 #pragma message("probably could benefit from some normalization, possibly based on variance")
 
     const size_t numEvents = events.size();
     std::vector<FeatureContainer<EventwiseStatistics<Real>>> timbre_points(numEvents);
 
     const auto threadPoolOptions = juce::ThreadPoolOptions()
-        .withNumberOfThreads(settings.analysis.numThreads)
-        .withDesiredThreadPriority(Thread::Priority::high)
+        .withNumberOfThreads(settings.getInt(axiom::tsn::Analysis, axiom::tsn::numThreads).value())
+        .withDesiredThreadPriority(Thread::Priority::normal)
         .withThreadName("TimbreAnalysis")
         .withThreadStackSizeBytes(Thread::osDefaultStackSize);
     juce::ThreadPool pool(threadPoolOptions);
@@ -276,9 +285,9 @@ const -> std::optional<std::vector<FeatureContainer<EventwiseStats>>>
             }
             const auto &e = events[i];
             FeatureContainer<EventwiseStats> f;
-            calculateEventwiseTimbreDescription(e, f);
-            calculateEventwisePitchDescription(e, f);
-            calculateEventwiseLoudness(e, f);
+            calculateEventwiseTimbreDescription(e, sampleRate, f);
+            calculateEventwisePitchDescription(e, sampleRate, f);
+            calculateEventwiseLoudness(e, sampleRate, f);
             timbre_points[i] = f;
 
             if (const auto numDone = ++completed;
@@ -367,14 +376,19 @@ const -> std::optional<vecVecReal>
 
     X = dim::from_eigen(Xe);
 
+    namespace ax = axiom::tsn;
+    const auto pacmapSettings = settings.get<modern::PaCMAPSettings>();
+    const auto preprocessModeStr = pacmapSettings.getStringValue(ax::preprocess_mode).toStdString();
+    jassert (preprocessModeStr == ax::Normalize || preprocessModeStr == ax::Standardize);
+
     dim::PaCMAP pacmap(2,// n_components
-        settings.pacmap.num_neighbours, //std::nullopt, // n_neighbors
-        settings.pacmap.MN_ratio,
-        settings.pacmap.FP_ratio,
-        settings.pacmap.learning_rate, // lr
-        {settings.pacmap.phase_1_iters, settings.pacmap.phase_2_iters, 250}, // num_iters
+        pacmapSettings.getIntValue(ax::num_neighbours), //std::nullopt, // n_neighbors
+        pacmapSettings.getFloatValue(ax::MN_ratio),
+        pacmapSettings.getFloatValue(ax::FP_ratio),
+        pacmapSettings.getFloatValue(ax::learning_rate), // lr
+        {pacmapSettings.getIntValue(ax::phase_1_iters), pacmapSettings.getIntValue(ax::phase_2_iters), 250}, // num_iters
         false, // verbose
-        settings.pacmap.preprocess_mode,
+        preprocessModeStr == ax::Normalize ? dim::Normalize : dim::Standardize,
         false, // intermediate
         false, // save_tree
         {0}, // intermediate_snapshots
@@ -438,9 +452,10 @@ vecVecReal transpose(const vecVecReal &V){
 }
 
 void writeEventsToWav(const vecReal &wave,
-                      const std::vector<float> &onsetsInSeconds,
+                      const double sampleRate,
+                      const vecReal &onsetsInSeconds,
                       std::string_view ogPath,
-                      const Analyzer &analyzer,
+                      const modern::AnalyzerSettingsRegistry &settings,
                       RunLoopStatus& rls,
                       const ShouldExitFn &shouldExit)
 {
@@ -453,16 +468,18 @@ void writeEventsToWav(const vecReal &wave,
         return s.dropLastCharacters(4);
     }();
 
-    const auto& settings = analyzer.getSettings();
-    const vecVecReal events = splitWaveIntoEvents(wave, onsetsInSeconds,
-                                            settings,
-                                            rls,
-                                            shouldExit);
+    const vecVecReal events = splitWaveIntoEvents(
+        wave,
+        sampleRate,
+        onsetsInSeconds,
+        settings,
+        rls,
+        shouldExit);
     juce::WavAudioFormat format;
     std::unique_ptr<juce::AudioFormatWriter> writer;
 
-
-    juce::File directory(base_name + analyzer.getSettingsHash());
+    const auto settingsHash = util::hashValueTree(settings.createValueTree());
+    juce::File directory(base_name + settingsHash);
     if (!directory.isDirectory()) {
         // If base_name has an extension, remove it to make it a directory
         directory = directory.getParentDirectory().getChildFile(directory.getFileNameWithoutExtension());
@@ -493,7 +510,7 @@ void writeEventsToWav(const vecReal &wave,
 
 
         const auto options = juce::AudioFormatWriterOptions()
-                        .withSampleRate(analyzer.getAnalyzedFileSampleRate()) // sr
+                        .withSampleRate(sampleRate) // sr
                         .withNumChannels(buffer.getNumChannels()) // numChans
                         .withBitsPerSample(24) // bitsPerSample
                         .withMetadataValues({}) // metadataValues

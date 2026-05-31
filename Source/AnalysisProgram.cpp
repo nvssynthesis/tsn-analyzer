@@ -8,45 +8,7 @@
 
 using namespace juce;
 
-static AudioFileInfo readIntoBuffer(AudioSampleBuffer &buff, const juce::File &file)
-{
-    AudioFormatManager formatManager;
-    formatManager.registerBasicFormats();
-    const auto reader = std::unique_ptr<AudioFormatReader>( formatManager.createReaderFor(file));
-    if (reader == nullptr) {
-        DBG("Failed to open file " + file.getFileName());
-        return {};
-    }
-
-    const auto numSamps = reader->lengthInSamples;
-    if (constexpr auto maxLength = std::numeric_limits<int>::max();
-        numSamps > maxLength)
-    {
-        DBG("Number of samples is greater than the maximum allowed length (" + juce::String{numSamps} + " samples)");
-        return {};
-    }
-    buff.setSize(1, static_cast<int>(numSamps));
-    jassert (static_cast<int>(numSamps) <= buff.getNumSamples());
-    reader->read(&buff, 0, static_cast<int>(numSamps), 0, true, true);
-
-    return {
-        .numSamples = numSamps,
-        .sampleRate = reader->sampleRate,
-        .bitDepth = reader->bitsPerSample
-    };
-}
-
-static ValueTree makeSettingsParentTree(double sampleRate, const String &filePath)
-{
-    nvs::analysis::AnalyzerSettings settings;
-    settings.analysis.sampleRate = sampleRate;
-    settings.info.sampleFilePath = filePath;
-    settings.analysis.numThreads = 8;
-
-    const auto settingsParentTree = nvs::analysis::createParentTreeFromSettings(settings);
-    return settingsParentTree;
-}
-static ValueTree makeSettingsParentTree(const ValueTree settingsTree, const double sampleRate, const String &filePath)
+static ValueTree makeSettingsParentTree(const ValueTree settingsTree, const double sampleRate, const String &filePath)  // NOLINT
 {
     ValueTree settingsParentTree("Root");
 
@@ -58,10 +20,10 @@ static ValueTree makeSettingsParentTree(const ValueTree settingsTree, const doub
     settingsParentTree.addChild(settingsTree, -1, nullptr);
     return settingsParentTree;
 }
-static AnalyzerResult runAnalyzer(const std::span<const float> &channel, const String &audioFileFullAbsolutePath, auto &settingsTree)
+static AnalyzerResult runAnalyzer(const nvs::util::SampleManager &sampleManager, auto &settingsTree)
 {
     nvs::analysis::ThreadedAnalyzer analyzer;
-    analyzer.updateStoredAudioAndSettings(channel, audioFileFullAbsolutePath, settingsTree, true);
+    analyzer.updateStoredAudioAndSettings(sampleManager, settingsTree, true);
     if (!analyzer.startThread(Thread::Priority::normal)) {
         Logger::writeToLog("Failed to start analysis thread\n");
         return {};
@@ -99,11 +61,8 @@ void mainAnalysisProgram(const ArgumentList &args)
 
     Logger::writeToLog("Opening " + inputAudioFile.getFileName() + "...");
 
-    AudioSampleBuffer buffer;
-    const auto audioFileInfo = readIntoBuffer(buffer, inputAudioFile);
-
-    const auto rp = buffer.getReadPointer(0);
-    const std::span channel0(rp, audioFileInfo.numSamples);
+    nvs::util::SampleManager sampleManager;
+    sampleManager.loadAudioFile(inputAudioFile);
 
     const auto& audioFileFullAbsPath = inputAudioFile.getFullPathName();
 
@@ -111,7 +70,7 @@ void mainAnalysisProgram(const ArgumentList &args)
         ValueTree settingsParentTree {};
         File settingsFile {};
     };
-    const auto [settingsParentTree, settingsFile] = [&args, &audioFileInfo, &audioFileFullAbsPath]() -> SettingsStuff
+    const auto [settingsParentTree, settingsFile] = [&args, &sampleManager]() -> SettingsStuff
     {
         SettingsStuff _settingsStuff;
         if (const auto settingsStr = args.getValueForOption("--settings|-s");
@@ -119,20 +78,21 @@ void mainAnalysisProgram(const ArgumentList &args)
         {
             _settingsStuff.settingsFile = asAbsPathOrWithinDirectory(settingsStr, nvs::analysis::settingsPresetLocation);
             const auto settingsVT = nvs::analysis::loadValueTreeFromFile(_settingsStuff.settingsFile);
-            _settingsStuff.settingsParentTree = makeSettingsParentTree(settingsVT, audioFileInfo.sampleRate, audioFileFullAbsPath);
+            _settingsStuff.settingsParentTree = makeSettingsParentTree(settingsVT, sampleManager.getSampleRate(), sampleManager.getFullPath());
             return _settingsStuff;
         }
         // ~/Library/tsn_analyzer/default_settings.json
         _settingsStuff.settingsFile = nvs::analysis::systemDefaultSettingsPreset;
         const auto settingsVT = nvs::analysis::loadValueTreeFromFile(_settingsStuff.settingsFile);
-        _settingsStuff.settingsParentTree = makeSettingsParentTree(settingsVT, audioFileInfo.sampleRate, audioFileFullAbsPath);
+        _settingsStuff.settingsParentTree = makeSettingsParentTree(settingsVT, sampleManager.getSampleRate(), sampleManager.getFullPath());
         return _settingsStuff;
     }();
     const auto treeStr = nvs::util::valueTreeToXmlStringSafe(settingsParentTree);
 
     auto /*can't be const*/ settingsTree = settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings);
     const auto settingsTreeOriginal = settingsTree.createCopy();
-    const auto analysisResult = runAnalyzer(channel0, audioFileFullAbsPath, settingsTree);
+
+    const auto analysisResult = runAnalyzer(sampleManager, settingsTree);   // NOLINT
     if (analysisResult.onsets == nullptr || analysisResult.timbres == nullptr) {
         Logger::writeToLog("Analysis failed; returning");
         jassertfalse;
@@ -156,6 +116,7 @@ void mainAnalysisProgram(const ArgumentList &args)
     const auto onsets = analysisResult.onsets->onsets;
     const std::shared_ptr<nvs::analysis::PacmapResult> pacmap = analysisResult.pacmap;
     const auto waveformHash = analysisResult.timbres->waveformHash;
+    jassert(waveformHash == sampleManager.getWaveformHash());
 
     const auto timbreSpaceVT = nvs::analysis::timbreSpaceReprToVT(timbreSpaceRepr, onsets,
         pacmap == nullptr ? nullptr : &pacmap->pacmapMatrix_);
@@ -166,7 +127,6 @@ void mainAnalysisProgram(const ArgumentList &args)
 
     if (args.containsOption("--print|-p")) {
         Logger::writeToLog(nvs::util::valueTreeToXmlStringSafe(timbreSpaceVT));
-        return;
     }
     if (const File outAnalysisFile =
         getOutputAnalysisFile(args,
@@ -181,7 +141,7 @@ void mainAnalysisProgram(const ArgumentList &args)
         const auto superTree = nvs::analysis::makeSuperTree(
             timbreSpaceVT,
             audioFileFullAbsPath,
-            audioFileInfo.sampleRate,
+            sampleManager.getSampleRate(),
             waveformHash,
             analysisResult.settingsHash,
             settingsTree);

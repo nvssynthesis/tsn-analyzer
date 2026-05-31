@@ -19,7 +19,7 @@
 #include "Features.h"
 #include "Statistics.h"
 #include "Settings/Settings.h"
-
+#include "Settings/ModernSettingsTypes.h"
 
 namespace nvs::analysis {
 
@@ -46,7 +46,7 @@ extractFeatures(const FeatureContainer<T> &allFeatures,
 
 [[nodiscard]]
 inline vecReal
-extractFeatures(FeatureContainer<EventwiseStatistics<Real>> const & allFeatures,
+extractFeatures(FeatureContainer<EventwiseStatistics<Real>> const &allFeatures,
 				const std::vector<Feature_e> &featuresToUse,
 				const Statistic statisticToUse)
 {
@@ -78,17 +78,22 @@ public:
 
 	std::optional<vecReal>
     calculateOnsetsInSeconds(
-        vecReal const &wave,
+        const vecReal &wave,
+        double sampleRate,
         RunLoopStatus& rls,
 	    const ShouldExitFn &shouldExit) const;
 
-	void calculateEventwisePitchDescription(vecReal const &waveEvent, FeatureContainer<EventwiseStats> &features) const;
-	void calculateEventwiseTimbreDescription(vecReal const &waveEvent, FeatureContainer<EventwiseStats> &features) const;
-	void calculateEventwiseLoudness(vecReal const &waveEvent, FeatureContainer<EventwiseStats> &features) const;
+	void calculateEventwisePitchDescription(const vecReal &waveEvent, double sampleRate,
+	    FeatureContainer<EventwiseStats> &features) const;
+	void calculateEventwiseTimbreDescription(const vecReal &waveEvent, double sampleRate,
+	    FeatureContainer<EventwiseStats> &features) const;
+	void calculateEventwiseLoudness(const vecReal &waveEvent, double sampleRate,
+	    FeatureContainer<EventwiseStats> &features) const;
 
 	std::optional<std::vector<FeatureContainer<EventwiseStats>>>
     calculateOnsetwiseTimbreSpace(
         const vecReal &wave,
+        double sampleRate,
         const vecReal &onsetsInSeconds,
         RunLoopStatus& rls,
         const ShouldExitFn &shouldExit) const;
@@ -101,20 +106,14 @@ public:
 	    const std::vector<Feature_e> &featuresToUse,
 	    Statistic statToUse);
 
-	float getAnalyzedFileSampleRate() const;
-
-	bool updateSettings(juce::ValueTree &newSettings, bool attemptFix);
-	AnalyzerSettings const &getSettings() const;
+	void updateSettings(juce::ValueTree newSettings);
+	modern::AnalyzerSettingsRegistry const &getSettings() const;
     ValueTree getSettingsParentTree() const;
-    juce::String getSettingsHash() const {
-        return _settingsHash;
-    }
-
+    juce::String getSettingsHash() const;
     //====================================================================================
 	ess::EssentiaHolder ess_hold;
 private:
-	AnalyzerSettings settings;
-    juce::String _settingsHash {};
+    modern::AnalyzerSettingsRegistry settings;
 };
 
 double getLengthInSeconds(auto lengthInSamples, auto sampleRate){
@@ -142,7 +141,11 @@ vecReal binwiseStatistic(vecVecReal const &V, Func statisticFunc) {
 	return results;
 }
 
-void writeEventsToWav(vecReal const &wave, std::vector<float> const &onsetsInSeconds, std::string_view ogPath,
-    const Analyzer &analyzer, RunLoopStatus& rls, const ShouldExitFn &shouldExit);
+void writeEventsToWav(
+    const vecReal &wave,
+    double sampleRate,
+    const vecReal &onsetsInSeconds, std::string_view ogPath,
+    const modern::AnalyzerSettingsRegistry &settings,
+    RunLoopStatus& rls, const ShouldExitFn &shouldExit);
 
 }	// namespace nvs::analysis

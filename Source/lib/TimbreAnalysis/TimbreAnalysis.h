@@ -11,16 +11,15 @@
 #pragma once
 
 #include "AnalysisUsing.h"
-#include "../Settings/Settings.h"
 #include "../Features.h"
-#include <span>
+#include "Settings/ModernSettingsTypes.h"
 
 namespace nvs::analysis {
 
-vecReal calculateLoudnesses(std::span<Real const> waveSpan, AnalyzerSettings const& settings);
+vecReal calculateLoudnesses(const vecReal &waveform, modern::AnalyzerSettingsRegistry const& settings, double sampleRate);
 
-FeatureContainer<vecReal> calculateTimbres(std::span<Real const> waveSpan, AnalyzerSettings const& settings);
+FeatureContainer<vecReal> calculateTimbres(const vecReal &waveform, const modern::AnalyzerSettingsRegistry &settings, double sampleRate);
 
-vecVecReal PCA(vecVecReal const &V, int num_features_out);
+vecVecReal PCA(const vecVecReal &V, int num_features_out);
 
 } // namespace nvs::analysis

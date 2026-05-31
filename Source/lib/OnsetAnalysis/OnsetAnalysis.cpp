@@ -28,27 +28,32 @@ vecReal makeSweptSine(Real const low, Real const high, size_t const len, Real co
 
 	return freqSweep;
 }
-static vecReal getWeights(const AnalyzerSettings &settings) {
+static vecReal getWeights(const modern::AnalyzerSettingsRegistry &settings) {
+    namespace ax = axiom::tsn;
+    const auto& group = settings.get<modern::OnsetSettings>();
     return {
-        static_cast<float>(settings.onset.weight_hfc),
-        static_cast<float>(settings.onset.weight_complex),
-        static_cast<float>(settings.onset.weight_complexPhase),
-        static_cast<float>(settings.onset.weight_flux),
-        static_cast<float>(settings.onset.weight_rms),
-        static_cast<float>(settings.onset.weight_novelty)
+        static_cast<float>(group.getFloatValue(ax::weight_hfc)),
+        static_cast<float>(group.getFloatValue(ax::weight_complex)),
+        static_cast<float>(group.getFloatValue(ax::weight_complexPhase)),
+        static_cast<float>(group.getFloatValue(ax::weight_flux)),
+        static_cast<float>(group.getFloatValue(ax::weight_rms)),
+        static_cast<float>(group.getFloatValue(ax::weight_novelty))
     };
 }
 
-    array2dReal calculateOnsetsMatrix(std::vector<Real> const &waveform,
-						  AnalyzerSettings const &settings,
-						  RunLoopStatus& rls,
-						  const ShouldExitFn &shouldExit)
+array2dReal calculateOnsetsMatrix(const vecReal &waveform,
+                      const double sampleRate,
+					  const modern::AnalyzerSettingsRegistry &settings,
+					  RunLoopStatus& rls,
+					  const ShouldExitFn &shouldExit)
 {
-	const auto input_sr     = settings.analysis.sampleRate;
+    namespace ax = axiom::tsn;
+    const auto &analysisSettings = settings.get<modern::AnalysisSettings>();
+	const auto input_sr          = sampleRate;
 	assert(0.0 < input_sr);
-    constexpr auto internal_sr  = 44100.0f;
-	const auto frameSize    = std::min(std::max(512, settings.analysis.frameSize), 2048);
-	constexpr auto hopSize      = 512;
+    constexpr auto internal_sr   = 44100.0f;
+	const auto frameSize      = std::min(std::max(512, analysisSettings.getIntValue(ax::frameSize)), 2048);
+	constexpr auto hopSize       = 512;
 
 	auto *inVec = new vectorInput(&waveform);   // NOLINT – network takes ownership
 
@@ -114,7 +119,8 @@ static vecReal getWeights(const AnalyzerSettings &settings) {
         // handle case where user asked for cumulative weight of 0
     }
 
-    if (0.f < settings.onset.weight_hfc) {
+    const auto &onsetSettings = settings.get<modern::OnsetSettings>();
+    if (0.f < onsetSettings.getFloatValue(ax::weight_hfc)) {
         Algorithm* onsetDetectionHfc = StreamingFactory::create("OnsetDetection",
                                                 "method", "hfc",
                                                    "sampleRate", internal_sr);
@@ -123,7 +129,7 @@ static vecReal getWeights(const AnalyzerSettings &settings) {
         auto *onsetDetsHFC = new vectorOutput(&onsetDetVecHFC);     // NOLINT – network takes ownership
         onsetDetectionHfc->output("onsetDetection") >> *onsetDetsHFC;
     }
-    if (0.f < settings.onset.weight_complex) {
+    if (0.f < onsetSettings.getFloatValue(ax::weight_complex)) {
         Algorithm* onsetDetectionComplex = StreamingFactory::create("OnsetDetection",
                                                 "method", "complex",
                                                    "sampleRate", internal_sr);
@@ -132,7 +138,7 @@ static vecReal getWeights(const AnalyzerSettings &settings) {
         auto *onsetDetsComplex = new vectorOutput(&onsetDetVecComplex);     // NOLINT – network takes ownership
         onsetDetectionComplex->output("onsetDetection") >> *onsetDetsComplex;
     }
-    if (0.f < settings.onset.weight_complexPhase) {
+    if (0.f < onsetSettings.getFloatValue(ax::weight_complexPhase)) {
         Algorithm* onsetDetectionComplexPhase = StreamingFactory::create("OnsetDetection",
                                                 "method", "complex_phase",
                                                    "sampleRate", internal_sr);
@@ -141,7 +147,7 @@ static vecReal getWeights(const AnalyzerSettings &settings) {
         auto *onsetDetsComplexPhase = new vectorOutput(&onsetDetVecComplexPhase);       // NOLINT – network takes ownership
         onsetDetectionComplexPhase->output("onsetDetection") >> *onsetDetsComplexPhase;
     }
-    if (0.f < settings.onset.weight_flux) {
+    if (0.f < onsetSettings.getFloatValue(ax::weight_flux)) {
         Algorithm* onsetDetectionFlux = StreamingFactory::create("OnsetDetection",
                                                 "method", "flux",
                                                    "sampleRate", internal_sr);
@@ -150,7 +156,7 @@ static vecReal getWeights(const AnalyzerSettings &settings) {
         auto *onsetDetsFlux = new vectorOutput(&onsetDetVecFlux);       // NOLINT – network takes ownership
         onsetDetectionFlux->output("onsetDetection") >> *onsetDetsFlux;
     }
-    if (0.f < settings.onset.weight_rms) {
+    if (0.f < onsetSettings.getFloatValue(ax::weight_rms)) {
         Algorithm* onsetDetectionRms = StreamingFactory::create("OnsetDetection",
                                                 "method", "rms",
                                                    "sampleRate", internal_sr);
@@ -161,7 +167,7 @@ static vecReal getWeights(const AnalyzerSettings &settings) {
     }
 
     std::vector<std::vector<vecReal>> spectrogramHolder {}; // created in main function scope for lifetime (VectorOutput doesn't seem to take ownership)
-    if (0.f < settings.onset.weight_novelty) {
+    if (0.f < onsetSettings.getFloatValue(ax::weight_novelty)) {
         // this scope is all just to PREPARE the necessary spectrogram input FOR NoveltyCurve!
         VectorOutput<std::vector<vecReal>> *spectrumAccumOutput = new VectorOutput<std::vector<vecReal>>(&spectrogramHolder);   // NOLINT – network takes ownership
         Algorithm* spectrumFrameAccumulator = StreamingFactory::create("VectorRealAccumulator");
@@ -185,7 +191,7 @@ static vecReal getWeights(const AnalyzerSettings &settings) {
 
     VectorOutput<Real> *noveltyAccumOutput = new VectorOutput(&onsetDetVecNovelty);
     try {
-        if (0.f < settings.onset.weight_novelty) {
+        if (0.f < onsetSettings.getFloatValue(ax::weight_novelty)) {
             jassert(spectrogramHolder.size() == 1);
             const vecVecReal &spectrogram = spectrogramHolder[0];
 
@@ -253,7 +259,7 @@ static vecReal getWeights(const AnalyzerSettings &settings) {
 
 #pragma message("make this work with StreamingFactory")
 vecReal calculateOnsetsInSeconds(const array2dReal &onsetAnalysisMatrix,
-								 const AnalyzerSettings &settings)
+								 const modern::AnalyzerSettingsRegistry &settings)
 {
 	/* assuming that the onsetAnalysisMatrix was derived from the above onsetAnalysis,
 	 (which is beyond likely in this codebase because it's not so trivial to construct that array2dReal),
@@ -262,12 +268,14 @@ vecReal calculateOnsetsInSeconds(const array2dReal &onsetAnalysisMatrix,
 
 	constexpr float frameRate = 44100.f / 512.f;
 
+    namespace ax = axiom::tsn;
+    const auto &onsetSettings = settings.get<modern::OnsetSettings>();
 	standard::Algorithm* onsetDetectionSeconds = StandardFactory::create (
 		"Onsets",
 		  "frameRate",       frameRate,
-		  "silenceThreshold",settings.onset.silenceThreshold,
-		  "alpha",           settings.onset.alpha, // proportion of the mean included to reject smaller peaks-filters very short onsets
-		  "delay",           settings.onset.numFrames_shortOnsetFilter // number of frames used to compute the threshold-size of short-onset filter
+		  "silenceThreshold",onsetSettings.getFloatValue(ax::silenceThreshold),
+		  "alpha",           onsetSettings.getFloatValue(ax::alpha), // proportion of the mean included to reject smaller peaks-filters very short onsets
+		  "delay",           onsetSettings.getIntValue(ax::numFrames_shortOnsetFilter) // number of frames used to compute the threshold-size of short-onset filter
 	);
 
     const vecReal weights = getWeights(settings);
@@ -286,125 +294,24 @@ vecReal calculateOnsetsInSeconds(const array2dReal &onsetAnalysisMatrix,
 	return onsets;
 }
 
-vecVecReal featuresForSbic(const vecReal &waveform,
-						   const AnalyzerSettings &settings,
-						   RunLoopStatus& rls,
-						   const ShouldExitFn &shouldExit)
+vecVecReal splitWaveIntoEvents(
+    const vecReal &wave,
+    const double sampleRate,
+    const vecReal &onsetsInSeconds,
+    const modern::AnalyzerSettingsRegistry &settings,
+    RunLoopStatus& rls, const ShouldExitFn &shouldExit)
 {
-	auto *inVec = new vectorInput(&waveform);       // NOLINT – network takes ownership
-
-    const auto sr = static_cast<float>(settings.analysis.sampleRate);
-	assert (0.0 < sr);
-	int const frameSize = settings.analysis.frameSize;
-	int const hopSize = settings.analysis.hopSize;
-
-    constexpr float validFrameThresholdRatio = 0.f;
-
-	int const zeroPadding = frameSize;
-
-	int const fftSize = frameSize * 2;
-
-
-	Algorithm* frameCutter = StreamingFactory::create ("FrameCutter",
-		"frameSize",               frameSize,
-		"hopSize",                 hopSize,
-		"lastFrameToEndOfFile",    true,
-		"silentFrames",            std::string ("keep"),
-		"startFromZero",           true,
-		"validFrameThresholdRatio", validFrameThresholdRatio
-	);
-
-	Algorithm* windowing = StreamingFactory::create ("Windowing",
-		"normalized", false,
-		"size",        frameSize,
-		"zeroPadding", zeroPadding,
-		"type",        settings.analysis.windowingType.toStdString(),
-		"zeroPhase",   false
-	);
-	Algorithm* spectrum = StreamingFactory::create ("PowerSpectrum",
-		"size", fftSize
-	);
-	Algorithm* bfcc = StreamingFactory::create ("BFCC",
-		"sampleRate",           sr,
-		"dctType",              settings.bfcc.dctType.toStdString(),
-		"highFrequencyBound",   settings.bfcc.highFrequencyBound,
-		"lowFrequencyBound",    settings.bfcc.lowFrequencyBound,
-		"inputSize",            frameSize + 1,
-		"liftering",            settings.bfcc.liftering,
-		"normalize",            settings.bfcc.normalize.toStdString(),
-		"numberBands",          settings.bfcc.numBands,
-		"numberCoefficients",   settings.bfcc.numCoefficients,
-		"weighting",            settings.bfcc.weightingType.toStdString(),
-		"type",                 settings.bfcc.spectrumType.toStdString(),
-		"logType",              "dbpow"	// log compr. type. Use ‘dbpow’ if working with power and ‘dbamp’ if working with magnitudes. DONT CHANGE unless also changing PowerSpectrum algo to Spectrum
-	);
-	Algorithm* barkFrameAccumulator = StreamingFactory::create("VectorRealAccumulator");
-	Algorithm* bfccFrameAccumulator = StreamingFactory::create("VectorRealAccumulator");
-
-	// for some reason, to get this working in as a connection to FrameAccumulator,
-	// these must be vector<vector<vector<Real>>>, and the 1st dimension only has size of 1...
-	std::vector<std::vector<vecReal>> barkBands, BFCCs;
-	VectorOutput<std::vector<vecReal>> *barkAccumOutput = new VectorOutput<std::vector<vecReal>>(&barkBands);   // NOLINT – network takes ownership
-	VectorOutput<std::vector<vecReal>> *bfccAccumOutput = new VectorOutput<std::vector<vecReal>>(&BFCCs);       // NOLINT – network takes ownership
-
-	*inVec								>>	frameCutter->input("signal");
-	frameCutter->output("frame")		>>	windowing->input("frame");
-	windowing->output("frame")			>>	spectrum->input("signal");
-	spectrum->output("powerSpectrum")	>>	bfcc->input("spectrum");
-	bfcc->output("bands")				>>	barkFrameAccumulator->input("data");
-	bfcc->output("bfcc")				>>	bfccFrameAccumulator->input("data");
-	barkFrameAccumulator->output("array") >> *barkAccumOutput;
-	bfccFrameAccumulator->output("array") >> *bfccAccumOutput;
-
-	Network n(inVec);
-	n.runPrepare();
-	while (n.runStep()){
-		if (shouldExit()){
-			break;
-		}
-	}
-	n.clear();
-
-	assert(BFCCs.size() == 1);
-	assert(BFCCs[0].size());
-	assert(BFCCs[0][0].size());
-
-	return BFCCs[0];	// the only dimension that was used
-}
-
-vecReal sBic(const array2dReal &featureMatrix, const AnalyzerSettings &settings){
-
-	standard::Algorithm* sbic = StandardFactory::create (
-		"SBic",
-		  "cpw",       settings.sBic.complexityPenaltyWeight,
-		  "inc1",      settings.sBic.incrementFirstPass,
-		  "inc2",      settings.sBic.incrementSecondPass,
-		  "minLength", settings.sBic.minSegmentLengthFrames,
-		  "size1",     settings.sBic.sizeFirstPass,
-		  "size2",     settings.sBic.sizeSecondPass
-	);
-	// "cpw" 1.5, "inc1" 60, "inc2" 20, "minLength" 10, "size1" 300, size2" 200
-	vecReal segmentationVec;
-	sbic->input("features").set(featureMatrix);
-	sbic->output("segmentation").set(segmentationVec);
-	sbic->compute();
-	return segmentationVec;
-}
-
-vecVecReal splitWaveIntoEvents(const vecReal&wave, const vecReal&onsetsInSeconds,
-							   const AnalyzerSettings &settings,
-							   RunLoopStatus& rls, const ShouldExitFn &shouldExit){
 	size_t const numOnsets {onsetsInSeconds.size()};
 	assert(numOnsets);
 	if (numOnsets == 1){	// only 1 event
-		vecVecReal retVal{wave};
+		vecVecReal retVal{ vecReal(wave.begin(), wave.end()) };
 		return retVal;
 	}
 	vecReal endTimes(numOnsets);
 	std::copy(onsetsInSeconds.begin() + 1, onsetsInSeconds.end(), endTimes.begin());
 	assert(onsetsInSeconds[1] == endTimes[0]);
 
-    const auto sampleRate = static_cast<float>(settings.analysis.sampleRate);
+    const auto anSettings = settings.getGroupTyped<const modern::AnalysisSettings>(axiom::tsn::Analysis).value().get();
 	assert (sampleRate > 8000.f);
 
 	Real const endOfFile = static_cast<Real>(wave.size() - 1) / sampleRate;
@@ -435,13 +342,16 @@ vecVecReal splitWaveIntoEvents(const vecReal&wave, const vecReal&onsetsInSeconds
 
 	assert(!waveEvents.empty());
 
+    namespace ax = axiom::tsn;
 	for (auto & waveEvent : waveEvents){
 		size_t currentLength = waveEvent.size();
-		const size_t fadeInSamps = std::min(static_cast<size_t>(settings.split.fadeInSamps), currentLength);
+	    const auto splitSettings = settings.get<const modern::SplitSettings>();
+
+		const size_t fadeInSamps = std::min(static_cast<size_t>(splitSettings.getIntValue(ax::fadeInSamps)), currentLength);
 		for (size_t j = 0; j < fadeInSamps; ++j){
 			waveEvent[j] = waveEvent[j] * (static_cast<Real>(j) / static_cast<Real>(fadeInSamps));
 		}
-		size_t fadeOutSamps = std::min(static_cast<size_t>(settings.split.fadeOutSamps), currentLength);
+		const size_t fadeOutSamps = std::min(static_cast<size_t>(splitSettings.getIntValue(ax::fadeOutSamps)), currentLength);
 		for (size_t j = 0; j < fadeOutSamps; ++j){
 			const size_t currentIdx = (currentLength - 1) - j;
 			waveEvent[currentIdx] = waveEvent[currentIdx] * (static_cast<Real>(j) / static_cast<Real>(fadeOutSamps));
@@ -451,17 +361,19 @@ vecVecReal splitWaveIntoEvents(const vecReal&wave, const vecReal&onsetsInSeconds
 	return waveEvents;
 }
 
-void writeWav(const vecReal&wave, const std::string_view name,
-			  const AnalyzerSettings &settings,
-			  RunLoopStatus& rls,
-			  const ShouldExitFn &shouldExit)
+void writeWav(const vecReal &wave,
+    const double sampleRate,
+    const std::string_view name,
+	const modern::AnalyzerSettingsRegistry &settings,
+	RunLoopStatus& rls,
+	const ShouldExitFn &shouldExit)
 {
-    const auto sr = static_cast<float>(settings.analysis.sampleRate);
-	jassert (sr > 20000.f);
+    namespace ax = axiom::tsn;
+	jassert (sampleRate > 20000.f);
 	Algorithm* writer = StreamingFactory::create("MonoWriter",
 									   "filename", std::string(name) + ".wav",
 									   "format", "wav",
-									   "sampleRate", sr);
+									   "sampleRate", sampleRate);
 	vectorInput *waveInput = new vectorInput(&wave);        // NOLINT – network takes ownership
 	*waveInput >> writer->input("audio");
 
@@ -474,8 +386,8 @@ void writeWav(const vecReal&wave, const std::string_view name,
 	}
 	n.clear();
 }
-void writeWavs(const vecVecReal &waves, const std::string_view defName,
-			   const AnalyzerSettings &settings,
+void writeWavs(const vecVecReal &waves, const double sampleRate, const std::string_view defName,
+			   const modern::AnalyzerSettingsRegistry &settings,
 			   RunLoopStatus& rls,
 			   const ShouldExitFn &shouldExit)
 {
@@ -485,11 +397,10 @@ void writeWavs(const vecVecReal &waves, const std::string_view defName,
 		std::string strIdx = std::to_string(idx++);
 		name += strIdx;					// add index to name
 
-		writeWav(wave, name, settings, rls, shouldExit);
+		writeWav(wave, sampleRate, name, settings, rls, shouldExit);
 
 		name.erase(name.back() - strIdx.length(), name.back());	// remove index from name
 	}
 }
 
 } // namespace nvs::analysis
-

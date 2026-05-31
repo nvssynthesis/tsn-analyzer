@@ -1,6 +1,7 @@
 #include "SettingsPrograms.h"
 #include "juce_utils.h"
 #include "ProgramUtils.h"
+#include "Settings/ModernSettingsTypes.h"
 
 using juce::String;
 using juce::Array;
@@ -62,8 +63,8 @@ ValueTree createDefaultPresetFile() {
     }
     // if we're here, the default file has been properly created
     // convert settings object to value tree
-    ValueTree vt("Settings");
-    nvs::analysis::initializeSettingsBranches(vt);
+    const nvs::analysis::modern::AnalyzerSettingsRegistry_t registry;
+    ValueTree vt = registry.createValueTree();
     nvs::util::saveValueTreeToJSON(vt, systemDefaultSettingsPreset.getFullPathName());
     return vt;
 }

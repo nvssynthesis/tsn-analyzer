@@ -101,12 +101,14 @@ STRAXIOMIZE(equalizeLoudness);
 
 STRAXIOMIZE(Onset);
 STRAXIOMIZE(segmentation);
+STRAXIOMIZE(doRefinements);
 STRAXIOMIZE(refinementNumEventSubdivisions);
 STRAXIOMIZE(refinementSilenceThresholdDb);
 STRAXIOMIZE(refinementMinSilenceDurationMs);
 STRAXIOMIZE(refinementMinEventWithinSilenceDurationMs);
 STRAXIOMIZE(Event);
 STRAXIOMIZE(Uniform);
+STRAXIOMIZE(uniformEventLength);
 STRAXIOMIZE(alpha);
 STRAXIOMIZE(numFrames_shortOnsetFilter);
 STRAXIOMIZE(silenceThreshold);

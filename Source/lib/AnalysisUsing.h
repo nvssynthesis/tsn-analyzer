@@ -10,6 +10,7 @@
 
 #pragma once
 #include "EssentiaSetup.h"
+#include "SampleManager.h"
 
 #include "essentia/streaming/algorithms/vectorinput.h"
 #include "essentia/streaming/algorithms/vectoroutput.h"
@@ -19,6 +20,7 @@
 
 namespace nvs::analysis {
 
+using util::SampleManager;
 //===================================================================================
 using namespace essentia;
 using namespace essentia::streaming;
