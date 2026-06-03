@@ -12,13 +12,11 @@
 #include <optional>
 
 #include <juce_core/juce_core.h>
-#include <juce_data_structures/juce_data_structures.h>
 
 #include "RunLoopStatus.h"
 #include "AnalysisUsing.h"
 #include "Features.h"
 #include "Statistics.h"
-#include "Settings/Settings.h"
 #include "Settings/ModernSettingsTypes.h"
 
 namespace nvs::analysis {

@@ -16,7 +16,7 @@ namespace nvs::dim {
 /**
     notes: fit_transform return type — in Python it returns either intermediate_states (a 3D array) or
     the embedding (2D). In C++ both are std::vector<vecVecReal> but with different semantics — one has
-    multiple snapshots, the other has one. The caller needs to know which mode they're in. An std::variant
+    multiple snapshots, the other has one. The caller needs to know which mode they're in. A std::variant
     would be cleaner here but adds complexity; worth revisiting.
 
     transform always preprocesses basis — the Python skips this if self.tree is not None (i.e. the tree was

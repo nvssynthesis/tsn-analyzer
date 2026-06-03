@@ -1168,7 +1168,7 @@ void PaCMAP::fit(const vecVecReal& X_in, const YinitParam &init, const bool save
                   << ", n_MN=" << n_MN_
                   << ", n_FP=" << n_FP_
                   << ", lr=" << lr_
-                  << ", preprocess_mode=" << ((preprocess_mode_ == Normalize) ? "normalize" : "standardize")
+                  << ", preprocess_mode=" << ((preprocess_mode_ == PreprocessMode_e::Normalize) ? "normalize" : "standardize")
                   << ", intermediate=" << intermediate_ << ")\n";
 
     sample_pairs(preprocess_result_.X);

@@ -10,11 +10,9 @@
 
 #pragma once
 #include "AnalysisUsing.h"
-#include "../Settings/Settings.h"
 #include "../RunLoopStatus.h"
 #include "Settings/ModernSettingsTypes.h"
 
-#include "essentia/utils/tnt/tnt2vector.h"
 #include "essentia/essentiamath.h"
 
 namespace nvs::analysis {

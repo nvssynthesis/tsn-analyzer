@@ -23,7 +23,7 @@ enum class Distance_e {
     manhattan, angular, and hamming available in original
     */
 };
-enum PreprocessMode_e {
+enum class PreprocessMode_e {
     Normalize,
     Standardize
 };

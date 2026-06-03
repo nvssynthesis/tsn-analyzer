@@ -469,7 +469,7 @@ juce::ValueTree createParentTreeFromSettings(const AnalyzerSettings &settings) {
     setTreeProperty(pacmapNode, axiom::tsn::learning_rate, settings.pacmap.learning_rate);
     setTreeProperty(pacmapNode, axiom::tsn::phase_1_iters, settings.pacmap.phase_1_iters);
     setTreeProperty(pacmapNode, axiom::tsn::phase_2_iters, settings.pacmap.phase_2_iters);
-    setTreeProperty(pacmapNode, axiom::tsn::preprocess_mode, settings.pacmap.preprocess_mode);
+    setTreeProperty(pacmapNode, axiom::tsn::preprocess_mode, static_cast<int>(settings.pacmap.preprocess_mode));
     settingsTree.appendChild(pacmapNode, nullptr);
 
     // Add settings tree to parent

@@ -388,7 +388,7 @@ const -> std::optional<vecVecReal>
         pacmapSettings.getFloatValue(ax::learning_rate), // lr
         {pacmapSettings.getIntValue(ax::phase_1_iters), pacmapSettings.getIntValue(ax::phase_2_iters), 250}, // num_iters
         false, // verbose
-        preprocessModeStr == ax::Normalize ? dim::Normalize : dim::Standardize,
+        preprocessModeStr == ax::Normalize ? dim::PreprocessMode_e::Normalize : dim::PreprocessMode_e::Standardize,
         false, // intermediate
         false, // save_tree
         {0}, // intermediate_snapshots

@@ -3,23 +3,22 @@
 //
 
 #pragma once
-#include "AnalysisUsing.h"
-#include "../Settings/Settings.h"
 #include <span>
 
+#include "AnalysisUsing.h"
 #include "Settings/ModernSettingsTypes.h"
 
 namespace nvs::analysis {
 
 
 struct PitchesAndConfidences {
-    std::vector<Real> pitches, confidences;
+    vecReal pitches, confidences;
 };
 
 PitchesAndConfidences calculatePitchesAndConfidences(
     const vecReal &waveEvent,
     double sampleRate,
-    modern::AnalyzerSettingsRegistry const& settings);
+    const modern::AnalyzerSettingsRegistry &settings);
 
 
 }

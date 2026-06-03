@@ -11,31 +11,29 @@
 #pragma once
 #include "essentia/algorithmfactory.h"
 
-namespace nvs {
-namespace ess {
+namespace nvs::ess {
 
 struct EssentiaInitializer {
-	EssentiaInitializer(){
-		essentia::init();
-	}
-	~EssentiaInitializer(){
-		essentia::shutdown();
-	}
+    EssentiaInitializer(){
+        essentia::init();
+    }
+    ~EssentiaInitializer(){
+        essentia::shutdown();
+    }
 };
 
 // instantiates Essentia
 struct EssentiaHolder {
-	EssentiaInitializer &initializer;
-	essentia::streaming::AlgorithmFactory& factory;
-	essentia::standard::AlgorithmFactory& standardFactory;
+    EssentiaInitializer &initializer;
+    essentia::streaming::AlgorithmFactory& factory;
+    essentia::standard::AlgorithmFactory& standardFactory;
 
     explicit EssentiaHolder(EssentiaInitializer &init) :
-		initializer(init),
-		factory(essentia::streaming::AlgorithmFactory::instance()),
-		standardFactory(essentia::standard::AlgorithmFactory::instance())
-	{}
-	~EssentiaHolder() = default;
+        initializer(init),
+        factory(essentia::streaming::AlgorithmFactory::instance()),
+        standardFactory(essentia::standard::AlgorithmFactory::instance())
+    {}
+    ~EssentiaHolder() = default;
 };
 
-}	// namespace ess
-}	// namespace nvs
+}

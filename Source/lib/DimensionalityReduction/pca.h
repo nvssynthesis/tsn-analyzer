@@ -28,7 +28,7 @@ inline Eigen::MatrixXf to_eigen(const vecVecReal& X)
     return M;
 }
 template <std::size_t N>
-inline Eigen::MatrixXf to_eigen(const std::array<vecReal, N>& X)
+Eigen::MatrixXf to_eigen(const std::array<vecReal, N>& X)
 {
     const idx_t d = static_cast<idx_t>(X[0].size());
     Eigen::MatrixXf M(static_cast<idx_t>(N), d);
@@ -128,7 +128,7 @@ struct PreprocessResult {
 };
 
 namespace {
-inline void fit_and_apply_column_transform(
+void fit_and_apply_column_transform(
     Eigen::MatrixXf&   M,
     const idx_t        d,
     const PreprocessMode_e mode,
@@ -161,7 +161,7 @@ inline void fit_and_apply_column_transform(
 }
 
 // Apply stored per-column transform + centering to M in-place
-inline void apply_column_transform(
+void apply_column_transform(
     Eigen::MatrixXf& M,
     const idx_t      d,
     const vecReal&   col_shift,
