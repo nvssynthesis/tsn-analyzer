@@ -56,6 +56,9 @@ struct FeatureInfo {
     const char* name;
     const char* category;
     const char* unit;
+    // the connotation of isTimbral is that all the 'timbral' features get computed in the same series of algorithms, while pitch and loudness do not.
+    // Periodicity might be considered a timbral feature (a measure of noisiness), but it should not count as 'isTimbral', because
+    // it is computed alongside pitch (which might have a different frame size than the other features).
     bool isTimbral;
 };
 
@@ -74,7 +77,22 @@ static constexpr auto NumTimbralFeatures = []() {
     }
     return count;
 }();
-static_assert(NumTimbralFeatures == 20);
+static_assert(NumTimbralFeatures == static_cast<int>(Feature_e::NumFeatures) - 3);
+
+namespace {
+constexpr int lastTimbralFeatureIdx = []() {
+    int last = -1;
+    for (int i = 0; i < static_cast<int>(Feature_e::NumFeatures); ++i) {
+        if (FeatureRegistry[i].isTimbral) {
+            last = i;
+        }
+    }
+    return last;
+}();
+}
+static_assert(lastTimbralFeatureIdx < static_cast<int>(Feature_e::Periodicity), "Last timbral feature must precede non-timbral features");
+static_assert(lastTimbralFeatureIdx < static_cast<int>(Feature_e::f0), "Last timbral feature must precede non-timbral features");
+static_assert(lastTimbralFeatureIdx < static_cast<int>(Feature_e::Loudness), "Last timbral feature must precede non-timbral features");
 
 // utility functions
 constexpr const char* getFeatureName(Feature_e f) {
@@ -92,7 +110,6 @@ constexpr bool isFeatureTimbral(Feature_e f) {
 constexpr bool isBFCC(const Feature_e f) {
     return getFeatureCategory(f) == axiom::tsn::BFCC;
 }
-
 
 
 // legacy compatibility
