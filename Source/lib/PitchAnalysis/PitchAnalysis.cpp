@@ -30,7 +30,11 @@ PitchesAndConfidences processFrequenciesAndConfidences(
             namespace ax = axiom::tsn;
             if (pSettings.getBoolValue(ax::replace_dismal_confidences_with_constant)) {
                 if (confidence <= pSettings.getFloatValue(ax::dismal_confidence_threshold)) {
-                    return static_cast<float>(pSettings.getFloatValue(ax::dismal_replacement_constant));
+                    const auto repl_constant = pSettings.getStringValue(ax::dismal_replacement_constant);
+                    if (repl_constant == "negative")    return -100.0f;
+                    if (repl_constant == "zero")        return 0.0f;
+                    if (repl_constant ==  "nyquist")    return static_cast<float>(sampleRate) * 0.5f;
+                    return -100.f;
                 }
             }
             return 69.f + 12.f * std::log2(pitch / 440.f);
