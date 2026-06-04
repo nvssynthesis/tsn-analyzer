@@ -224,6 +224,8 @@ FeatureContainer<vecReal> calculateTimbres(const vecReal &waveform, const modern
         "minFrequency", sPeakSettings.getFloatValue(ax::minFrequency),
         "maxFrequency", sPeakSettings.getFloatValue(ax::maxFrequency),
         "maxPeaks", sPeakSettings.getIntValue(ax::maxPeaks)));
+
+    const auto dissonance_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("Dissonance")); // no parameters
 #endif
 
 
@@ -303,6 +305,22 @@ FeatureContainer<vecReal> calculateTimbres(const vecReal &waveform, const modern
         pitchSalience_a->output("pitchSalience").set(pitchSalienceValue);
         pitchSalience_a->compute();
         timbres[Feature_e::PitchSalience].push_back(pitchSalienceValue);
+
+        if constexpr (USE_SPECTRAL_PEAK_FEATURES) {
+            vecReal spectralPeaksFrequencies, spectralPeaksMagnitudes;  // these do not need to be stored; intermediate only
+            spectralPeaks_a->input("spectrum").set(spectrumVec);
+            spectralPeaks_a->output("frequencies").set(spectralPeaksFrequencies);
+            spectralPeaks_a->output("magnitudes").set(spectralPeaksMagnitudes);
+            spectralPeaks_a->compute();
+
+            Real dissonance;
+            dissonance_a->input("frequencies").set(spectralPeaksFrequencies);
+            dissonance_a->input("magnitudes").set(spectralPeaksMagnitudes);
+            dissonance_a->output("dissonance").set(dissonance);
+            dissonance_a->compute();
+            timbres[Feature_e::Dissonance].push_back(dissonance);
+        }
+
 
         frameCounter++;
     }

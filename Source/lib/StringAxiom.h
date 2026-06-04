@@ -74,6 +74,8 @@ STRAXIOMIZE(magnitudeThreshold);
 STRAXIOMIZE(SpectralPeak);
 STRAXIOMIZE(magnitudeThreshold_dB);
 STRAXIOMIZE(maxPeaks);
+STRAXIOMIZE(spectral_peak);
+STRAXIOMIZE(Dissonance);
 
 //
 

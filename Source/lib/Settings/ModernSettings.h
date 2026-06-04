@@ -270,7 +270,8 @@ public:
     
     // auto-generate ValueTree deserialization
     void fromValueTree(const ValueTree& parent) {
-        auto child = parent.getChildWithName(String(groupName.data()));
+        const auto s = String(groupName.data());
+        auto child = parent.getChildWithName(s);
         if (!child.isValid()) {
             DBG("fromValueTree: child invalid; returning...");
             return;
