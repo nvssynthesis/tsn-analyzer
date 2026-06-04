@@ -318,7 +318,7 @@ FeatureContainer<vecReal> calculateTimbres(const vecReal &waveform, const modern
             dissonance_a->input("magnitudes").set(spectralPeaksMagnitudes);
             dissonance_a->output("dissonance").set(dissonance);
             dissonance_a->compute();
-            timbres[Feature_e::Dissonance].push_back(dissonance);
+            timbres[Feature_e::Roughness].push_back(dissonance);
         }
 
 
