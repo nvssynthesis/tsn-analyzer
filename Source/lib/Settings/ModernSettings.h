@@ -269,31 +269,85 @@ public:
     }
     
     // auto-generate ValueTree deserialization
-    void fromValueTree(const ValueTree& parent) {
+    [[nodiscard]] ValueTree fromValueTree(const ValueTree& parent) {
         const auto s = String(groupName.data());
-        auto child = parent.getChildWithName(s);
+        const auto child = parent.getChildWithName(s);
         if (!child.isValid()) {
-            DBG("fromValueTree: child invalid; returning...");
-            return;
-        }
-        
-        auto deserialize = [&child](auto& setting) {
-            using SettingType = std::decay_t<decltype(setting)>;
-            if (const auto propertyName = String(SettingType::name.data());
-                child.hasProperty(propertyName))
-            {
+            // create missing child w/ default values
+            DBG("fromValueTree: child invalid; creating default tree...");
+            ValueTree defaultChild(s);
+
+            // populate w/ default values
+            auto populateDefault = [&defaultChild](auto& setting) {
+                using SettingType = std::decay_t<decltype(setting)>;
+                juce::var defaultValue;
+
                 if constexpr (std::is_enum_v<typename SettingType::value_type>) {
-                    setting.value = static_cast<typename SettingType::value_type>(
-                        static_cast<int>(child.getProperty(propertyName)));
+                    defaultValue = static_cast<int>(SettingType::defaultValue);
+                } else if constexpr (std::is_same_v<typename SettingType::value_type, String>) {
+                    defaultValue = String(SettingType::defaultValue.data());
                 } else {
-                    const juce::var val = child.getProperty(propertyName);
-                    setting.value = static_cast<decltype(setting.value)>(val);
+                    defaultValue = SettingType::defaultValue;
                 }
+
+                defaultChild.setProperty(String(SettingType::name.data()), defaultValue, nullptr);
+            };
+
+            std::apply([&populateDefault](const auto&... _settings) {
+                (populateDefault(_settings), ...);
+            }, settings);
+
+            return defaultChild;
+        }
+
+        // child exists but needs check for missing properties to fill in
+        ValueTree correctedChild = child.createCopy();
+        bool needsCorrection = false;
+
+        auto checkAndCorrect = [&](auto& setting) {
+            using SettingType = std::decay_t<decltype(setting)>;
+            const auto propertyName = String(SettingType::name.data());
+
+            if (!correctedChild.hasProperty(propertyName)) {
+                needsCorrection = true;
+                juce::var defaultValue;
+
+                if constexpr (std::is_enum_v<typename SettingType::value_type>) {
+                    defaultValue = static_cast<int>(SettingType::defaultValue);
+                } else if constexpr (std::is_same_v<typename SettingType::value_type, String>) {
+                    defaultValue = String(SettingType::defaultValue.data());
+                } else {
+                    defaultValue = SettingType::defaultValue;
+                }
+
+                correctedChild.setProperty(propertyName, defaultValue, nullptr);
             }
         };
+
+        std::apply([&checkAndCorrect](const auto&... _settings) {
+            (checkAndCorrect(_settings), ...);
+        }, settings);
+
+        // load existing values into our settings
+        auto deserialize = [&correctedChild](auto& setting) {
+            using SettingType = std::decay_t<decltype(setting)>;
+            const auto propertyName = String(SettingType::name.data());
+
+            if constexpr (std::is_enum_v<typename SettingType::value_type>) {
+                setting.value = static_cast<typename SettingType::value_type>(
+                    static_cast<int>(correctedChild.getProperty(propertyName)));
+            } else {
+                const juce::var val = correctedChild.getProperty(propertyName);
+                setting.value = static_cast<decltype(setting.value)>(val);
+            }
+        };
+
         std::apply([&deserialize](auto&... _settings) {
             (deserialize(_settings), ...);
         }, settings);
+
+        // return empty tree if no correction was needed, otherwise return the corrected tree
+        return needsCorrection ? correctedChild : ValueTree();
     }
     
     void resetToDefaults() {
@@ -302,7 +356,7 @@ public:
             using ValueType = typename SettingType::value_type;
 
             if constexpr (std::is_same_v<ValueType, String>) {
-                // String will need conversion from string_view
+                // string will need conversion from string_view
                 setting.value = String(SettingType::defaultValue.data());
             } else {
                 setting.value = SettingType::defaultValue;
@@ -414,10 +468,33 @@ struct SettingsRegistry {
     }
 
     // auto-generate updateSettingsFromValueTree
-    void fromValueTree(const ValueTree& tree) {
-        std::apply([&tree](auto&... _groups) {
-            (_groups.fromValueTree(tree), ...);
+    [[nodiscard]] ValueTree fromValueTree(const ValueTree& tree) {
+        ValueTree correctedTree = tree.createCopy();
+        bool needsCorrection = false;
+
+        std::apply([&](auto&... _groups) {
+            auto processGroup = [&](auto& group) {
+                if (const ValueTree groupCorrection = group.fromValueTree(correctedTree);   // core–what we do with groupCorrection is not integral to setting the SettingsGroup itself
+                    groupCorrection.isValid())
+                {
+                    needsCorrection = true;
+                    // Replace or add the corrected group
+                    const String groupName(group.groupName.data());
+
+                    // either replace (if exists but out of date) or freshly add (if nonexistent)
+                    if (const auto existingChild = correctedTree.getChildWithName(groupName);
+                        existingChild.isValid())
+                    {
+                        correctedTree.removeChild(existingChild, nullptr);
+                    }
+                    correctedTree.appendChild(groupCorrection, nullptr);
+                }
+            };
+
+            (processGroup(_groups), ...);
         }, groups);
+
+        return needsCorrection ? correctedTree : ValueTree();
     }
 
     // reset all groups to defaults
