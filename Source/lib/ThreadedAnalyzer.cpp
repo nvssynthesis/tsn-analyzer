@@ -49,9 +49,9 @@ ThreadedAnalyzer::~ThreadedAnalyzer(){
 	stopThread(10000);
 }
 
-void ThreadedAnalyzer::updateStoredAudioAndSettings(
+bool ThreadedAnalyzer::updateStoredAudioAndSettings(
     const SampleManager &sampleManager,
-    const juce::ValueTree settingsTree/*NOLINT*/, const bool attemptFix)
+    juce::ValueTree &settingsTree, const bool shouldOverwriteTreeIfUpdated)
 {
     jassert(!isThreadRunning());
     jassert( settingsTree.hasType(nvs::axiom::tsn::Settings) );
@@ -71,13 +71,22 @@ void ThreadedAnalyzer::updateStoredAudioAndSettings(
 
     _analysisFile = File{};
 
-    _analyzer.updateSettings(settingsTree);
+    bool treeUpdated = false;
+    ValueTree updatedSettingsTree = _analyzer.updateSettings(settingsTree);
+    if (!updatedSettingsTree.isValid()) {
+        updatedSettingsTree = settingsTree;
+    }
+    if (shouldOverwriteTreeIfUpdated) {
+        if (treeUpdated = !settingsTree.isEquivalentTo(updatedSettingsTree)) {
+            settingsTree = updatedSettingsTree;
+        }
+    }
 
     // recompute the per‑branch hashes, to see if we can skip parts of analysis in the next run
     if (const auto parent = _analyzer.getSettingsParentTree();
         parent.isValid())
     {
-        if (const auto onsetSettingsHash = hashBranch(settingsTree, axiom::tsn::Onset);
+        if (const auto onsetSettingsHash = hashBranch(updatedSettingsTree, axiom::tsn::Onset);
             onsetSettingsHash == _lastOnsetSettingsHash && _onsetAnalysisResult != nullptr)
         {
             _shouldComputeOnsets = false;
@@ -87,15 +96,15 @@ void ThreadedAnalyzer::updateStoredAudioAndSettings(
             _onsetAnalysisResult.reset();
 
             _shouldComputeTimbre = true;
-            _lastTimbreSettingsHash = computeOverallTimbreSettingsHash(settingsTree);
+            _lastTimbreSettingsHash = computeOverallTimbreSettingsHash(updatedSettingsTree);
             _timbreAnalysisResult.reset();
 
             _shouldComputePacmap = true;
-            _lastPacmapSettingsHash = hashBranch(settingsTree, axiom::tsn::PaCMAP);
+            _lastPacmapSettingsHash = hashBranch(updatedSettingsTree, axiom::tsn::PaCMAP);
             _pacmapResult.reset();
         }
 
-        if (const auto timbreSettingsHash = computeOverallTimbreSettingsHash(settingsTree);
+        if (const auto timbreSettingsHash = computeOverallTimbreSettingsHash(updatedSettingsTree);
             timbreSettingsHash == _lastTimbreSettingsHash && _timbreAnalysisResult != nullptr)
         {
             _shouldComputeTimbre = false;
@@ -105,11 +114,11 @@ void ThreadedAnalyzer::updateStoredAudioAndSettings(
             _timbreAnalysisResult.reset();
 
             _shouldComputePacmap = true;
-            _lastPacmapSettingsHash = hashBranch(settingsTree, axiom::tsn::PaCMAP);
+            _lastPacmapSettingsHash = hashBranch(updatedSettingsTree, axiom::tsn::PaCMAP);
             _pacmapResult.reset();
         }
 
-        if (const auto pacmapSettingsHash = hashBranch(settingsTree, axiom::tsn::PaCMAP);
+        if (const auto pacmapSettingsHash = hashBranch(updatedSettingsTree, axiom::tsn::PaCMAP);
             pacmapSettingsHash == _lastPacmapSettingsHash && _pacmapResult != nullptr)
         {
             _shouldComputePacmap = false;
@@ -119,6 +128,7 @@ void ThreadedAnalyzer::updateStoredAudioAndSettings(
             _pacmapResult.reset();
         }
     }
+    return treeUpdated;
 }
 
 void ThreadedAnalyzer::setAnalysis(vecReal normOnsets,

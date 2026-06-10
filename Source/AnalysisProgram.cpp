@@ -20,10 +20,13 @@ static ValueTree makeSettingsParentTree(const ValueTree settingsTree, const doub
     settingsParentTree.addChild(settingsTree, -1, nullptr);
     return settingsParentTree;
 }
-static AnalyzerResult runAnalyzer(const nvs::util::SampleManager &sampleManager, auto &settingsTree)
+static AnalyzerResult runAnalyzer(const nvs::util::SampleManager &sampleManager, ValueTree &settingsTree)
 {
     nvs::analysis::ThreadedAnalyzer analyzer;
-    analyzer.updateStoredAudioAndSettings(sampleManager, settingsTree, true);
+    if (const bool treeUpdated = analyzer.updateStoredAudioAndSettings(sampleManager, settingsTree, true)) {
+        // then the settingsTree is now updated
+        // this is actually handled already outside by tree comparison
+    }
     if (!analyzer.startThread(Thread::Priority::normal)) {
         Logger::writeToLog("Failed to start analysis thread\n");
         return {};
@@ -70,7 +73,7 @@ void mainAnalysisProgram(const ArgumentList &args)
         ValueTree settingsParentTree {};
         File settingsFile {};
     };
-    const auto [settingsParentTree, settingsFile] = [&args, &sampleManager]() -> SettingsStuff
+    auto [settingsParentTree, settingsFile] = [&args, &sampleManager]() -> SettingsStuff
     {
         SettingsStuff _settingsStuff;
         if (const auto settingsStr = args.getValueForOption("--settings|-s");
@@ -93,16 +96,19 @@ void mainAnalysisProgram(const ArgumentList &args)
     const auto settingsTreeOriginal = settingsTree.createCopy();
 
     const auto analysisResult = runAnalyzer(sampleManager, settingsTree);   // NOLINT
+
     if (analysisResult.onsets == nullptr || analysisResult.timbres == nullptr) {
         Logger::writeToLog("Analysis failed; returning");
         jassertfalse;
         return;
     }
-    if (!settingsTree.isEquivalentTo( settingsTreeOriginal)) {
+    if (!settingsTree.isEquivalentTo(settingsTreeOriginal)) {
         // tree changed; give opportunity to overwrite original file
         Logger::writeToLog("Settings tree updated. Overwrite original? (y/N)");
         if (const auto response = checkForYesNoResponse()) {
-            Logger::writeToLog("Updating settings file");
+            settingsParentTree = makeSettingsParentTree(settingsTree, sampleManager.getSampleRate(), sampleManager.getFullPath());
+
+            Logger::writeToLog("Updating settings file " + settingsFile.getFullPathName() + '\n');
 
             nvs::util::saveValueTreeToJSON(settingsParentTree.getChildWithName(nvs::axiom::tsn::Settings), settingsFile);
 

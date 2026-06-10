@@ -104,7 +104,8 @@ public:
 	    const std::vector<Feature_e> &featuresToUse,
 	    Statistic statToUse);
 
-	void updateSettings(juce::ValueTree newSettings);
+    // returns null tree if no update was necessary
+	[[nodiscard]] juce::ValueTree updateSettings(const juce::ValueTree &newSettings);
 	modern::AnalyzerSettingsRegistry const &getSettings() const;
     ValueTree getSettingsParentTree() const;
     juce::String getSettingsHash() const;

@@ -28,8 +28,11 @@ public:
     ThreadedAnalyzer();
     ~ThreadedAnalyzer() override;
     //===============================================================================
-    void updateStoredAudioAndSettings(const SampleManager &sampleManager,
-        juce::ValueTree settingsTree, bool attemptFix);
+    // if incoming settings tree has outdated structure, and `shouldOverwriteTreeIfUpdated` is true,
+    // this will overwrite the incoming settingsTree.
+    // If it has indeed been updated, this will return true; otherwise it returns false.
+    [[nodiscard]] bool updateStoredAudioAndSettings(const SampleManager &sampleManager,
+        juce::ValueTree &settingsTree, bool shouldOverwriteTreeIfUpdated);
     //===============================================================================
     void stopAnalysis() { DBG("Stopping analysis thread..."); signalThreadShouldExit(); }
     //===============================================================================

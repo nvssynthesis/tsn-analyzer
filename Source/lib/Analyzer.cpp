@@ -31,9 +31,9 @@ Analyzer::Analyzer()
 ,	ess_hold(ess_init)
 {}
 
-void Analyzer::updateSettings(const juce::ValueTree newSettings) { // NOLINT
+juce::ValueTree Analyzer::updateSettings(const juce::ValueTree &newSettings) {
     jassert (newSettings.getParent().getChildWithName("FileInfo").hasProperty("sampleRate"));
-    settings.fromValueTree(newSettings);
+    return settings.fromValueTree(newSettings);
 }
 juce::String Analyzer::getSettingsHash() const {
     return util::hashValueTree(settings.createValueTree());
