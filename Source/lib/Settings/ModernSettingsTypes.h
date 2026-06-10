@@ -14,7 +14,7 @@ namespace ax = axiom::tsn;
 // that way, any related compile-time errors don't end up being 1000 lines long just to tell the types
 #define OPAQUE_SETTINGS(Name, ...) \
 using Name##_t = __VA_ARGS__; \
-struct Name : Name##_t { using Name##_t::Name##_t; };
+struct Name : Name##_t { using Name##_t::Name##_t; }
 
 // settings groups
 OPAQUE_SETTINGS(
