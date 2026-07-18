@@ -65,14 +65,10 @@ inline void decorrelateFromCovariates(Eigen::MatrixXf& features,
 {
     const Eigen::Index N = pitch.size();
 
-    // center pitch and loudness
-    const Eigen::VectorXf p = pitch.array() - pitch.mean();
-    const Eigen::VectorXf l = loudness.array() - loudness.mean();
-
-    // regressor matrix
+    // regressor matrix of centered pitch and loudness
     Eigen::MatrixXf X(N, 2);
-    X.col(0) = p;
-    X.col(1) = l;
+    X.col(0) = pitch.array() - pitch.mean();
+    X.col(1) = loudness.array() - loudness.mean();
 
     // solver needs only one-time computation
     const auto solver = (X.transpose() * X).colPivHouseholderQr();

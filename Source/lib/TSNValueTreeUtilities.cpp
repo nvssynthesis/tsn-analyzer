@@ -321,18 +321,7 @@ std::vector<Real> extractFeaturesFromTreeImpl(const ValueTree &frameTree,
        }
        else {
           String childName;
-          switch (f) {
-            case Feature_e::SpectralCentroid:    childName = axiom::tsn::SpectralCentroid; break;
-            case Feature_e::SpectralDecrease:    childName = axiom::tsn::SpectralDecrease; break;
-            case Feature_e::SpectralFlatness:    childName = axiom::tsn::SpectralFlatness; break;
-            case Feature_e::SpectralCrest:       childName = axiom::tsn::SpectralCrest; break;
-            case Feature_e::SpectralComplexity:  childName = axiom::tsn::SpectralComplexity; break;
-            case Feature_e::StrongPeak:          childName = axiom::tsn::StrongPeak;  break;
-            case Feature_e::Periodicity:         childName = axiom::tsn::Periodicity; break;
-            case Feature_e::Loudness:            childName = axiom::tsn::Loudness;    break;
-            case Feature_e::f0:                  childName = axiom::tsn::f0;          break;
-            default: jassertfalse;
-          }
+          childName = toString(f);
 
             if (auto scalarTree = frameTree.getChildWithName(childName);
                 scalarTree.isValid())

@@ -341,7 +341,7 @@ const -> std::optional<vecVecReal>
     for (size_t i = 0; i < numFrames; ++i) {
         const auto &frame = timbreMeasurements[i];
         vecReal features; features.reserve(numFeatures);
-        for (const auto f : featuresIterator()) {
+        for (const auto f : FeaturesIterator()) {
             const auto &featureStats = frame[f];
             features.push_back(getStatVal(featureStats, statToUse));
             if (f == Feature_e::f0) {

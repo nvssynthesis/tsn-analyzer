@@ -218,6 +218,12 @@ struct AnalyzerSettingsRegistry : AnalyzerSettingsRegistry_t {
         jassert(opt.has_value());
         return opt->get();
     }
+    // unfortunately these would otherwise be hidden
+    template<size_t I>
+    auto& get() { return AnalyzerSettingsRegistry_t::template get<I>(); }
+
+    template<size_t I>
+    const auto& get() const { return AnalyzerSettingsRegistry_t::template get<I>(); }
 };
 
 #undef OPAQUE_SETTINGS
