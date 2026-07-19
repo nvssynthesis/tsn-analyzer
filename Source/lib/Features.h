@@ -39,7 +39,9 @@ namespace nvs::analysis {
     X(SpectralComplexity,   axiom::tsn::SpectralComplexity, axiom::tsn::spectral, "", true) \
     X(StrongPeak,           axiom::tsn::StrongPeak,         axiom::tsn::spectral, "", true) \
     X(PitchSalience,        axiom::tsn::PitchSalience,      axiom::tsn::spectral, "", true) \
+    X(Inharmonicity,        axiom::tsn::Inharmonicity,      axiom::tsn::spectral, "", true) \
     X(Roughness,            axiom::tsn::Roughness,          axiom::tsn::spectral, "", true) \
+    X(NoisinessAggregate,   axiom::tsn::NoisinessAggregate, axiom::tsn::spectral, "", true) \
     X(Periodicity,          axiom::tsn::Periodicity,        axiom::tsn::pitch, "", false) \
     X(Loudness,             axiom::tsn::Loudness,           axiom::tsn::loudness, "", false) \
     X(f0,                   axiom::tsn::f0,                 axiom::tsn::pitch, "Hz", false)

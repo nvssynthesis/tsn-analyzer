@@ -9,6 +9,8 @@
 */
 
 #include "TimbreAnalysis.h"
+
+#include "PitchAnalysis/PitchAnalysis.h"
 #include "essentia/streaming/algorithms/poolstorage.h"
 
 namespace nvs::analysis {
@@ -131,9 +133,71 @@ vecReal calculateLoudnesses(const vecReal &waveform, const modern::AnalyzerSetti
     return loudnesses;
 }
 
-#define USE_SPECTRAL_PEAK_FEATURES true
+vecReal computeNoisinessAggregates(const vecReal& roughness, const vecReal& inharmonicity, const vecReal& confidences,
+    const modern::AnalyzerSettingsRegistry& settings)
+{
+    namespace ax = axiom::tsn;
+    const auto &noisinessAggregateSettings = settings.get<modern::NoisinessAggregateSettings>();
+    const auto get = [&noisinessAggregateSettings] (const std::string_view name) -> Real {
+        return noisinessAggregateSettings.getFloatValue(name);
+    };
 
-FeatureContainer<vecReal> calculateTimbres(const vecReal &waveform, const modern::AnalyzerSettingsRegistry & settings, double sampleRate)
+    jassert(roughness.size() == inharmonicity.size());  // confidence size is KNOWN to not conform due to pitch detector needing different frame size
+    const size_t numTimbralFrames {roughness.size()};
+
+    vecReal noisinessAggregates(numTimbralFrames);
+
+
+    const auto poolingFunc = [&noisinessAggregateSettings] (const Real r_c, const Real h_c, const Real p_c) -> std::function<Real(Real, Real, Real)>
+    {
+        if (const String poolingMode = noisinessAggregateSettings.getStringValue(ax::noisinessPoolingMode);
+        poolingMode == ax::probabilistic_OR) {
+            return [r_c, h_c, p_c] (const Real r, const Real h, const Real pr) -> Real {
+                return 1.0 -
+                    std::pow(1.0 - r, r_c) *
+                    std::pow(1.0 - h, h_c) *
+                    std::pow(1.0 - pr, p_c);
+            };
+        } else if (poolingMode == ax::sat_clip) {
+            return [r_c, h_c, p_c] (const Real r, const Real h, const Real pr) -> Real {
+                return std::min(1.0f,
+                    r * r_c +
+                    h * h_c +
+                    pr * p_c);
+            };
+        } else {  // NOLINT
+            jassert(poolingMode == ax::sat_tanh);
+            return [r_c, h_c, p_c] (const Real r, const Real h, const Real pr) -> Real {
+                return std::tanh(
+                    r * r_c +
+                    h * h_c +
+                    pr * p_c
+                );
+            };
+        }
+
+    }(get(ax::coef_roughness), get(ax::coef_inharmonicity), get(ax::coef_phase_rand_periodicity));
+
+    const size_t numConfidenceFrames = confidences.size();
+    for (size_t i = 0; i < numTimbralFrames; ++i) {
+        const Real r = roughness[i];
+        const Real h = inharmonicity[i];
+
+        // use nearest-neighbor interpolation to match confidence frame with timbral frames
+        const float fracIdx = std::round(i * static_cast<float>(numConfidenceFrames) / numTimbralFrames);
+        const size_t nearestConfidenceFrame = std::clamp(static_cast<size_t>(fracIdx), 0UL, numConfidenceFrames - 1UL);
+        const Real phase_randomness = 1.0 - confidences[nearestConfidenceFrame];
+
+        const auto val = poolingFunc(r, h, phase_randomness);
+        jassert(0.0f <= val && val <= 1.0f);
+        noisinessAggregates[i] = val;
+    }
+
+    return noisinessAggregates;
+}
+
+FeatureContainer<vecReal> calculateTimbres(const vecReal &waveform, const modern::AnalyzerSettingsRegistry& settings, double sampleRate,
+    const PitchesAndConfidences& pitchesAndConfidences)
 {
     const auto anSettings = settings.get<modern::AnalysisSettings>();
     namespace ax = axiom::tsn;
@@ -216,7 +280,7 @@ FeatureContainer<vecReal> calculateTimbres(const vecReal &waveform, const modern
     std::string const specInputStr  = isPower ? "signal"        : "frame";
     std::string const specOutputStr = isPower ? "powerSpectrum" : "spectrum";
 
-#ifdef USE_SPECTRAL_PEAK_FEATURES
+    // spectral peaks features
     const auto &sPeakSettings = settings.get<modern::SpectralPeakSettings>();
     const auto spectralPeaks_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("SpectralPeaks",
         "sampleRate", sampleRate,
@@ -224,15 +288,14 @@ FeatureContainer<vecReal> calculateTimbres(const vecReal &waveform, const modern
         "minFrequency", sPeakSettings.getFloatValue(ax::minFrequency),
         "maxFrequency", sPeakSettings.getFloatValue(ax::maxFrequency),
         "maxPeaks", sPeakSettings.getIntValue(ax::maxPeaks)));
-
     const auto dissonance_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("Dissonance")); // no parameters
-#endif
+    const auto inharmonicity_a = std::unique_ptr<standard::Algorithm>(StandardFactory::create ("Inharmonicity"));
 
+    //==================================================================================================================
 
     FeatureContainer<vecReal> timbres;
 
     // Process frame by frame
-    int frameCounter = 0;
     while (true) {
         vecReal frame;
 
@@ -306,7 +369,7 @@ FeatureContainer<vecReal> calculateTimbres(const vecReal &waveform, const modern
         pitchSalience_a->compute();
         timbres[Feature_e::PitchSalience].push_back(pitchSalienceValue);
 
-        if constexpr (USE_SPECTRAL_PEAK_FEATURES) {
+        {
             vecReal spectralPeaksFrequencies, spectralPeaksMagnitudes;  // these do not need to be stored; intermediate only
             spectralPeaks_a->input("spectrum").set(spectrumVec);
             spectralPeaks_a->output("frequencies").set(spectralPeaksFrequencies);
@@ -319,11 +382,27 @@ FeatureContainer<vecReal> calculateTimbres(const vecReal &waveform, const modern
             dissonance_a->output("dissonance").set(dissonance);
             dissonance_a->compute();
             timbres[Feature_e::Roughness].push_back(dissonance);
+
+            Real inharmonicity;
+            /// TODO: prevent inharmonicity exception of peak at 0Hz
+#pragma message("prevent inharmonicity exception of peak at 0Hz")
+            inharmonicity_a->input("frequencies").set(spectralPeaksFrequencies);
+            inharmonicity_a->input("magnitudes").set(spectralPeaksMagnitudes);
+            inharmonicity_a->output("inharmonicity").set(inharmonicity);
+            inharmonicity_a->compute();
+            timbres[Feature_e::Inharmonicity].push_back(inharmonicity);
         }
 
-
-        frameCounter++;
     }
+
+    timbres[Feature_e::NoisinessAggregate] =
+        computeNoisinessAggregates(
+            timbres[Feature_e::Roughness],
+            timbres[Feature_e::Inharmonicity],
+            pitchesAndConfidences.confidences,
+            settings
+        );
+
 
     assert(!timbres.bfccs().empty());
     assert(!timbres.bfccs()[0].empty());

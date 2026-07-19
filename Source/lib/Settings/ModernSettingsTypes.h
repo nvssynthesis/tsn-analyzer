@@ -130,11 +130,26 @@ OPAQUE_SETTINGS(
     >
 );
 
+// no settings for inharmonicity...
+
+OPAQUE_SETTINGS(
+    NoisinessAggregateSettings,
+        SettingsGroup<ax::NoisinessAggregate,
+        ChoiceSetting<SInfo<ax::noisinessPoolingMode, "Method for combining raw features into aggregated noisiness feature">,
+            ax::probabilistic_OR,
+            ax::probabilistic_OR, ax::sat_tanh, ax::sat_clip>,
+        RangedSetting<SInfo<ax::coef_roughness>, double, 0.34, 0.0, 1.0>,
+        RangedSetting<SInfo<ax::coef_inharmonicity>, double, 0.33, 0.0, 1.0>,
+        RangedSetting<SInfo<ax::coef_phase_rand_periodicity>, double, 0.33, 0.0, 1.0>
+    >
+);
+
 OPAQUE_SETTINGS(
     PitchSettings,
         SettingsGroup<ax::Pitch,
         ChoiceSetting<SInfo<ax::pitchDetectionAlgorithm>,
-            ax::yin, ax::yin, ax::yinFFT, ax::pYin, ax::chroma>,
+            ax::yin,
+            ax::yin, ax::yinFFT, ax::pYin, ax::chroma>,
         RangedSetting<SInfo<ax::frameSize, "Recommended: at least 4096 for reliable pitch detection">,
             int, 4096, 64, 16384>,
         RangedSetting<SInfo<ax::hopSize>, int, 2048, 32, 8192>,
@@ -148,7 +163,8 @@ OPAQUE_SETTINGS(
             double, 0.0, 0.0, 1.0>,
         ChoiceSetting<SInfo<ax::dismal_replacement_constant,
             "The value with which to replace any detected pitches with low confidence.">,
-            "negative", "negative", "zero", "nyquist">,
+            "negative",
+            "negative", "zero", "nyquist">,
         RangedSetting<SInfo<ax::lowRMSThreshold>, double, 0.1, 0.0, 1.0>,
         BoolSetting<SInfo<ax::preciseTime>, false>
     >
@@ -196,6 +212,7 @@ using AnalyzerSettingsRegistry_t = SettingsRegistry<
     PitchSalienceSettings,
     SpectralComplexitySettings,
     SpectralPeakSettings,
+    NoisinessAggregateSettings,
     PitchSettings,
     LoudnessSettings,
     PaCMAPSettings,

@@ -12,13 +12,15 @@
 
 #include "AnalysisUsing.h"
 #include "../Features.h"
+#include "PitchAnalysis/PitchAnalysis.h"
 #include "Settings/ModernSettingsTypes.h"
 
 namespace nvs::analysis {
 
 vecReal calculateLoudnesses(const vecReal &waveform, modern::AnalyzerSettingsRegistry const& settings, double sampleRate);
 
-FeatureContainer<vecReal> calculateTimbres(const vecReal &waveform, const modern::AnalyzerSettingsRegistry &settings, double sampleRate);
+FeatureContainer<vecReal> calculateTimbres(const vecReal &waveform, const modern::AnalyzerSettingsRegistry &settings, double sampleRate,
+    const PitchesAndConfidences& pitchesAndConfidences);
 
 vecVecReal PCA(const vecVecReal &V, int num_features_out);
 

@@ -76,9 +76,19 @@ STRAXIOMIZE(magnitudeThreshold_dB);
 STRAXIOMIZE(maxPeaks);
 STRAXIOMIZE(spectral_peak);
 STRAXIOMIZE(Roughness);
+STRAXIOMIZE(Inharmonicity);
 
 //
+STRAXIOMIZE(NoisinessAggregate);
+STRAXIOMIZE(noisinessPoolingMode);
+STRAXIOMIZE(probabilistic_OR);
+STRAXIOMIZE(sat_clip);
+STRAXIOMIZE(sat_tanh);
+STRAXIOMIZE(coef_phase_rand_periodicity);
+STRAXIOMIZE(coef_inharmonicity);
+STRAXIOMIZE(coef_roughness);
 
+//
 STRAXIOMIZE(highFrequencyBound);
 STRAXIOMIZE(liftering);
 STRAXIOMIZE(lowFrequencyBound);

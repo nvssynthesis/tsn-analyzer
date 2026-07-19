@@ -17,6 +17,7 @@
 #include "AnalysisUsing.h"
 #include "Features.h"
 #include "Statistics.h"
+#include "PitchAnalysis/PitchAnalysis.h"
 #include "Settings/ModernSettingsTypes.h"
 
 namespace nvs::analysis {
@@ -81,10 +82,10 @@ public:
         RunLoopStatus& rls,
 	    const ShouldExitFn &shouldExit) const;
 
-	void calculateEventwisePitchDescription(const vecReal &waveEvent, double sampleRate,
-	    FeatureContainer<EventwiseStats> &features) const;
+	PitchesAndConfidences calculateEventwisePitchDescription(const vecReal &waveEvent, double sampleRate,
+	    FeatureContainer<EventwiseStats> &features) const;  // now returns (raw) pitches/confidences, as the latter are needed for noisiness aggregate (it cannot just use the eventwise stats)
 	void calculateEventwiseTimbreDescription(const vecReal &waveEvent, double sampleRate,
-	    FeatureContainer<EventwiseStats> &features) const;
+	    const PitchesAndConfidences& pitchesAndConfidences, FeatureContainer<EventwiseStats> &features) const;
 	void calculateEventwiseLoudness(const vecReal &waveEvent, double sampleRate,
 	    FeatureContainer<EventwiseStats> &features) const;
 

@@ -146,14 +146,16 @@ vecReal filterByTopPercentile(
     return { result.begin(), result.end() };
 }
 
-void Analyzer::calculateEventwisePitchDescription(
+PitchesAndConfidences Analyzer::calculateEventwisePitchDescription(
     const vecReal &waveEvent,
     const double sampleRate,
     FeatureContainer<EventwiseStats> &features) const
 {
-    const auto [pitches, confidences] =
+    const auto pitchesAndConfidences =
         calculatePitchesAndConfidences(waveEvent, sampleRate, settings);
 
+    const auto& pitches = pitchesAndConfidences.pitches;
+    const auto& confidences = pitchesAndConfidences.confidences;
 
     const vecReal confidentPitches = filterByTopPercentile(pitches, confidences,
         settings.getFloat(axiom::tsn::Pitch, axiom::tsn::dismal_confidence_threshold).value());
@@ -180,6 +182,7 @@ void Analyzer::calculateEventwisePitchDescription(
             .kurtosis = essentia::kurtosis(confidences, c_mean)
         }
     };
+    return pitchesAndConfidences;
 }
 
 void Analyzer::calculateEventwiseLoudness(
@@ -201,9 +204,10 @@ void Analyzer::calculateEventwiseLoudness(
 }
 
 void Analyzer::calculateEventwiseTimbreDescription(
-    const vecReal &waveEvent, const double sampleRate, FeatureContainer<EventwiseStats> &features) const
+    const vecReal &waveEvent, const double sampleRate, const PitchesAndConfidences& pitchesAndConfidences,
+    FeatureContainer<EventwiseStats> &features) const
 {
-    const FeatureContainer<vecReal> timbres_tmp = calculateTimbres(waveEvent, settings, sampleRate);
+    const FeatureContainer<vecReal> timbres_tmp = calculateTimbres(waveEvent, settings, sampleRate, pitchesAndConfidences);
 
     // const vecReal means = essentia::meanFrames(b_tmp);	// get mean per bfcc across all frames
     vecReal frameWeights;
@@ -285,8 +289,8 @@ const -> std::optional<std::vector<FeatureContainer<EventwiseStats>>>
             }
             const auto &e = events[i];
             FeatureContainer<EventwiseStats> f;
-            calculateEventwiseTimbreDescription(e, sampleRate, f);
-            calculateEventwisePitchDescription(e, sampleRate, f);
+            const auto pitchesAndConfidences = calculateEventwisePitchDescription(e, sampleRate, f);
+            calculateEventwiseTimbreDescription(e, sampleRate, pitchesAndConfidences, f);
             calculateEventwiseLoudness(e, sampleRate, f);
             timbre_points[i] = f;
 
