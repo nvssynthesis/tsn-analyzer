@@ -107,10 +107,31 @@ struct BoolSetting {
     }
 };
 
+static NormalisableRangeDouble makePowerOfTwoRange (double minValue, double maxValue)
+{
+    const auto minLog = std::log2 (minValue);
+    const auto maxLog = std::log2 (maxValue);
+    return {
+        minValue, maxValue,
+        [=] (double, double, const double n) {
+            return std::pow (2.0,
+                juce::jmap (n, 0.0, 1.0, minLog, maxLog));
+        },
+        [=] (double, double, const double v) {
+            return juce::jmap (std::log2(v), minLog, maxLog, 0.0, 1.0);
+        },
+        [] (const double s, const double e, const double v) {
+            const auto c = juce::jlimit(s, e, v);
+            return std::pow(2.0, std::round(std::log2(c)));
+        }
+    };
+}
+
 // specialized settings with additional metadata
 template<typename /*SInfo*/Info, NumericSettingType T, NumericParam DefaultValue,
     NumericParam Min, NumericParam Max,
-    StringLiteral Unit="">
+    StringLiteral Unit="",
+    bool IsPowerOfTwo = false>
 struct RangedSetting {
     using value_type = T;
     T value = static_cast<T>(DefaultValue.value);
@@ -122,7 +143,16 @@ struct RangedSetting {
     static constexpr std::string_view unit = Unit.view();
 
     static auto createSpec() {
-        juce::NormalisableRange<double> range{Min.value, Max.value};
+
+        const auto range =
+            IsPowerOfTwo &&
+                juce::isPowerOfTwo(static_cast<int>(DefaultValue.value)) &&
+                    juce::isPowerOfTwo(static_cast<int>(Min.value)) &&
+                        juce::isPowerOfTwo(static_cast<int>(Max.value)) ?    // should be intentionally marked as pow2, but also implicitly so
+                makePowerOfTwoRange(Min.value, Max.value) :
+                NormalisableRangeDouble(Min.value, Max.value);
+
+
         return RangedSettingsSpec<T>{range,
             static_cast<T>(DefaultValue.value),
             Info::tooltip.data(), Unit.view().data()};

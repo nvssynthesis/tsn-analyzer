@@ -20,8 +20,8 @@ struct Name : Name##_t { using Name##_t::Name##_t; }
 OPAQUE_SETTINGS(
     AnalysisSettings,
         SettingsGroup<ax::Analysis,
-        RangedSetting<SInfo<ax::frameSize>, int, 1024, 64, 16384, "Samples">,
-        RangedSetting<SInfo<ax::hopSize>, int, 512, 32, 8192, "Samples">,
+        RangedSetting<SInfo<ax::frameSize>, int, 1024, 64, 16384, "Samples", true>,
+        RangedSetting<SInfo<ax::hopSize>, int, 512, 32, 8192, "Samples", true>,
         ChoiceSetting<SInfo<ax::windowingType, "Use blackmanharris92 for best results, at least for Spectral Peak-based features.">,
             ax::blackmanharris92,
             ax::hann, ax::hamming, ax::hannnsgcq, ax::triangular, ax::square,
@@ -113,9 +113,9 @@ OPAQUE_SETTINGS(
 OPAQUE_SETTINGS(
     SpectralPeakSettings,
         SettingsGroup<ax::SpectralPeak,
-        RangedSetting<SInfo<ax::magnitudeThreshold_dB>, double, -60.0, -100.0, 0.0>,
-        RangedSetting<SInfo<ax::minFrequency>, double, 40.0, 0.0, 1000.0>,
-        RangedSetting<SInfo<ax::maxFrequency>, double, 6000.0, 1000.0, 20000.0>,
+        RangedSetting<SInfo<ax::magnitudeThreshold_dB>, double, -60.0, -100.0, 0.0, "dB">,
+        RangedSetting<SInfo<ax::minFrequency>, double, 40.0, 0.0, 1000.0, "Hz">,
+        RangedSetting<SInfo<ax::maxFrequency>, double, 6000.0, 1000.0, 20000.0, "Hz">,
         RangedSetting<SInfo<ax::maxPeaks>, int, 64, 1, 128>
     >
 );
@@ -151,11 +151,11 @@ OPAQUE_SETTINGS(
             ax::yin,
             ax::yin, ax::yinFFT, ax::pYin, ax::chroma>,
         RangedSetting<SInfo<ax::frameSize, "Recommended: at least 4096 for reliable pitch detection">,
-            int, 4096, 64, 16384>,
-        RangedSetting<SInfo<ax::hopSize>, int, 2048, 32, 8192>,
+            int, 4096, 64, 16384, "Samples", true>,
+        RangedSetting<SInfo<ax::hopSize>, int, 2048, 32, 8192, "Samples", true>,
         BoolSetting<SInfo<ax::interpolate>, true>,
-        RangedSetting<SInfo<ax::maxFrequency>, double, 4000.0, 20.0, 22050.0>,
-        RangedSetting<SInfo<ax::minFrequency>, double, 140.0, 20.0, 22050.0>,
+        RangedSetting<SInfo<ax::maxFrequency>, double, 4000.0, 20.0, 22050.0, "Hz">,
+        RangedSetting<SInfo<ax::minFrequency>, double, 140.0, 20.0, 22050.0, "Hz">,
         RangedSetting<SInfo<ax::tolerance>, double, 0.15, 0.0, 1.0>,
         BoolSetting<SInfo<ax::replace_dismal_confidences_with_constant>, true>,
         RangedSetting<SInfo<ax::dismal_confidence_threshold,
