@@ -99,7 +99,9 @@ OPAQUE_SETTINGS(
         RangedSetting<SInfo<ax::refinementMinSilenceDurationMs, "The minimum length for a silence to be counted as such">,
             double, 300.0, 0.0, 5000.0, "ms">,
         RangedSetting<SInfo<ax::refinementMinEventWithinSilenceDurationMs, "The minimum length for an event found within a silence to be counted as such">,
-            double, 300.0, 0.0, 5000.0, "ms">
+            double, 300.0, 0.0, 5000.0, "ms">,
+        RangedSetting<SInfo<ax::uniformEventLength, "The length for uniformly-spaced events">,
+            double, 200.0, 50.0, 5000.0, "ms">
     >
 );
 

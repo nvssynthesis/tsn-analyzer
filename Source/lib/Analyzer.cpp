@@ -62,7 +62,7 @@ std::optional<vecReal> Analyzer::calculateOnsetsInSeconds(
 
     if (segmentationSetting == ax::Uniform) {
         // make a vecReal of evenly distributed onsets
-        const float dt = onsetGroup.getFloatValue(ax::uniformEventLength);
+        const float dt = onsetGroup.getFloatValue(ax::uniformEventLength) / 1000.0f;
         const auto L_sec = getLengthInSeconds(wave.size(), sampleRate);
         vecReal onsets (static_cast<size_t>(L_sec / dt));
         for (size_t i = 0; i < onsets.size(); ++i) {
