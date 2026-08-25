@@ -30,7 +30,7 @@ inline KNNResult knn_search(
     assert(basis.cols() == query.cols());
     assert(k > 0);
     const idx_t k_fetch = exclude_self? k + 1 : k;
-    assert(k_fetch < n_basis);
+    assert(k_fetch < n_basis);          /// TODO: uh oh, we hit here during intensive point-filtering...
 
     KNNResult result;
     result.indices.resize(n_query, vecIdx(k));
