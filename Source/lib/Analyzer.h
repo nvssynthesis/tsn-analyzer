@@ -19,6 +19,7 @@
 #include "Statistics.h"
 #include "PitchAnalysis/PitchAnalysis.h"
 #include "Settings/ModernSettingsTypes.h"
+#include "LoudnessAnalysis/Iso532Loudness.h"
 
 namespace nvs::analysis {
 
@@ -88,6 +89,15 @@ public:
 	    const PitchesAndConfidences& pitchesAndConfidences, FeatureContainer<EventwiseStats> &features) const;
 	void calculateEventwiseLoudness(const vecReal &waveEvent, double sampleRate,
 	    FeatureContainer<EventwiseStats> &features) const;
+	// ISO 532-1 (Zwicker) loudness: a separate, psychoacoustically-accurate loudness measure
+	// alongside calculateEventwiseLoudness's Essentia-based one (Feature_e::Loudness). Reduces the
+	// onset's overall-loudness time series to the standard 5 EventwiseStats, and its specific-loudness
+	// (per-critical-band) time series to a single mean vector -- see LoudnessAnalysis/Iso532Loudness.h.
+	// A no-op (leaves both outputs at their default zero state) if the excerpt was too short or the
+	// vendored ISO 532-1 library wasn't available at build time.
+	void calculateEventwiseZwickerLoudness(const vecReal &waveEvent, double sampleRate,
+	    FeatureContainer<EventwiseStats> &features,
+	    std::array<float, NumSpecificLoudnessBands> &specificLoudnessOut) const;
 
 	std::optional<std::vector<FeatureContainer<EventwiseStats>>>
     calculateOnsetwiseTimbreSpace(
@@ -95,7 +105,8 @@ public:
         double sampleRate,
         const vecReal &onsetsInSeconds,
         RunLoopStatus& rls,
-        const ShouldExitFn &shouldExit) const;
+        const ShouldExitFn &shouldExit,
+        std::vector<std::array<float, NumSpecificLoudnessBands>> &specificLoudnessOut) const;
 
     std::optional<vecVecReal>
     calculatePaCMAP(const std::vector<FeatureContainer<EventwiseStats>> &timbreMeasurements) const;

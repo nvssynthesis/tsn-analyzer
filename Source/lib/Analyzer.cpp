@@ -203,6 +203,39 @@ void Analyzer::calculateEventwiseLoudness(
     };
 }
 
+void Analyzer::calculateEventwiseZwickerLoudness(
+    const vecReal &waveEvent,
+    const double sampleRate,
+    FeatureContainer<EventwiseStats> &features,
+    std::array<float, NumSpecificLoudnessBands> &specificLoudnessOut) const
+{
+    const bool diffuseField = settings.get<modern::Iso532Settings>().getBoolValue(axiom::tsn::diffuseField);
+    const auto seriesOpt = calculateIso532Loudness(waveEvent, sampleRate, diffuseField);
+    if (!seriesOpt.has_value()) {
+        return; // excerpt too short, or vendored library unavailable -- leave outputs at their default zero state
+    }
+    const auto &[loudnessSone, specificLoudness] = *seriesOpt;
+
+    const auto l_mean = mean(loudnessSone);
+    features[Feature_e::ZwickerLoudness] = {
+        .mean = l_mean,
+        .median = essentia::median(loudnessSone),
+        .variance = essentia::variance(loudnessSone, l_mean),
+        .skewness = essentia::skewness(loudnessSone, l_mean),
+        .kurtosis = essentia::kurtosis(loudnessSone, l_mean)
+    };
+
+    // mean specific-loudness vector across this onset's internal (2000Hz) time series
+    const auto numFrames = static_cast<float>(specificLoudness.size());
+    for (int band = 0; band < NumSpecificLoudnessBands; ++band) {
+        float sum = 0.f;
+        for (const auto &frame : specificLoudness) {
+            sum += frame[static_cast<size_t>(band)];
+        }
+        specificLoudnessOut[static_cast<size_t>(band)] = sum / numFrames;
+    }
+}
+
 void Analyzer::calculateEventwiseTimbreDescription(
     const vecReal &waveEvent, const double sampleRate, const PitchesAndConfidences& pitchesAndConfidences,
     FeatureContainer<EventwiseStats> &features) const
@@ -253,7 +286,8 @@ void Analyzer::calculateEventwiseTimbreDescription(
 auto Analyzer::calculateOnsetwiseTimbreSpace(const vecReal &wave,
                                         const double sampleRate,
                                         const vecReal &onsetsInSeconds,
-                                        RunLoopStatus& rls, const ShouldExitFn &shouldExit)
+                                        RunLoopStatus& rls, const ShouldExitFn &shouldExit,
+                                        std::vector<std::array<float, NumSpecificLoudnessBands>> &specificLoudnessOut)
 const -> std::optional<std::vector<FeatureContainer<EventwiseStats>>>
 {
     if ((wave.empty()) || (onsetsInSeconds.empty())){
@@ -270,6 +304,7 @@ const -> std::optional<std::vector<FeatureContainer<EventwiseStats>>>
 
     const size_t numEvents = events.size();
     std::vector<FeatureContainer<EventwiseStatistics<Real>>> timbre_points(numEvents);
+    specificLoudnessOut.assign(numEvents, {});
 
     const auto threadPoolOptions = juce::ThreadPoolOptions()
         .withNumberOfThreads(settings.getInt(axiom::tsn::Analysis, axiom::tsn::numThreads).value())
@@ -292,6 +327,7 @@ const -> std::optional<std::vector<FeatureContainer<EventwiseStats>>>
             const auto pitchesAndConfidences = calculateEventwisePitchDescription(e, sampleRate, f);
             calculateEventwiseTimbreDescription(e, sampleRate, pitchesAndConfidences, f);
             calculateEventwiseLoudness(e, sampleRate, f);
+            calculateEventwiseZwickerLoudness(e, sampleRate, f, specificLoudnessOut[i]);
             timbre_points[i] = f;
 
             if (const auto numDone = ++completed;

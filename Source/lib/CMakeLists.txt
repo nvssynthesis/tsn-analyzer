@@ -258,6 +258,23 @@ if(APPLE)
     )
 endif()
 
+# ============================================================================
+# ISO 532-1 (Zwicker) loudness is VENDORED and necessarily gitignored.
+# the license of ISO 532-1 doesn't permit redistribution.
+# we guard the whole integration on its presence so the rest of the build works
+# without it.
+# LoudnessAnalysis/Iso532Loudness.cpp will then branch on TSN_HAVE_ISO532 to
+# use std::nullopt when it's undefined.
+set(ISO532_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ISO 532-1 - Program etc/Annex A.4/ISO_532-1_LIB")
+if(EXISTS "${ISO532_DIR}/include/ISO_532-1.h" AND EXISTS "${ISO532_DIR}/src/ISO_532-1.c")
+    message(STATUS "ISO 532-1 vendored source found -- enabling Zwicker loudness feature")
+    target_sources(tsn_analyzer PRIVATE "${ISO532_DIR}/src/ISO_532-1.c")
+    target_include_directories(tsn_analyzer PRIVATE "${ISO532_DIR}/include")
+    target_compile_definitions(tsn_analyzer PRIVATE TSN_HAVE_ISO532=1)
+else()
+    message(STATUS "ISO 532-1 vendored source not found -- Zwicker loudness feature will be a no-op")
+endif()
+
 message(STATUS "TSN Analyzer Library Configuration:")
 message(STATUS "  Essentia directory: ${ESSENTIA_DIR}")
 message(STATUS "  Essentia library: ${ESSENTIA_LIBRARY}")

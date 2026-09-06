@@ -140,7 +140,10 @@ void ThreadedAnalyzer::setAnalysis(vecReal normOnsets,
     double sr)
 {
     _onsetAnalysisResult = std::make_shared<OnsetAnalysisResult>(normOnsets, waveformHash, audioAbsPath, sr);
-    _timbreAnalysisResult = std::make_shared<TimbreAnalysisResult>(timbreSpaceRepr, waveformHash, audioAbsPath, sr);
+    // specificLoudness isn't persisted yet (see TimbreAnalysisResult.h), so a directly-set analysis
+    // (e.g. loaded from a previously-saved ValueTree) has none available -- zero-fill, parallel-indexed.
+    std::vector<std::array<float, NumSpecificLoudnessBands>> specificLoudness(timbreSpaceRepr.size());
+    _timbreAnalysisResult = std::make_shared<TimbreAnalysisResult>(timbreSpaceRepr, specificLoudness, waveformHash, audioAbsPath, sr);
     _pacmapResult = std::make_shared<PacmapResult>(pacmapMatrix, waveformHash, audioAbsPath, sr);
     _shouldComputeOnsets = false;
     _shouldComputeTimbre = false;
@@ -277,8 +280,9 @@ void ThreadedAnalyzer::run() {
 		    }
 		    report("Calculating Onsetwise TimbreSpace...");
 
+		    std::vector<std::array<float, NumSpecificLoudnessBands>> specificLoudness;
 		    const auto timbreMeasurementsOpt = _analyzer.calculateOnsetwiseTimbreSpace(
-		        waveform, _sampleManager.getSampleRate(), unnormOnsets, _rls, shouldExit);
+		        waveform, _sampleManager.getSampleRate(), unnormOnsets, _rls, shouldExit, specificLoudness);
 		    if (!timbreMeasurementsOpt.has_value() || threadShouldExit()) {
 		        DBG("Threaded Analyzer: exit requested");
 		        _state = State::Failed;
@@ -288,6 +292,7 @@ void ThreadedAnalyzer::run() {
 
 	        _timbreAnalysisResult = std::make_shared<TimbreAnalysisResult>(
 	            timbreMeasurementsOpt.value(),
+	            specificLoudness,
 	            _sampleManager.getWaveformHash(),
 	            _sampleManager.getFullPath(),
 	            _sampleManager.getSampleRate());

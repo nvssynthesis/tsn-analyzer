@@ -180,6 +180,15 @@ OPAQUE_SETTINGS(
 );
 
 OPAQUE_SETTINGS(
+    Iso532Settings,
+        SettingsGroup<ax::ISO532,
+        BoolSetting<SInfo<ax::diffuseField,
+            "Whether the sound field is diffuse rather than free (e.g. headphone playback, or a single loudspeaker in an anechoic space), per ISO 532-1's two supported sound-field models.">,
+            false>
+    >
+);
+
+OPAQUE_SETTINGS(
     PaCMAPSettings,
         SettingsGroup<ax::PaCMAP,
         RangedSetting<SInfo<ax::num_neighbours, "Number of nearest neighbors.">,
@@ -217,6 +226,7 @@ using AnalyzerSettingsRegistry_t = SettingsRegistry<
     NoisinessAggregateSettings,
     PitchSettings,
     LoudnessSettings,
+    Iso532Settings,
     PaCMAPSettings,
     SplitSettings
 >;

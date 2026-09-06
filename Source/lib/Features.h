@@ -44,6 +44,7 @@ namespace nvs::analysis {
     X(NoisinessAggregate,   axiom::tsn::NoisinessAggregate, axiom::tsn::spectral, "", true) \
     X(Periodicity,          axiom::tsn::Periodicity,        axiom::tsn::pitch, "", false) \
     X(Loudness,             axiom::tsn::Loudness,           axiom::tsn::loudness, "", false) \
+    X(ZwickerLoudness,      axiom::tsn::ZwickerLoudness,    axiom::tsn::loudness, "sone", false) \
     X(f0,                   axiom::tsn::f0,                 axiom::tsn::pitch, "Hz", false)
 
 // auto-generate enum
@@ -80,7 +81,7 @@ static constexpr auto NumTimbralFeatures = []() {
     }
     return count;
 }();
-static_assert(NumTimbralFeatures == static_cast<int>(Feature_e::NumFeatures) - 3);
+static_assert(NumTimbralFeatures == static_cast<int>(Feature_e::NumFeatures) - 4); // Periodicity, Loudness, ZwickerLoudness, f0
 
 namespace {
 constexpr int lastTimbralFeatureIdx = []() {
@@ -96,6 +97,7 @@ constexpr int lastTimbralFeatureIdx = []() {
 static_assert(lastTimbralFeatureIdx < static_cast<int>(Feature_e::Periodicity), "Last timbral feature must precede non-timbral features");
 static_assert(lastTimbralFeatureIdx < static_cast<int>(Feature_e::f0), "Last timbral feature must precede non-timbral features");
 static_assert(lastTimbralFeatureIdx < static_cast<int>(Feature_e::Loudness), "Last timbral feature must precede non-timbral features");
+static_assert(lastTimbralFeatureIdx < static_cast<int>(Feature_e::ZwickerLoudness), "Last timbral feature must precede non-timbral features");
 
 // utility functions
 constexpr const char* getFeatureName(Feature_e f) {
