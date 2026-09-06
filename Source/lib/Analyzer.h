@@ -93,7 +93,11 @@ public:
 	// alongside calculateEventwiseLoudness's Essentia-based one (Feature_e::Loudness). Reduces the
 	// onset's overall-loudness time series to the standard 5 EventwiseStats, and its specific-loudness
 	// (per-critical-band) time series to a single mean vector -- see LoudnessAnalysis/Iso532Loudness.h.
-	// A no-op (leaves both outputs at their default zero state) if the excerpt was too short or the
+	// Also derives the ACBFCC ("Auditory-Complete BFCC") cepstral coefficients from that same
+	// specific-loudness time series (DCT down to 13 coefficients per internal frame, each reduced to
+	// the standard 5 EventwiseStats -- see Feature_e::acbfcc0..acbfcc12), since both outputs are cheap
+	// byproducts of the one calculateIso532Loudness call this function already makes.
+	// A no-op (leaves all outputs at their default zero state) if the excerpt was too short or the
 	// vendored ISO 532-1 library wasn't available at build time.
 	void calculateEventwiseZwickerLoudness(const vecReal &waveEvent, double sampleRate,
 	    FeatureContainer<EventwiseStats> &features,

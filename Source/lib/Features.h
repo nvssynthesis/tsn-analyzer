@@ -45,6 +45,19 @@ namespace nvs::analysis {
     X(Periodicity,          axiom::tsn::Periodicity,        axiom::tsn::pitch, "", false) \
     X(Loudness,             axiom::tsn::Loudness,           axiom::tsn::loudness, "", false) \
     X(ZwickerLoudness,      axiom::tsn::ZwickerLoudness,    axiom::tsn::loudness, "sone", false) \
+    X(acbfcc0,  axiom::tsn::ACBFCC0,  axiom::tsn::ACBFCC, "", false) \
+    X(acbfcc1,  axiom::tsn::ACBFCC1,  axiom::tsn::ACBFCC, "", false) \
+    X(acbfcc2,  axiom::tsn::ACBFCC2,  axiom::tsn::ACBFCC, "", false) \
+    X(acbfcc3,  axiom::tsn::ACBFCC3,  axiom::tsn::ACBFCC, "", false) \
+    X(acbfcc4,  axiom::tsn::ACBFCC4,  axiom::tsn::ACBFCC, "", false) \
+    X(acbfcc5,  axiom::tsn::ACBFCC5,  axiom::tsn::ACBFCC, "", false) \
+    X(acbfcc6,  axiom::tsn::ACBFCC6,  axiom::tsn::ACBFCC, "", false) \
+    X(acbfcc7,  axiom::tsn::ACBFCC7,  axiom::tsn::ACBFCC, "", false) \
+    X(acbfcc8,  axiom::tsn::ACBFCC8,  axiom::tsn::ACBFCC, "", false) \
+    X(acbfcc9,  axiom::tsn::ACBFCC9,  axiom::tsn::ACBFCC, "", false) \
+    X(acbfcc10, axiom::tsn::ACBFCC10, axiom::tsn::ACBFCC, "", false) \
+    X(acbfcc11, axiom::tsn::ACBFCC11, axiom::tsn::ACBFCC, "", false) \
+    X(acbfcc12, axiom::tsn::ACBFCC12, axiom::tsn::ACBFCC, "", false) \
     X(f0,                   axiom::tsn::f0,                 axiom::tsn::pitch, "Hz", false)
 
 // auto-generate enum
@@ -60,44 +73,47 @@ struct FeatureInfo {
     const char* name;
     const char* category;
     const char* unit;
-    // the connotation of isTimbral is that all the 'timbral' features get computed in the same series of algorithms, while pitch and loudness do not.
-    // Periodicity might be considered a timbral feature (a measure of noisiness), but it should not count as 'isTimbral', because
-    // it is computed alongside pitch (which might have a different frame size than the other features).
-    bool isTimbral;
+    // sharesTimbralFrameLoop is an implementation detail, not a perceptual claim: it means this feature
+    // is computed inside calculateTimbres's shared STFT frame loop (TimbreAnalysis.cpp) and therefore
+    // joins that loop's single batch reduction to EventwiseStats in calculateEventwiseTimbreDescription.
+    // Pitch/loudness-family features (including ZwickerLoudness and its derived ACBFCCs) are computed
+    // by their own dedicated functions on their own frame timebases, so this is false for them even
+    // though some (e.g. ACBFCC) are just as "timbral" in the perceptual sense as BFCC is.
+    bool sharesTimbralFrameLoop;
 };
 
 inline constexpr std::array<FeatureInfo, static_cast<size_t>(Feature_e::NumFeatures)> FeatureRegistry {{
-#define REGISTRY_ENTRY(name, displayName, category, unit, isTimbral) {displayName, category, unit, isTimbral},
+#define REGISTRY_ENTRY(name, displayName, category, unit, sharesTimbralFrameLoop) {displayName, category, unit, sharesTimbralFrameLoop},
     FEATURE_LIST(REGISTRY_ENTRY)
 #undef REGISTRY_ENTRY
 }};
 
 // constants derived from registry
 static constexpr int NumBFCC = 13;
+static constexpr int NumACBFCC = 13;
 static constexpr auto NumTimbralFeatures = []() {
     int count = 0;
     for (const auto& info : FeatureRegistry) {
-        if (info.isTimbral) ++count;
+        if (info.sharesTimbralFrameLoop) ++count;
     }
     return count;
 }();
-static_assert(NumTimbralFeatures == static_cast<int>(Feature_e::NumFeatures) - 4); // Periodicity, Loudness, ZwickerLoudness, f0
+// Periodicity, Loudness, ZwickerLoudness, 13x acbfcc, f0
+static_assert(NumTimbralFeatures == static_cast<int>(Feature_e::NumFeatures) - 17);
 
 namespace {
 constexpr int lastTimbralFeatureIdx = []() {
     int last = -1;
     for (int i = 0; i < static_cast<int>(Feature_e::NumFeatures); ++i) {
-        if (FeatureRegistry[i].isTimbral) {
+        if (FeatureRegistry[i].sharesTimbralFrameLoop) {
             last = i;
         }
     }
     return last;
 }();
 }
-static_assert(lastTimbralFeatureIdx < static_cast<int>(Feature_e::Periodicity), "Last timbral feature must precede non-timbral features");
-static_assert(lastTimbralFeatureIdx < static_cast<int>(Feature_e::f0), "Last timbral feature must precede non-timbral features");
-static_assert(lastTimbralFeatureIdx < static_cast<int>(Feature_e::Loudness), "Last timbral feature must precede non-timbral features");
-static_assert(lastTimbralFeatureIdx < static_cast<int>(Feature_e::ZwickerLoudness), "Last timbral feature must precede non-timbral features");
+static_assert(lastTimbralFeatureIdx == NumTimbralFeatures - 1,
+    "sharesTimbralFrameLoop features must form a contiguous prefix, preceding every other feature");
 
 // utility functions
 constexpr const char* getFeatureName(Feature_e f) {
@@ -108,12 +124,16 @@ constexpr const char* getFeatureCategory(Feature_e f) {
     return FeatureRegistry[static_cast<size_t>(f)].category;
 }
 
-constexpr bool isFeatureTimbral(Feature_e f) {
-    return FeatureRegistry[static_cast<size_t>(f)].isTimbral;
+constexpr bool featureSharesTimbralFrameLoop(Feature_e f) {
+    return FeatureRegistry[static_cast<size_t>(f)].sharesTimbralFrameLoop;
 }
 
 constexpr bool isBFCC(const Feature_e f) {
     return getFeatureCategory(f) == axiom::tsn::BFCC;
+}
+
+constexpr bool isACBFCC(const Feature_e f) {
+    return getFeatureCategory(f) == axiom::tsn::ACBFCC;
 }
 
 
@@ -141,6 +161,9 @@ struct FeatureContainer {
 
     std::span<T> bfccs() { return {features.data(), NumBFCC}; }
     std::span<const T> bfccs() const { return {features.data(), NumBFCC}; }
+
+    std::span<T> acbfccs() { return {features.data() + static_cast<size_t>(Feature_e::acbfcc0), NumACBFCC}; }
+    std::span<const T> acbfccs() const { return {features.data() + static_cast<size_t>(Feature_e::acbfcc0), NumACBFCC}; }
 };
 
 inline void pushBFCCFrame(FeatureContainer<std::vector<float>>& container, const std::span<const float> bfccFrame) {

@@ -8,7 +8,10 @@
   ==============================================================================
 */
 
+#include <algorithm>
+#include <cmath>
 #include <concepts>
+#include <map>
 #include <ranges>
 
 #include <juce_audio_formats/juce_audio_formats.h>
@@ -20,6 +23,7 @@
 #include "OnsetAnalysis/OnsetAnalysis.h"
 #include "PitchAnalysis/PitchAnalysis.h"
 #include "TimbreAnalysis/TimbreAnalysis.h"
+/// TODO: use Zwicker loudness for frame weighting. Not so simple, because it's not yet available at this scope per frame, only per-event.
 
 namespace nvs::analysis {
 
@@ -234,6 +238,58 @@ void Analyzer::calculateEventwiseZwickerLoudness(
         }
         specificLoudnessOut[static_cast<size_t>(band)] = sum / numFrames;
     }
+
+    // ACBFCC ("Auditory-Complete BFCC"): cepstral coefficients computed just like BFCC (DCT down to 13
+    // coefficients), except starting from this onset's specific-loudness time series instead of the Bark
+    // spectrum -- specific loudness already carries ISO 532-1's own masking/level-dependent nonlinearity,
+    // which BFCC's log-bark-energy step only crudely approximates. One DCT per internal (~2000Hz) frame,
+    // reduced to the standard 5 stats per coefficient -- same shape as BFCC's own frame-to-stats reduction.
+    namespace ax = axiom::tsn;
+    const auto &acbfccSettings = settings.get<modern::ACBFCCSettings>();
+    const std::map<juce::String, int> dctTypeStringToInt { {"typeII", 2}, {"typeIII", 3} };
+    const auto dct = std::unique_ptr<standard::Algorithm>(StandardFactory::create(
+        "DCT",
+        "inputSize", NumSpecificLoudnessBands,
+        "outputSize", NumACBFCC,
+        "dctType", dctTypeStringToInt.at(acbfccSettings.getStringValue(ax::dctType).toStdString()),
+        "liftering", acbfccSettings.getIntValue(ax::liftering)));
+
+    // NOTE: NOT WELL-JUSTIFIED, MOSTLY HERE FOR SYMMETRY WITH BFCC -- specific loudness is already the
+    // output of ISO 532-1's own nonlinear model, so a further log compression isn't obviously needed the
+    // way it is for raw bark-band energy. Off by default (see ACBFCCSettings::logCompress). Kept to this
+    // one `if` block so the whole feature can be deleted later without hunting for side effects elsewhere.
+    const bool logCompress = acbfccSettings.getBoolValue(ax::logCompress);
+
+    std::array<vecReal, NumACBFCC> acbfccRaw;
+    for (auto &raw : acbfccRaw) { raw.reserve(specificLoudness.size()); }
+
+    for (const auto &bandFrame : specificLoudness) {
+        vecReal input(bandFrame.begin(), bandFrame.end());
+        if (logCompress) {
+            constexpr float floor = 1e-6f;
+            for (auto &v : input) { v = std::log(std::max(v, floor)); }
+        }
+
+        vecReal coeffs;
+        dct->input("array").set(input);
+        dct->output("dct").set(coeffs);
+        dct->compute();
+        for (int c = 0; c < NumACBFCC; ++c) {
+            acbfccRaw[static_cast<size_t>(c)].push_back(coeffs[static_cast<size_t>(c)]);
+        }
+    }
+    for (int c = 0; c < NumACBFCC; ++c) {
+        const auto feat = static_cast<Feature_e>(static_cast<int>(Feature_e::acbfcc0) + c);
+        const vecReal &raw = acbfccRaw[static_cast<size_t>(c)];
+        const auto m = mean(raw);
+        features[feat] = {
+            .mean = m,
+            .median = essentia::median(raw),
+            .variance = essentia::variance(raw, m),
+            .skewness = essentia::skewness(raw, m),
+            .kurtosis = essentia::kurtosis(raw, m)
+        };
+    }
 }
 
 void Analyzer::calculateEventwiseTimbreDescription(
@@ -243,6 +299,12 @@ void Analyzer::calculateEventwiseTimbreDescription(
     const FeatureContainer<vecReal> timbres_tmp = calculateTimbres(waveEvent, settings, sampleRate, pitchesAndConfidences);
 
     // const vecReal means = essentia::meanFrames(b_tmp);	// get mean per bfcc across all frames
+    // TODO: bfcc0 (overall log-bark-energy) is used below purely as a per-STFT-frame loudness proxy to
+    // weight louder frames more heavily in the reduction.
+    // But we should instead use ZwickerLoudness (if available) or Loudness (otherwise).
+    // Making the weighting *source* configurable (BFCC0 vs. ZwickerLoudness) would be better, but ZwickerLoudness is currently
+    // only available per onset (or per its own ~2000Hz internal frame), not per STFT frame the way bfcc0
+    // naturally is, so swapping it in isn't a drop-in change. Not done here.
     vecReal frameWeights;
     frameWeights.reserve(timbres_tmp.features.size());
     for (auto const &bfcc0: timbres_tmp[Feature_e::bfcc0]) {
@@ -407,6 +469,7 @@ const -> std::optional<vecVecReal>
     dim::removeColumns(Xe,
         {
             feat2i(Feature_e::bfcc0),
+            feat2i(Feature_e::acbfcc0), // overall-energy-like, like bfcc0 -- not shape information
             feat2i(Feature_e::SpectralDecrease),
             feat2i(Feature_e::SpectralComplexity),
             feat2i(Feature_e::StrongPeak),

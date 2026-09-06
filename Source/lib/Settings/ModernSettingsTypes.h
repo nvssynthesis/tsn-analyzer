@@ -189,6 +189,22 @@ OPAQUE_SETTINGS(
 );
 
 OPAQUE_SETTINGS(
+    ACBFCCSettings,
+        SettingsGroup<ax::ACBFCC,
+        ChoiceSetting<SInfo<ax::dctType>, ax::typeII, ax::typeII, ax::typeIII>,
+        RangedSetting<SInfo<ax::liftering, "the liftering coefficient. Use '0' to bypass it">, int, 0, 0, 100>,
+        BoolSetting<
+            SInfo<
+                ax::logCompress,
+                "NOTE: NOT WELL-JUSTIFIED, MOSTLY HERE FOR SYMMETRY WITH BFCC -- specific loudness is "
+                "already the output of ISO 532-1's own nonlinear (masking/power-law) model, so it isn't "
+                "obviously in need of a further log compression the way raw bark-band energy is for BFCC. "
+                "Enable only to experiment; safe to remove later along with its one use site."
+            >, false>
+    >
+);
+
+OPAQUE_SETTINGS(
     PaCMAPSettings,
         SettingsGroup<ax::PaCMAP,
         RangedSetting<SInfo<ax::num_neighbours, "Number of nearest neighbors.">,
@@ -227,6 +243,7 @@ using AnalyzerSettingsRegistry_t = SettingsRegistry<
     PitchSettings,
     LoudnessSettings,
     Iso532Settings,
+    ACBFCCSettings,
     PaCMAPSettings,
     SplitSettings
 >;

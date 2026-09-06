@@ -76,6 +76,32 @@ EventwiseStatisticsF toEventwiseStatistics(ValueTree const &vt){
     };
 }
 
+namespace {
+// BFCC and ACBFCC are the only multi-coefficient Feature_e families -- both get their own nested
+// ValueTree subtree (groupName, e.g. "BFCCs"/"ACBFCCs") of per-coefficient children (itemPrefix + index,
+// e.g. "BFCC0".."BFCC12") instead of the flat per-feature node every other feature gets.
+void writeCoefficientGroup(ValueTree &frameTree, const String &groupName, const String &itemPrefix,
+                            std::span<const EventwiseStatisticsF> coeffs) {
+    ValueTree groupTree(groupName);
+    for (int i = 0; i < static_cast<int>(coeffs.size()); ++i) {
+        ValueTree itemTree(itemPrefix + String(i));
+        addEventwiseStatistics(itemTree, coeffs[i]);
+        groupTree.addChild(itemTree, i, nullptr);
+    }
+    frameTree.addChild(groupTree, -1, nullptr);
+}
+
+void readCoefficientGroup(FeatureContainer<EventwiseStatisticsF> &features, const ValueTree &frameTree,
+                           const String &groupName, const Feature_e firstCoeff) {
+    const auto groupTree = frameTree.getChildWithName(groupName);
+    if (!groupTree.isValid()) return;
+    for (int i = 0; i < groupTree.getNumChildren(); ++i) {
+        features[static_cast<Feature_e>(static_cast<int>(firstCoeff) + i)] =
+            toEventwiseStatistics(groupTree.getChild(i));
+    }
+}
+} // anonymous namespace
+
 juce::String getPacmapDimName (const int d) {
     return axiom::tsn::PaCMAP + juce::String(d);
 };
@@ -120,7 +146,8 @@ std::vector<FeatureContainer<EventwiseStatisticsF>> timbreAnalysisValueTreeToTim
         FeatureContainer<EventwiseStatisticsF> features;
 
         // fill features with proper stats
-        for (const auto feature : util::Iterator<Feature_e, static_cast<Feature_e>(NumBFCC), Feature_e::f0>()) {
+        for (const auto feature : FeaturesIterator()) {
+            if (isBFCC(feature) || isACBFCC(feature)) continue;
             const auto frameFeat = frame.getChildWithName(toString(feature));
             // get stats and fill them into features
             features[feature].mean = frameFeat.getProperty(axiom::tsn::mean);
@@ -129,16 +156,8 @@ std::vector<FeatureContainer<EventwiseStatisticsF>> timbreAnalysisValueTreeToTim
             features[feature].skewness = frameFeat.getProperty(axiom::tsn::skewness);
             features[feature].kurtosis = frameFeat.getProperty(axiom::tsn::kurtosis);
         }
-        const auto bfccTree = frame.getChildWithName(axiom::tsn::BFCCs);
-        for (const auto cc : util::Iterator<Feature_e, Feature_e::bfcc0, Feature_e::bfcc12>()) {
-            const auto s = toString(cc).toUpperCase();
-            const auto frameFeat = bfccTree.getChildWithName(s);
-            features[cc].mean = frameFeat.getProperty(axiom::tsn::mean);
-            features[cc].median = frameFeat.getProperty(axiom::tsn::median);
-            features[cc].variance = frameFeat.getProperty(axiom::tsn::variance);
-            features[cc].skewness = frameFeat.getProperty(axiom::tsn::skewness);
-            features[cc].kurtosis = frameFeat.getProperty(axiom::tsn::kurtosis);
-        }
+        readCoefficientGroup(features, frame, axiom::tsn::BFCCs, Feature_e::bfcc0);
+        readCoefficientGroup(features, frame, axiom::tsn::ACBFCCs, Feature_e::acbfcc0);
 
         retval.push_back(features);
     }
@@ -167,19 +186,12 @@ ValueTree timbreSpaceReprToVT(
 
             ValueTree frameTree(axiom::tsn::Frame);
 
-            ValueTree bfccsTree(axiom::tsn::BFCCs);
-            {
-                const auto &bfccs = timbreFrame.bfccs();
-                for (int bfccIdx = 0; bfccIdx < static_cast<int>(bfccs.size()); ++bfccIdx){
-                    ValueTree bfccTree(axiom::tsn::BFCC + String(bfccIdx));
-                    addEventwiseStatistics(bfccTree, bfccs[bfccIdx]);
-                    bfccsTree.addChild(bfccTree, bfccIdx, nullptr);
-                }
-            }
-            frameTree.addChild(bfccsTree, -1, nullptr);
+            writeCoefficientGroup(frameTree, axiom::tsn::BFCCs, axiom::tsn::BFCC, timbreFrame.bfccs());
+            writeCoefficientGroup(frameTree, axiom::tsn::ACBFCCs, axiom::tsn::ACBFCC, timbreFrame.acbfccs());
 
             // add single-value features
-            for (const auto feature : util::Iterator<Feature_e, static_cast<Feature_e>(NumBFCC), Feature_e::f0>()) {
+            for (const auto feature : FeaturesIterator()) {
+                if (isBFCC(feature) || isACBFCC(feature)) continue;
                 ValueTree featureTree(toString(feature));
                 addEventwiseStatistics(featureTree, timbreFrame[feature]);
                 frameTree.addChild(featureTree, -1, nullptr);
@@ -227,26 +239,17 @@ std::vector<FeatureContainer<EventwiseStatisticsF>> valueTreeToTimbreSpace(Value
 
     timbreSpace.reserve(timbreMeasurements.getNumChildren());
 
-    static_assert(static_cast<Feature_e>(0) == Feature_e::bfcc0); // we will be casting ints to Features for the BFCCs
-    static_assert(static_cast<Feature_e>(12) == Feature_e::bfcc12);
     for (int frameIdx = 0; frameIdx < timbreMeasurements.getNumChildren(); ++frameIdx)
     {
         auto frameTree = timbreMeasurements.getChild(frameIdx);
         FeatureContainer<EventwiseStatisticsF> frame;
 
-        // extract BFCCs
-        if (auto bfccsTree = frameTree.getChildWithName(axiom::tsn::BFCCs);
-            bfccsTree.isValid())
-        {
-            for (int bfccIdx = 0; bfccIdx < bfccsTree.getNumChildren(); ++bfccIdx)
-            {
-                auto bfccTree = bfccsTree.getChild(bfccIdx);
-                frame[static_cast<Feature_e>(bfccIdx)] = (toEventwiseStatistics(bfccTree));
-            }
-        }
+        readCoefficientGroup(frame, frameTree, axiom::tsn::BFCCs, Feature_e::bfcc0);
+        readCoefficientGroup(frame, frameTree, axiom::tsn::ACBFCCs, Feature_e::acbfcc0);
 
         // extract single-value features
-        for (auto const feature :  nvs::util::Iterator<Feature_e, static_cast<Feature_e>(NumBFCC), Feature_e::f0>()) {
+        for (auto const feature : FeaturesIterator()) {
+            if (isBFCC(feature) || isACBFCC(feature)) continue;
             if (auto featureTree = frameTree.getChildWithName(toString(feature));
                 featureTree.isValid())
             {
@@ -309,14 +312,16 @@ std::vector<Real> extractFeaturesFromTreeImpl(const ValueTree &frameTree,
     }
 
     for (auto f : featuresToUse) {
-       const int idx = static_cast<int>(f);
        Real value = 0.0f;
 
-       if (0 <= idx && idx < NumBFCC) {
-          const auto bfccsTree = frameTree.getChildWithName(axiom::tsn::BFCCs);
-          if (bfccsTree.isValid() && idx < bfccsTree.getNumChildren()) {
-             auto bfccTree = bfccsTree.getChild(idx);
-             value = bfccTree.getProperty(statPropName, 0.0f);
+       if (isBFCC(f) || isACBFCC(f)) {
+          const auto groupName = isBFCC(f) ? axiom::tsn::BFCCs : axiom::tsn::ACBFCCs;
+          const auto firstCoeff = isBFCC(f) ? Feature_e::bfcc0 : Feature_e::acbfcc0;
+          const int localIdx = static_cast<int>(f) - static_cast<int>(firstCoeff);
+          const auto groupTree = frameTree.getChildWithName(groupName);
+          if (groupTree.isValid() && localIdx < groupTree.getNumChildren()) {
+             auto coeffTree = groupTree.getChild(localIdx);
+             value = coeffTree.getProperty(statPropName, 0.0f);
           }
        }
        else {
